@@ -1,0 +1,203 @@
+/* Main app styles - minimal, most styling in Tailwind */
+
+/* Sidebar transition */
+.sidebar-link {
+    @apply flex items-center gap-3 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-muted-foreground text-sm sm:text-base;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar-link:hover {
+    @apply bg-muted text-foreground;
+}
+
+.sidebar-link.active {
+    @apply bg-primary/10 text-primary font-medium;
+}
+
+/* Card hover effect */
+.card-hover {
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+@media (hover: hover) {
+    .card-hover:hover {
+        @apply shadow-lg;
+        transform: translateY(-2px);
+    }
+}
+
+/* Table responsive */
+.table-responsive {
+    @apply overflow-x-auto -mx-3 sm:mx-0;
+}
+
+.table-responsive table {
+    @apply min-w-full;
+}
+
+/* Table row hover */
+.table-row-hover {
+    transition: background-color 0.15s;
+}
+
+@media (hover: hover) {
+    .table-row-hover:hover {
+        @apply bg-muted/50;
+    }
+}
+
+/* Button press effect */
+.btn-press:active {
+    transform: scale(0.98);
+}
+
+/* Input focus ring */
+.input-focus:focus {
+    @apply ring-2 ring-primary/30 ring-offset-2 ring-offset-background;
+}
+
+/* News card image */
+.news-image {
+    @apply w-full h-32 sm:h-48 object-cover rounded-t-xl;
+}
+
+/* Org tree specific styles */
+.org-tree {
+    @apply flex flex-col items-center overflow-x-auto pb-4;
+}
+
+.org-node {
+    @apply relative px-2 sm:px-4 py-1.5 sm:py-2 bg-card border border-border rounded-lg shadow-sm text-xs sm:text-sm;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.org-node:hover {
+    @apply shadow-md border-primary/50;
+}
+
+.org-connector-v {
+    @apply w-px h-4 sm:h-6 bg-border mx-auto;
+}
+
+.org-connector-h {
+    @apply h-px bg-border;
+}
+
+/* Audit log terminal style */
+.audit-terminal {
+    @apply bg-slate-900 text-green-400 p-3 sm:p-4 rounded-lg font-mono text-xs sm:text-sm overflow-auto;
+}
+
+.audit-line {
+    @apply py-1 border-b border-slate-700 last:border-0;
+}
+
+.audit-ok {
+    @apply text-green-400;
+}
+
+.audit-info {
+    @apply text-blue-400;
+}
+
+.audit-alert {
+    @apply text-amber-400;
+}
+
+/* KPI card gradient - only for supervision */
+.kpi-gradient {
+    background: linear-gradient(135deg, rgba(0, 29, 243, 0.1) 0%, rgba(0, 29, 243, 0.05) 100%);
+}
+
+/* Loading skeleton animation */
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, 
+        hsl(var(--muted)) 25%, 
+        hsl(var(--muted-foreground) / 0.1) 50%, 
+        hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+/* Theme toggle animation */
+.theme-toggle {
+    transition: transform 0.3s;
+}
+
+.theme-toggle:hover {
+    transform: rotate(15deg);
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+    /* Smaller touch targets on mobile */
+    .touch-target {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    /* Full width buttons on mobile */
+    .btn-mobile-full {
+        @apply w-full;
+    }
+    
+    /* Smaller headings on mobile */
+    h1 {
+        @apply text-xl;
+    }
+    
+    h2 {
+        @apply text-lg;
+    }
+}
+
+/* Tablet optimizations */
+@media (min-width: 641px) and (max-width: 1024px) {
+    .tablet-grid-2 {
+        @apply grid-cols-2;
+    }
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Stagger animations */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+
+/* Safe area for mobile devices with notches */
+@supports (padding-top: env(safe-area-inset-top)) {
+    .safe-area-top {
+        padding-top: env(safe-area-inset-top);
+    }
+    .safe-area-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
+
+/* Print styles */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    .print-break {
+        page-break-before: always;
+    }
+}

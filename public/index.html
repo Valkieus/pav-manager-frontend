@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
+        <meta name="theme-color" content="#6366f1" />
+        <meta name="description" content="PAV Manager - Application de gestion pour le département Production Audiovisuelle" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="PAV Manager" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="format-detection" content="telephone=no" />
+        
+        <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+        <link rel="apple-touch-icon" href="%PUBLIC_URL%/icons/icon-192x192.png" />
+        
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        
+        <title>PAV Manager</title>
+        <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
+        <script>
+            // Only load visual edit scripts when inside an iframe
+            if (window.self !== window.top) {
+                var debugMonitorScript = document.createElement('script');
+                debugMonitorScript.src = 'https://assets.emergent.sh/scripts/debug-monitor.js';
+                document.head.appendChild(debugMonitorScript);
+                window.tailwind = window.tailwind || {};
+                tailwind.config = { corePlugins: { preflight: false } };
+                var tailwindScript = document.createElement('script');
+                tailwindScript.src = 'https://cdn.tailwindcss.com';
+                document.head.appendChild(tailwindScript);
+            }
+        </script>
+    </head>
+    <body>
+        <noscript>Vous devez activer JavaScript pour utiliser cette application.</noscript>
+        <div id="root"></div>
+        
+        <script>
+            // Register Service Worker for offline support
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/service-worker.js')
+                        .then(function(registration) {
+                            console.log('SW registered:', registration.scope);
+
+                            // Don't rely on the browser's own background update
+                            // check (can be delayed up to ~24h) — that delay is
+                            // what let some users keep running an old, stale
+                            // build (with outdated permission logic, old bug
+                            // fixes, etc.) long after a new version was deployed.
+                            // Force an immediate check now, then keep checking
+                            // periodically while the tab stays open.
+                            registration.update();
+                            setInterval(function () {
+                                registration.update();
+                            }, 60 * 1000);
+                        })
+                        .catch(function(error) {
+                            console.log('SW registration failed:', error);
+                        });
+
+                    // The instant a new service worker takes control (it calls
+                    // skipWaiting()+clients.claim() in service-worker.js as soon
+                    // as it activates), reload once so this tab picks up the new
+                    // app bundle right away — instead of continuing to run the
+                    // old JS already loaded in memory until the next manual
+                    // refresh, which is what caused already-open sessions to
+                    // silently keep stale behavior (wrong nav items, old bug
+                    // fixes missing, etc.) after a deploy.
+                    var swRefreshing = false;
+                    navigator.serviceWorker.addEventListener('controllerchange', function () {
+                        if (swRefreshing) return;
+                        swRefreshing = true;
+                        window.location.reload();
+                    });
+                });
+            }
+        </script>
+        
+            </body>
+</html>

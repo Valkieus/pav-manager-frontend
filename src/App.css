@@ -11,7 +11,7 @@
 }
 
 .sidebar-link.active {
-    @apply bg-primary/10 text-primary font-medium;
+    @apply gradient-primary text-white font-medium shadow-sm shadow-primary/25;
 }
 
 /* Card hover effect */

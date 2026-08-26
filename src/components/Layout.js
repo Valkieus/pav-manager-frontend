@@ -495,7 +495,7 @@ export const Layout = ({ children }) => {
                   <Icon className="w-5 h-5 shrink-0" />
                   <span className="flex-1 truncate">{item.label}</span>
                   {isUnderMaintenance && <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" />}
-                  {isActive && !isUnderMaintenance && <ChevronRight className="w-4 h-4 text-primary shrink-0" />}
+                  {isActive && !isUnderMaintenance && <ChevronRight className="w-4 h-4 text-white/90 shrink-0" />}
                 </Link>
               );
             })}

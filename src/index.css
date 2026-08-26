@@ -183,3 +183,27 @@
         display: contents !important;
     }
 }
+
+/* ---- Refonte visuelle (26/08/2026) : dégradés, cards interactives, ---- */
+/* ---- barres de progression — même design system que PAV Academy.  ---- */
+@keyframes progressGrow {
+    from { width: 0%; }
+}
+
+@layer utilities {
+    .gradient-primary {
+        background: linear-gradient(135deg, hsl(235 100% 52%), hsl(265 89% 58%));
+    }
+    .dark .gradient-primary {
+        background: linear-gradient(135deg, hsl(235 100% 58%), hsl(265 85% 62%));
+    }
+    .gradient-primary-text {
+        background: linear-gradient(135deg, hsl(235 100% 48%), hsl(265 89% 55%));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    .animate-progress {
+        animation: progressGrow 0.6s ease-out forwards;
+    }
+}

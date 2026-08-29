@@ -293,7 +293,7 @@ export default function Effectif() {
     if (!newLabel) return;
     setPosteBusy(true);
     try {
-      const res = await axios.put(`${API}/postes/${encodeURIComponent(renamingPoste.old)}`, { new_label: newLabel });
+      const res = await axios.put(`${API}/postes/rename`, { old_label: renamingPoste.old, new_label: newLabel });
       setEnums(prev => ({ ...prev, postes: res.data.postes }));
       setRenamingPoste(null);
       toast.success('Poste renommé');
@@ -310,7 +310,7 @@ export default function Effectif() {
     if (!window.confirm(`Supprimer le poste « ${label} » ? Il sera retiré des fiches qui l'utilisent.`)) return;
     setPosteBusy(true);
     try {
-      const res = await axios.delete(`${API}/postes/${encodeURIComponent(label)}`);
+      const res = await axios.post(`${API}/postes/delete`, { label });
       setEnums(prev => ({ ...prev, postes: res.data.postes }));
       toast.success('Poste supprimé');
       invalidateTechniciensCache();
@@ -391,15 +391,12 @@ export default function Effectif() {
   const [badgeActionBusy, setBadgeActionBusy] = useState(false);
   const [rejectingBadge, setRejectingBadge] = useState(false);
   const [rejectMessage, setRejectMessage] = useState('');
-  const [editingExpiration, setEditingExpiration] = useState(false);
-  const [expirationDraft, setExpirationDraft] = useState('');
 
   const fetchBadgeDetail = async (technicienId) => {
     setBadgeDetailLoading(true);
     try {
       const res = await axios.get(`${API}/admin/badges/technicien/${technicienId}`);
       setBadgeDetail(res.data);
-      setExpirationDraft(res.data.badge_expiration_date || '');
     } catch (err) {
       setBadgeDetail(null);
     } finally {
@@ -418,7 +415,6 @@ export default function Effectif() {
     }
     setRejectingBadge(false);
     setRejectMessage('');
-    setEditingExpiration(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTech]);
 
@@ -465,7 +461,7 @@ export default function Effectif() {
     if (!badgeDetail?.user_id) return;
     setBadgeActionBusy(true);
     try {
-      await axios.post(`${API}/admin/badges/${badgeDetail.user_id}/collect`, expirationDraft ? { expiration_date: expirationDraft } : {});
+      await axios.post(`${API}/admin/badges/${badgeDetail.user_id}/collect`);
       toast.success('Badge marqué comme remis au technicien');
       refreshBadgeAndList();
     } catch (err) {
@@ -496,21 +492,6 @@ export default function Effectif() {
     try {
       await axios.delete(`${API}/admin/badges/${badgeDetail.user_id}`);
       toast.success('Demande supprimée définitivement');
-      refreshBadgeAndList();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Erreur');
-    } finally {
-      setBadgeActionBusy(false);
-    }
-  };
-
-  const handleSaveExpiration = async () => {
-    if (!selectedTech) return;
-    setBadgeActionBusy(true);
-    try {
-      await axios.put(`${API}/admin/badges/technicien/${selectedTech.id}/expiration`, { expiration_date: expirationDraft || null });
-      toast.success('Date de renouvellement mise à jour');
-      setEditingExpiration(false);
       refreshBadgeAndList();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
@@ -1156,11 +1137,7 @@ export default function Effectif() {
                   </div>
 
                   {!canManageBadges() ? (
-                    selectedTech.badge_attribue && selectedTech.badge_expiration_date && (
-                      <p className="text-xs text-muted-foreground">
-                        Expire le {new Date(selectedTech.badge_expiration_date).toLocaleDateString('fr-FR')}
-                      </p>
-                    )
+                    null
                   ) : badgeDetailLoading ? (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="w-4 h-4 animate-spin" /> Chargement...
@@ -1235,28 +1212,6 @@ export default function Effectif() {
                           <IdCard className="w-4 h-4 mr-1" /> Marquer comme remis
                         </Button>
                       )}
-
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Expire le</Label>
-                        {editingExpiration ? (
-                          <>
-                            <Input type="date" className="h-8 text-sm w-auto" value={expirationDraft || ''} onChange={(e) => setExpirationDraft(e.target.value)} />
-                            <Button size="sm" disabled={badgeActionBusy} onClick={handleSaveExpiration}>
-                              {badgeActionBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => { setEditingExpiration(false); setExpirationDraft(badgeDetail.badge_expiration_date || ''); }}>Annuler</Button>
-                          </>
-                        ) : (
-                          <>
-                            <span className="text-sm">
-                              {badgeDetail.badge_expiration_date ? new Date(badgeDetail.badge_expiration_date).toLocaleDateString('fr-FR') : 'Non renseignée'}
-                            </span>
-                            <Button size="sm" variant="ghost" onClick={() => setEditingExpiration(true)}>
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
 
                       {badgeDetail.badge_status && (
                         <div className="flex gap-2 pt-2 border-t">

@@ -383,131 +383,139 @@ export default function Effectif() {
     }
   };
 
-  // ---- Gestion des badges (demandes / renouvellements) — Gestionnaire+ ----
+  // ---- Gestion des badges — Gestionnaire+ (fusionné dans la fiche technicien) ----
   // Explicitly excludes Responsable (visibilité badge retirée des droits Responsable).
   const canManageBadges = () => ['Super Admin', 'Admin', 'Gestionnaire'].includes(user?.niveau_acces);
-  const [badgeManagerOpen, setBadgeManagerOpen] = useState(false);
-  const [badgeRequests, setBadgeRequests] = useState([]);
-  const [badgeRequestsLoading, setBadgeRequestsLoading] = useState(false);
-  const [badgeActionBusy, setBadgeActionBusy] = useState(null);
-  const [rejectingBadgeId, setRejectingBadgeId] = useState(null);
+  const [badgeDetail, setBadgeDetail] = useState(null);
+  const [badgeDetailLoading, setBadgeDetailLoading] = useState(false);
+  const [badgeActionBusy, setBadgeActionBusy] = useState(false);
+  const [rejectingBadge, setRejectingBadge] = useState(false);
   const [rejectMessage, setRejectMessage] = useState('');
-  // "Fiche" review flow: opening a request shows the full photo + a download
-  // link before any decision is made. Marking it conforme is a separate,
-  // local-only step — the actual validation/attribution only happens when
-  // "Valider et attribuer le badge" is pressed as the final action.
-  const [viewingBadgeId, setViewingBadgeId] = useState(null);
-  const [photoConfirmedLocally, setPhotoConfirmedLocally] = useState(false);
-  // Bascule Actives / Archivées dans la liste — l'archivage sort une
-  // demande de la liste active sans effacer ses données (réversible).
-  const [showArchivedBadges, setShowArchivedBadges] = useState(false);
-  const [badgeArchiveBusy, setBadgeArchiveBusy] = useState(null);
+  const [editingExpiration, setEditingExpiration] = useState(false);
+  const [expirationDraft, setExpirationDraft] = useState('');
 
-  const fetchBadgeRequests = async (archived = showArchivedBadges) => {
-    setBadgeRequestsLoading(true);
+  const fetchBadgeDetail = async (technicienId) => {
+    setBadgeDetailLoading(true);
     try {
-      const res = await axios.get(`${API}/admin/badges`, { params: { archived } });
-      setBadgeRequests(res.data);
+      const res = await axios.get(`${API}/admin/badges/technicien/${technicienId}`);
+      setBadgeDetail(res.data);
+      setExpirationDraft(res.data.badge_expiration_date || '');
     } catch (err) {
-      toast.error('Erreur lors du chargement des demandes de badge');
+      setBadgeDetail(null);
     } finally {
-      setBadgeRequestsLoading(false);
+      setBadgeDetailLoading(false);
     }
   };
 
+  // Charge le détail badge dès qu'une fiche technicien est ouverte par un
+  // profil habilité (Gestionnaire+) — remplace l'ancienne liste globale de
+  // demandes par une vue centrée sur la personne, fusionnée dans la fiche.
   useEffect(() => {
-    if (canManageBadges()) fetchBadgeRequests(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (badgeManagerOpen) fetchBadgeRequests(showArchivedBadges);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [badgeManagerOpen, showArchivedBadges]);
-
-  const pendingBadgeCount = useMemo(
-    () => badgeRequests.filter((u) => u.badge_status === 'en_attente_validation').length,
-    [badgeRequests]
-  );
-
-  const openBadgeFiche = (userId) => {
-    setViewingBadgeId(userId);
-    setPhotoConfirmedLocally(false);
-    setRejectingBadgeId(null);
+    if (selectedTech && canManageBadges()) {
+      fetchBadgeDetail(selectedTech.id);
+    } else {
+      setBadgeDetail(null);
+    }
+    setRejectingBadge(false);
     setRejectMessage('');
+    setEditingExpiration(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTech]);
+
+  const refreshBadgeAndList = () => {
+    if (selectedTech) fetchBadgeDetail(selectedTech.id);
+    fetchData();
   };
 
-  const closeBadgeFiche = () => {
-    setViewingBadgeId(null);
-    setPhotoConfirmedLocally(false);
-    setRejectingBadgeId(null);
-    setRejectMessage('');
-  };
-
-  const handleConfirmBadge = async (userId) => {
-    setBadgeActionBusy(userId);
+  const handleConfirmBadge = async () => {
+    if (!badgeDetail?.user_id) return;
+    setBadgeActionBusy(true);
     try {
-      const res = await axios.post(`${API}/admin/badges/${userId}/confirm`);
-      if (res.data?.fiche_updated) {
-        toast.success('Badge validé — sa fiche Effectif a été mise à jour automatiquement (badge attribué).');
-      } else {
-        toast.warning("Badge validé, mais aucune fiche Effectif correspondante trouvée. Pense à cocher \"badge attribué\" manuellement sur sa fiche.", { duration: 8000 });
-      }
-      closeBadgeFiche();
-      fetchBadgeRequests();
-      fetchData();
+      await axios.post(`${API}/admin/badges/${badgeDetail.user_id}/confirm`);
+      toast.success('Photo validée — badge prêt à récupérer.');
+      refreshBadgeAndList();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
     } finally {
-      setBadgeActionBusy(null);
+      setBadgeActionBusy(false);
     }
   };
 
-  const handleArchiveBadge = async (userId, archive) => {
-    setBadgeArchiveBusy(userId);
-    try {
-      await axios.post(`${API}/admin/badges/${userId}/${archive ? 'archive' : 'unarchive'}`);
-      toast.success(archive ? 'Demande archivée' : 'Demande désarchivée');
-      if (viewingBadgeId === userId) closeBadgeFiche();
-      fetchBadgeRequests();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Erreur');
-    } finally {
-      setBadgeArchiveBusy(null);
-    }
-  };
-
-  const handleDeleteBadge = async (userId) => {
-    if (!window.confirm('Supprimer définitivement cette demande de badge ? Photo, statut et historique de revue seront effacés — irréversible.')) return;
-    setBadgeArchiveBusy(userId);
-    try {
-      await axios.delete(`${API}/admin/badges/${userId}`);
-      toast.success('Demande supprimée définitivement');
-      if (viewingBadgeId === userId) closeBadgeFiche();
-      fetchBadgeRequests();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Erreur');
-    } finally {
-      setBadgeArchiveBusy(null);
-    }
-  };
-
-  const handleRejectBadge = async (userId) => {
+  const handleRejectBadge = async () => {
+    if (!badgeDetail?.user_id) return;
     if (!rejectMessage.trim()) {
-      toast.error('Merci de préciser le motif pour le membre');
+      toast.error('Merci de préciser le motif pour le technicien');
       return;
     }
-    setBadgeActionBusy(userId);
+    setBadgeActionBusy(true);
     try {
-      await axios.post(`${API}/admin/badges/${userId}/reject`, { message: rejectMessage.trim() });
+      await axios.post(`${API}/admin/badges/${badgeDetail.user_id}/reject`, { message: rejectMessage.trim() });
       toast.success('Photo signalée comme non conforme');
-      closeBadgeFiche();
-      fetchBadgeRequests();
-      fetchData();
+      setRejectingBadge(false);
+      setRejectMessage('');
+      refreshBadgeAndList();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
     } finally {
-      setBadgeActionBusy(null);
+      setBadgeActionBusy(false);
+    }
+  };
+
+  const handleCollectBadge = async () => {
+    if (!badgeDetail?.user_id) return;
+    setBadgeActionBusy(true);
+    try {
+      await axios.post(`${API}/admin/badges/${badgeDetail.user_id}/collect`, expirationDraft ? { expiration_date: expirationDraft } : {});
+      toast.success('Badge marqué comme remis au technicien');
+      refreshBadgeAndList();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    } finally {
+      setBadgeActionBusy(false);
+    }
+  };
+
+  const handleArchiveBadge = async (archive) => {
+    if (!badgeDetail?.user_id) return;
+    setBadgeActionBusy(true);
+    try {
+      await axios.post(`${API}/admin/badges/${badgeDetail.user_id}/${archive ? 'archive' : 'unarchive'}`);
+      toast.success(archive ? 'Demande archivée' : 'Demande désarchivée');
+      refreshBadgeAndList();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    } finally {
+      setBadgeActionBusy(false);
+    }
+  };
+
+  const handleDeleteBadge = async () => {
+    if (!badgeDetail?.user_id) return;
+    if (!window.confirm('Supprimer définitivement cette demande de badge ? Photo, statut et historique de revue seront effacés — irréversible.')) return;
+    setBadgeActionBusy(true);
+    try {
+      await axios.delete(`${API}/admin/badges/${badgeDetail.user_id}`);
+      toast.success('Demande supprimée définitivement');
+      refreshBadgeAndList();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    } finally {
+      setBadgeActionBusy(false);
+    }
+  };
+
+  const handleSaveExpiration = async () => {
+    if (!selectedTech) return;
+    setBadgeActionBusy(true);
+    try {
+      await axios.put(`${API}/admin/badges/technicien/${selectedTech.id}/expiration`, { expiration_date: expirationDraft || null });
+      toast.success('Date de renouvellement mise à jour');
+      setEditingExpiration(false);
+      refreshBadgeAndList();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    } finally {
+      setBadgeActionBusy(false);
     }
   };
 
@@ -517,10 +525,12 @@ export default function Effectif() {
         return { label: 'En attente de validation', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400', icon: Clock };
       case 'non_conforme':
         return { label: 'Photo non conforme', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400', icon: XCircle };
-      case 'validee':
-        return { label: 'Validé', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400', icon: CheckCircle2 };
+      case 'pret_a_recuperer':
+        return { label: 'Prêt à récupérer', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400', icon: CheckCircle2 };
+      case 'recupere':
+        return { label: 'Remis au technicien', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400', icon: CheckCircle2 };
       default:
-        return { label: status || '—', color: 'bg-gray-100 text-gray-800', icon: Clock };
+        return { label: status || 'Aucune demande', color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300', icon: Clock };
     }
   };
 
@@ -689,247 +699,6 @@ export default function Effectif() {
                 : "Absences déclarées par l'ensemble de l'effectif, pour le mois sélectionné."
             }
           />
-        )}
-        {canManageBadges() && (
-          <Dialog open={badgeManagerOpen} onOpenChange={(open) => { setBadgeManagerOpen(open); if (!open) closeBadgeFiche(); }}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="relative">
-                <IdCard className="w-4 h-4 mr-2" />
-                Gestion des badges
-                {pendingBadgeCount > 0 && (
-                  <Badge className="ml-2 bg-amber-500 hover:bg-amber-500">{pendingBadgeCount}</Badge>
-                )}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-              <DialogHeader>
-                <DialogTitle>Gestion des badges</DialogTitle>
-                <DialogDescription>
-                  {viewingBadgeId
-                    ? "Vérifiez la photo avant de vous prononcer sur sa conformité. L'attribution du badge est une étape séparée, à la fin."
-                    : 'Demandes et renouvellements de badge soumis par les techniciens.'}
-                </DialogDescription>
-              </DialogHeader>
-
-              {viewingBadgeId ? (() => {
-                const t = badgeRequests.find((r) => r.id === viewingBadgeId);
-                if (!t) return (
-                  <p className="text-sm text-muted-foreground text-center py-8">Cette demande n'est plus disponible.</p>
-                );
-                const info = getBadgeStatusInfo(t.badge_status);
-                const StatusIcon = info.icon;
-                return (
-                  <div className="space-y-4 overflow-y-auto flex-1">
-                    <Button size="sm" variant="ghost" onClick={closeBadgeFiche} className="-ml-2">
-                      ← Retour à la liste
-                    </Button>
-
-                    <div className="flex flex-col items-center gap-3">
-                      {t.badge_photo_url ? (
-                        <img
-                          src={`${process.env.REACT_APP_BACKEND_URL}${t.badge_photo_url}`}
-                          alt={t.full_name}
-                          className="w-48 h-48 rounded-lg object-cover border border-border"
-                        />
-                      ) : (
-                        <div className="w-48 h-48 rounded-lg border border-dashed border-border flex items-center justify-center text-muted-foreground">
-                          <IdCard className="w-12 h-12" />
-                        </div>
-                      )}
-                      {t.badge_photo_url && (
-                        <a
-                          href={`${process.env.REACT_APP_BACKEND_URL}${t.badge_photo_url}`}
-                          download
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline flex items-center gap-1"
-                        >
-                          <Download className="w-4 h-4" /> Télécharger la photo
-                        </a>
-                      )}
-                    </div>
-
-                    <div className="text-center space-y-1">
-                      <p className="font-medium">{t.full_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {t.badge_is_renewal ? 'Renouvellement' : 'Première demande'}
-                        {t.badge_requested_at ? ` · reçue le ${new Date(t.badge_requested_at).toLocaleDateString('fr-FR')}` : ''}
-                      </p>
-                      <Badge className={info.color}>
-                        <StatusIcon className="w-3 h-3 mr-1" /> {info.label}
-                      </Badge>
-                      {t.badge_archived && (
-                        <Badge variant="outline" className="ml-1">Archivée</Badge>
-                      )}
-                    </div>
-
-                    <div className="flex justify-center gap-2 flex-wrap">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={badgeArchiveBusy === t.id}
-                        onClick={() => handleArchiveBadge(t.id, !t.badge_archived)}
-                      >
-                        {badgeArchiveBusy === t.id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Archive className="w-4 h-4 mr-1" />}
-                        {t.badge_archived ? 'Désarchiver' : 'Archiver'}
-                      </Button>
-                      {isAdmin() && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive hover:text-destructive"
-                          disabled={badgeArchiveBusy === t.id}
-                          onClick={() => handleDeleteBadge(t.id)}
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" /> Supprimer définitivement
-                        </Button>
-                      )}
-                    </div>
-
-                    {t.badge_motif && (
-                      <div className="border-t pt-3">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Raison indiquée</p>
-                        <p className="text-sm">{t.badge_motif}</p>
-                      </div>
-                    )}
-
-                    {t.badge_status === 'en_attente_validation' && (
-                      rejectingBadgeId === t.id ? (
-                        <div className="space-y-2 border-t pt-3">
-                          <Label>Motif transmis au technicien</Label>
-                          <Input
-                            placeholder="Ex: photo floue, pas de face, mauvais éclairage..."
-                            value={rejectMessage}
-                            onChange={(e) => setRejectMessage(e.target.value)}
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="destructive" disabled={badgeActionBusy === t.id} onClick={() => handleRejectBadge(t.id)}>
-                              {badgeActionBusy === t.id && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                              <Send className="w-4 h-4 mr-1" /> Envoyer le refus
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => { setRejectingBadgeId(null); setRejectMessage(''); }}>Annuler</Button>
-                          </div>
-                        </div>
-                      ) : !photoConfirmedLocally ? (
-                        <div className="border-t pt-3 space-y-2">
-                          <p className="text-sm font-medium text-center">La photo est-elle conforme ?</p>
-                          <div className="flex justify-center gap-2">
-                            <Button size="sm" onClick={() => setPhotoConfirmedLocally(true)}>
-                              <Check className="w-4 h-4 mr-1" /> Photo conforme
-                            </Button>
-                            <Button size="sm" variant="outline" className="text-destructive" onClick={() => setRejectingBadgeId(t.id)}>
-                              <X className="w-4 h-4 mr-1" /> Non conforme
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="border-t pt-3 space-y-2">
-                          <p className="text-sm text-muted-foreground text-center">
-                            Photo marquée conforme. Dernière étape : attribuer le badge.
-                          </p>
-                          <div className="flex justify-center gap-2">
-                            <Button size="sm" disabled={badgeActionBusy === t.id} onClick={() => handleConfirmBadge(t.id)}>
-                              {badgeActionBusy === t.id && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                              <Check className="w-4 h-4 mr-1" /> Valider et attribuer le badge
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setPhotoConfirmedLocally(false)}>Revenir en arrière</Button>
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-                );
-              })() : (
-                <div className="space-y-3 overflow-y-auto flex-1">
-                  <div className="flex gap-1 border rounded-lg p-1 w-fit">
-                    <Button
-                      size="sm"
-                      variant={showArchivedBadges ? 'ghost' : 'secondary'}
-                      className="h-7 text-xs"
-                      onClick={() => setShowArchivedBadges(false)}
-                    >
-                      Actives
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={showArchivedBadges ? 'secondary' : 'ghost'}
-                      className="h-7 text-xs"
-                      onClick={() => setShowArchivedBadges(true)}
-                    >
-                      Archivées
-                    </Button>
-                  </div>
-                  {badgeRequestsLoading ? (
-                    <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
-                  ) : badgeRequests.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      {showArchivedBadges ? 'Aucune demande archivée.' : 'Aucune demande de badge pour le moment.'}
-                    </p>
-                  ) : (
-                    badgeRequests.map((t) => {
-                      const info = getBadgeStatusInfo(t.badge_status);
-                      const StatusIcon = info.icon;
-                      return (
-                        <div
-                          key={t.id}
-                          className="w-full border rounded-lg p-3 flex items-center gap-3 hover:bg-muted/50 transition-colors"
-                        >
-                          <button type="button" onClick={() => openBadgeFiche(t.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-                            {t.badge_photo_url ? (
-                              <img
-                                src={`${process.env.REACT_APP_BACKEND_URL}${t.badge_photo_url}`}
-                                alt={t.full_name}
-                                className="w-16 h-16 rounded-lg object-cover border border-border shrink-0"
-                              />
-                            ) : (
-                              <div className="w-16 h-16 rounded-lg border border-dashed border-border flex items-center justify-center text-muted-foreground shrink-0">
-                                <IdCard className="w-6 h-6" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{t.full_name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {t.badge_is_renewal ? 'Renouvellement' : 'Première demande'}
-                                {t.badge_requested_at ? ` · ${new Date(t.badge_requested_at).toLocaleDateString('fr-FR')}` : ''}
-                              </p>
-                              <Badge className={`mt-1 ${info.color}`}>
-                                <StatusIcon className="w-3 h-3 mr-1" /> {info.label}
-                              </Badge>
-                            </div>
-                          </button>
-                          <div className="flex flex-col gap-1 shrink-0">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0"
-                              title={t.badge_archived ? 'Désarchiver' : 'Archiver'}
-                              disabled={badgeArchiveBusy === t.id}
-                              onClick={() => handleArchiveBadge(t.id, !t.badge_archived)}
-                            >
-                              <Archive className="w-4 h-4" />
-                            </Button>
-                            {isAdmin() && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 text-destructive"
-                                title="Supprimer définitivement"
-                                disabled={badgeArchiveBusy === t.id}
-                                onClick={() => handleDeleteBadge(t.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
         )}
         {(isAdmin() || isSuperAdmin()) && (
           <Dialog open={posteManagerOpen} onOpenChange={(open) => { setPosteManagerOpen(open); if (!open) { setNewPosteLabel(''); setRenamingPoste(null); } }}>
@@ -1374,14 +1143,141 @@ export default function Effectif() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Badge</p>
-                    <p className="font-medium flex items-center gap-2">
-                      <IdCard className={`w-4 h-4 ${selectedTech.badge_attribue ? 'text-emerald-500' : 'text-muted-foreground'}`} />
-                      {selectedTech.badge_attribue ? 'Attribué' : 'Non attribué'}
+                <div className="pt-2 border-t space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <IdCard className="w-4 h-4" /> Badge
                     </p>
+                    {!canManageBadges() && (
+                      <Badge className={selectedTech.badge_attribue ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : ''} variant={selectedTech.badge_attribue ? undefined : 'outline'}>
+                        {selectedTech.badge_attribue ? 'Attribué' : 'Non attribué'}
+                      </Badge>
+                    )}
                   </div>
+
+                  {!canManageBadges() ? (
+                    selectedTech.badge_attribue && selectedTech.badge_expiration_date && (
+                      <p className="text-xs text-muted-foreground">
+                        Expire le {new Date(selectedTech.badge_expiration_date).toLocaleDateString('fr-FR')}
+                      </p>
+                    )
+                  ) : badgeDetailLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Chargement...
+                    </div>
+                  ) : badgeDetail && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge className={getBadgeStatusInfo(badgeDetail.badge_status).color}>
+                          {getBadgeStatusInfo(badgeDetail.badge_status).label}
+                        </Badge>
+                        {badgeDetail.badge_is_renewal && <Badge variant="outline">Renouvellement</Badge>}
+                        {badgeDetail.badge_archived && <Badge variant="outline">Archivée</Badge>}
+                      </div>
+
+                      {badgeDetail.badge_photo_url && (
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={`${process.env.REACT_APP_BACKEND_URL}${badgeDetail.badge_photo_url}`}
+                            alt="Photo badge"
+                            className="w-16 h-16 rounded-lg object-cover border"
+                          />
+                          <a
+                            href={`${process.env.REACT_APP_BACKEND_URL}${badgeDetail.badge_photo_url}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-primary underline flex items-center gap-1"
+                          >
+                            <Download className="w-3 h-3" /> Voir / télécharger
+                          </a>
+                        </div>
+                      )}
+
+                      {badgeDetail.badge_message && (
+                        <p className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                          Motif du dernier refus : {badgeDetail.badge_message}
+                        </p>
+                      )}
+
+                      {badgeDetail.badge_status === 'en_attente_validation' && (
+                        rejectingBadge ? (
+                          <div className="space-y-2">
+                            <textarea
+                              className="w-full text-sm border rounded-md p-2 bg-background"
+                              rows={2}
+                              placeholder="Motif du refus (envoyé au technicien)..."
+                              value={rejectMessage}
+                              onChange={(e) => setRejectMessage(e.target.value)}
+                            />
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="destructive" disabled={badgeActionBusy} onClick={handleRejectBadge}>
+                                {badgeActionBusy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                Confirmer le refus
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => { setRejectingBadge(false); setRejectMessage(''); }}>Annuler</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 flex-wrap">
+                            <Button size="sm" disabled={badgeActionBusy} onClick={handleConfirmBadge}>
+                              {badgeActionBusy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                              <Check className="w-4 h-4 mr-1" /> Valider la photo
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-destructive" onClick={() => setRejectingBadge(true)}>
+                              <X className="w-4 h-4 mr-1" /> Refuser
+                            </Button>
+                          </div>
+                        )
+                      )}
+
+                      {badgeDetail.badge_status === 'pret_a_recuperer' && (
+                        <Button size="sm" disabled={badgeActionBusy} onClick={handleCollectBadge}>
+                          {badgeActionBusy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                          <IdCard className="w-4 h-4 mr-1" /> Marquer comme remis
+                        </Button>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Expire le</Label>
+                        {editingExpiration ? (
+                          <>
+                            <Input type="date" className="h-8 text-sm w-auto" value={expirationDraft || ''} onChange={(e) => setExpirationDraft(e.target.value)} />
+                            <Button size="sm" disabled={badgeActionBusy} onClick={handleSaveExpiration}>
+                              {badgeActionBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => { setEditingExpiration(false); setExpirationDraft(badgeDetail.badge_expiration_date || ''); }}>Annuler</Button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-sm">
+                              {badgeDetail.badge_expiration_date ? new Date(badgeDetail.badge_expiration_date).toLocaleDateString('fr-FR') : 'Non renseignée'}
+                            </span>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingExpiration(true)}>
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+
+                      {badgeDetail.badge_status && (
+                        <div className="flex gap-2 pt-2 border-t">
+                          <Button
+                            size="sm" variant="ghost"
+                            disabled={badgeActionBusy}
+                            onClick={() => handleArchiveBadge(!badgeDetail.badge_archived)}
+                          >
+                            <Archive className="w-3.5 h-3.5 mr-1" /> {badgeDetail.badge_archived ? 'Désarchiver' : 'Archiver'}
+                          </Button>
+                          <Button
+                            size="sm" variant="ghost" className="text-destructive"
+                            disabled={badgeActionBusy}
+                            onClick={handleDeleteBadge}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1" /> Supprimer
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {canManage() && (

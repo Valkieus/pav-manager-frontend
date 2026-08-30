@@ -750,12 +750,19 @@ export default function Effectif() {
             setDialogOpen(open);
             if (!open) resetForm();
           }}>
-            <DialogTrigger asChild>
-              <Button className="shadow-lg shadow-primary/20" data-testid="add-tech-btn">
-                <Plus className="w-4 h-4 mr-2" />
-                Ajouter
-              </Button>
-            </DialogTrigger>
+            {/* Tâche #415 : un Responsable ne peut plus créer de fiche
+                technicien (le backend le refuse désormais aussi) — seul le
+                bouton "Modifier" depuis la fiche d'un technicien existant
+                reste disponible pour lui, via le même Dialog contrôlé plus
+                haut par dialogOpen/editingId. */}
+            {user?.niveau_acces !== 'Responsable' && (
+              <DialogTrigger asChild>
+                <Button className="shadow-lg shadow-primary/20" data-testid="add-tech-btn">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Ajouter
+                </Button>
+              </DialogTrigger>
+            )}
             <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingId ? 'Modifier' : 'Ajouter'} un technicien</DialogTitle>

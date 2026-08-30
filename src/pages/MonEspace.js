@@ -174,6 +174,10 @@ export default function MonEspace() {
       toast.error('Merci de sélectionner une photo');
       return;
     }
+    if (!badgeMotif.trim()) {
+      toast.error('Merci de préciser la raison de la demande');
+      return;
+    }
     setBadgeSubmitting(true);
     try {
       const formData = new FormData();
@@ -700,13 +704,13 @@ export default function MonEspace() {
             <div className="flex-1 space-y-2">
               <Input type="file" accept="image/png,image/jpeg" onChange={handleBadgePhotoChange} />
               <Textarea
-                placeholder="Raison de la demande (optionnel) — ex : première demande, badge perdu, renouvellement..."
+                placeholder="Raison de la demande * — ex : première demande, badge perdu, renouvellement..."
                 value={badgeMotif}
                 onChange={(e) => setBadgeMotif(e.target.value)}
                 rows={2}
                 className="text-sm"
               />
-              <Button size="sm" onClick={handleSubmitBadge} disabled={badgeSubmitting || !badgePhotoFile}>
+              <Button size="sm" onClick={handleSubmitBadge} disabled={badgeSubmitting || !badgePhotoFile || !badgeMotif.trim()}>
                 {badgeSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
                 {badgeInfo?.badge_status === 'validee' ? 'Envoyer pour renouvellement' : 'Envoyer ma demande'}
               </Button>

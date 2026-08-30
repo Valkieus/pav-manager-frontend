@@ -14,8 +14,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../components/ui/dialog';
+
 import { toast } from 'sonner';
-import { Loader2, CalendarOff, Trash2, Send, ShieldCheck, Download, UserX, GraduationCap, IdCard, Upload, CheckCircle2, AlertCircle, Clock, Repeat } from 'lucide-react';
+import { Loader2, CalendarOff, Trash2, Send, ShieldCheck, Download, UserX, GraduationCap, IdCard, Upload, CheckCircle2, AlertCircle, Clock, Repeat, Settings, Check, X, Edit, Plus } from 'lucide-react';
 import { downloadOrShareFile, downloadStatusMessage, reserveTabForIOSFallback } from '../utils/fileDownload';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -26,7 +35,7 @@ const FREQUENCES = [
 ];
 
 export default function MonEspace() {
-  const { user } = useAuth();
+  const { user, isGestionnairePlus } = useAuth();
   const navigate = useNavigate();
   const [absences, setAbsences] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +45,8 @@ export default function MonEspace() {
   const [dateFin, setDateFin] = useState('');
   const [joursRecurrents, setJoursRecurrents] = useState(['dimanche']); // vendredi et/ou dimanche
   const [frequence, setFrequence] = useState('hebdomadaire');
-  const [raison, setRaison] = useState('');
+  const [raisonSelect, setRaisonSelect] = useState('');
+  const [raisonAutre, setRaisonAutre] = useState('');
 
   const toggleJourRecurrent = (jour) => {
     setJoursRecurrents((prev) =>
@@ -73,11 +83,77 @@ export default function MonEspace() {
       // Silent — falls back to the value already held from the auth context
     }
   }, []);
+  const [enums, setEnums] = useState({ absence_reasons: [] });
+  const fetchEnums = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/enums`);
+      setEnums(res.data);
+    } catch (err) {
+      // Silent — the dropdown just falls back to an empty list
+    }
+  }, []);
+
+  // ---- "Gérer les raisons" (Gestionnaire+) — same add/rename/delete
+  // pattern as the postes manager on the Effectif page.
+  const [reasonManagerOpen, setReasonManagerOpen] = useState(false);
+  const [newReasonLabel, setNewReasonLabel] = useState('');
+  const [renamingReason, setRenamingReason] = useState(null); // { old, value }
+  const [reasonBusy, setReasonBusy] = useState(false);
+
+  const handleAddReason = async () => {
+    const label = newReasonLabel.trim();
+    if (!label) return;
+    setReasonBusy(true);
+    try {
+      const res = await axios.post(`${API}/absence-reasons`, { label });
+      setEnums((prev) => ({ ...prev, absence_reasons: res.data.absence_reasons }));
+      setNewReasonLabel('');
+      toast.success('Raison ajoutée');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    } finally {
+      setReasonBusy(false);
+    }
+  };
+
+  const handleRenameReasonSave = async () => {
+    if (!renamingReason) return;
+    const newLabel = renamingReason.value.trim();
+    if (!newLabel) return;
+    setReasonBusy(true);
+    try {
+      const res = await axios.put(`${API}/absence-reasons/rename`, { old_label: renamingReason.old, new_label: newLabel });
+      setEnums((prev) => ({ ...prev, absence_reasons: res.data.absence_reasons }));
+      setRenamingReason(null);
+      toast.success('Raison renommée');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    } finally {
+      setReasonBusy(false);
+    }
+  };
+
+  const handleDeleteReason = async (label) => {
+    if (!window.confirm(`Supprimer la raison « ${label} » ?`)) return;
+    setReasonBusy(true);
+    try {
+      const res = await axios.post(`${API}/absence-reasons/delete`, { label });
+      setEnums((prev) => ({ ...prev, absence_reasons: res.data.absence_reasons }));
+      if (raisonSelect === label) setRaisonSelect('');
+      toast.success('Raison supprimée');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    } finally {
+      setReasonBusy(false);
+    }
+  };
+
 
   useEffect(() => {
     fetchAbsences();
     fetchBadgeInfo();
-  }, [fetchAbsences, fetchBadgeInfo]);
+    fetchEnums();
+  }, [fetchAbsences, fetchBadgeInfo, fetchEnums]);
 
   const handleBadgePhotoChange = (e) => {
     const file = e.target.files?.[0];
@@ -117,7 +193,8 @@ export default function MonEspace() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!dateDebut || !dateFin || !raison.trim()) {
+    const raison = raisonSelect === 'Autre' ? raisonAutre.trim() : raisonSelect;
+    if (!dateDebut || !dateFin || !raisonSelect || (raisonSelect === 'Autre' && !raison)) {
       toast.error('Merci de renseigner les dates et la raison');
       return;
     }
@@ -151,7 +228,8 @@ export default function MonEspace() {
       }
       setDateDebut('');
       setDateFin('');
-      setRaison('');
+      setRaisonSelect('');
+      setRaisonAutre('');
       fetchAbsences();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Erreur lors de l'enregistrement");
@@ -225,11 +303,74 @@ export default function MonEspace() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
           <CardTitle className="flex items-center gap-2 text-lg">
             <CalendarOff className="w-5 h-5 text-primary" />
             Signaler une absence
           </CardTitle>
+          {isGestionnairePlus() && (
+            <Dialog open={reasonManagerOpen} onOpenChange={(open) => { setReasonManagerOpen(oopen); if (!open) { setNewReasonLabel(''); setRenamingReason(null); } }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Gérer les raisons
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Gérer les raisons</DialogTitle>
+                  <DialogDescription>Ajoutez, renommez ou supprimez les raisons proposées dans le formulaire d'absence.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 max-h-72 overflow-y-auto">
+                  {(enums.absence_reasons || []).map((r) => (
+                    <div key={r} className="flex items-center gap-2 border rounded-lg px-3 py-2">
+                      {renamingReason?.old === r ? (
+                        <>
+                          <Input
+                            className="h-8"
+                            value={renamingReason.value}
+                            onChange={(e) => setRenamingReason({ ...renamingReason, value: e.target.value })}
+                            autoFocus
+                          />
+                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={reasonBusy} onClick={handleRenameReasonSave}>
+                            <Check className="w-4 h-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setRenamingReason(null)}>
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex-1 text-sm truncate">{r}</span>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setRenamingReason({ old: r, value: r })}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-destructive" disabled={reasonBusy} onClick={() => handleDeleteReason(r)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  {(enums.absence_reasons || []).length === 0 && (
+                    <p className="text-sm text-muted-foreground">Aucune raison définie.</p>
+                  )}
+                </div>
+                <div className="flex gap-2 pt-2 border-t">
+                  <Input
+                    placeholder="Nouvelle raison..."
+                    value={newReasonLabel}
+                    onChange={(e) => setNewReasonLabel(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddReason(); } }}
+                  />
+                  <Button onClick={handleAddReason} disabled={reasonBusy || !newReasonLabel.trim()}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Ajouter
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -323,12 +464,24 @@ export default function MonEspace() {
             )}
             <div className="space-y-2">
               <Label>Raison</Label>
-              <Textarea
-                value={raison}
-                onChange={(e) => setRaison(e.target.value)}
-                placeholder="Ex: vacances, maladie, indisponibilité personnelle..."
-                required
-              />
+              <Select value={raisonSelect} onValueChange={setRaisonSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une raison..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {(enums.absence_reasons || []).map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {raisonSelect === 'Autre' && (
+                <Textarea
+                  value={raisonAutre}
+                  onChange={(e) => setRaisonAutre(e.target.value)}
+                  placeholder="Précisez la raison..."
+                  required
+                />
+              )}
             </div>
             <Button type="submit" disabled={submitting}>
               {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}

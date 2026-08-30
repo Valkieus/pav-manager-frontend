@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { useTheme } from './ThemeContext';
 
 const AuthContext = createContext(null);
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const AuthProvider = ({ children }) => {
+  const { syncThemeFromServer } = useTheme();
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
@@ -16,6 +18,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await axios.get(`${API}/auth/me`);
       setUser(res.data);
+      syncThemeFromServer(res.data.theme_preference);
       setMustChangePassword(res.data.must_change_password || false);
       setOnboardingSeen(res.data.onboarding_seen !== false);
     } catch (err) {
@@ -42,6 +45,7 @@ export const AuthProvider = ({ children }) => {
     axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
     setToken(access_token);
     setUser(userData);
+    syncThemeFromServer(userData.theme_preference);
     setMustChangePassword(userData.must_change_password || false);
     setOnboardingSeen(userData.onboarding_seen !== false);
     return userData;

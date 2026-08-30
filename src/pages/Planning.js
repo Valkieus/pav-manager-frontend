@@ -59,6 +59,7 @@ import {
   FileSpreadsheet,
   Download,
   ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import PlanningEvenementSection from './PlanningEvenementSection';
 import { getCachedTechniciens, setCachedTechniciens } from '../lib/technicienCache';
@@ -1536,6 +1537,20 @@ export default function Planning() {
     });
   };
 
+  const moveRole = (tableKey, sectionIdx, roleIdx, direction, day) => {
+    setSections(prev => {
+      const updated = { ...prev, [day]: { ...prev[day] } };
+      updated[day][tableKey] = [...prev[day][tableKey]];
+      updated[day][tableKey][sectionIdx] = { ...updated[day][tableKey][sectionIdx] };
+      const roles = [...updated[day][tableKey][sectionIdx].roles];
+      const targetIdx = direction === "up" ? roleIdx - 1 : roleIdx + 1;
+      if (targetIdx < 0 || targetIdx >= roles.length) return prev;
+      [roles[roleIdx], roles[targetIdx]] = [roles[targetIdx], roles[roleIdx]];
+      updated[day][tableKey][sectionIdx].roles = roles;
+      return updated;
+    });
+  };
+
   // Mark/unmark a single cell as blocked (grayed-out) — independent of the
   // whole-row toggle above, for the case where only one date/poste needs to
   // be greyed rather than the entire row.
@@ -2006,6 +2021,26 @@ export default function Planning() {
                       {canValidate() && planningEditMode && !planningScope.is_restricted && slotIdx === 0 && (
                         <td className="border border-black p-1 print:hidden" rowSpan={role.slots}>
                           <div className="flex items-center justify-center gap-0.5">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 text-muted-foreground disabled:opacity-30"
+                              disabled={roleIdx === 0}
+                              title="Monter le poste"
+                              onClick={() => moveRole(tableKey, sectionIdx, roleIdx, "up", activeDay)}
+                            >
+                              <ChevronUp className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 text-muted-foreground disabled:opacity-30"
+                              disabled={roleIdx === section.roles.length - 1}
+                              title="Descendre le poste"
+                              onClick={() => moveRole(tableKey, sectionIdx, roleIdx, "down", activeDay)}
+                            >
+                              <ChevronDown className="w-3 h-3" />
+                            </Button>
                             <Button
                               size="sm"
                               variant="ghost"

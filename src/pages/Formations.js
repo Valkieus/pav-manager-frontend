@@ -145,7 +145,7 @@ export default function Formations() {
       const res = await axios.post(`${API}/competences-formation`, { label });
       setCompetences(res.data.competences_formation);
       setNewCompetenceLabel('');
-      toast.success('Compétence ajoutée');
+      toast.success('Formation souhaitée ajoutée');
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
     } finally {
@@ -162,7 +162,7 @@ export default function Formations() {
       const res = await axios.put(`${API}/competences-formation/${encodeURIComponent(renamingCompetence.old)}`, { new_label: newLabel });
       setCompetences(res.data.competences_formation);
       setRenamingCompetence(null);
-      toast.success('Compétence renommée');
+      toast.success('Formation souhaitée renommée');
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
     } finally {
@@ -171,12 +171,12 @@ export default function Formations() {
   };
 
   const handleDeleteCompetence = async (label) => {
-    if (!window.confirm(`Supprimer la compétence "${label}" ?`)) return;
+    if (!window.confirm(`Supprimer la formation souhaitée "${label}" ?`)) return;
     setCompetenceBusy(true);
     try {
       const res = await axios.delete(`${API}/competences-formation/${encodeURIComponent(label)}`);
       setCompetences(res.data.competences_formation);
-      toast.success('Compétence supprimée');
+      toast.success('Formation souhaitée supprimée');
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
     } finally {
@@ -652,12 +652,12 @@ export default function Formations() {
               <DialogTrigger asChild>
                 <Button variant="outline" data-testid="manage-competences-btn">
                   <Settings className="w-4 h-4 mr-2" />
-                  Compétences
+                  Formations souhaitées
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Gérer les compétences souhaitées</DialogTitle>
+                  <DialogTitle>Gérer les formations souhaitées</DialogTitle>
                   <DialogDescription>Liste utilisée dans le formulaire de demande/proposition de formation.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
@@ -699,7 +699,7 @@ export default function Formations() {
                   <Input
                     value={newCompetenceLabel}
                     onChange={(e) => setNewCompetenceLabel(e.target.value)}
-                    placeholder="Nouvelle compétence..."
+                    placeholder="Nouvelle formation souhaitée..."
                   />
                   <Button disabled={competenceBusy || !newCompetenceLabel.trim()} onClick={handleAddCompetence}>
                     <Plus className="w-4 h-4" />
@@ -728,13 +728,13 @@ export default function Formations() {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Compétence souhaitée *</Label>
+                  <Label>Formation souhaitée *</Label>
                   <Select
                     value={form.titre}
                     onValueChange={(v) => setForm({ ...form, titre: v })}
                   >
                     <SelectTrigger data-testid="formation-titre">
-                      <SelectValue placeholder="Sélectionner une compétence" />
+                      <SelectValue placeholder="Sélectionner une formation souhaitée" />
                     </SelectTrigger>
                     <SelectContent>
                       {competences.map((comp) => (
@@ -754,6 +754,7 @@ export default function Formations() {
                     data-testid="formation-description"
                   />
                 </div>
+                {isConsole && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Date(s) souhaitée(s) *</Label>
@@ -798,6 +799,7 @@ export default function Formations() {
                     />
                   </div>
                 </div>
+                )}
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" className="flex-1" onClick={() => setDialogOpen(false)}>
                     Annuler

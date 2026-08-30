@@ -49,6 +49,7 @@ export default function MonEspace() {
   const [frequence, setFrequence] = useState('hebdomadaire');
   const [raisonSelect, setRaisonSelect] = useState('');
   const [raisonAutre, setRaisonAutre] = useState('');
+  const [editingId, setEditingId] = useState(null); // id de l'absence en cours de modification, null = nouvelle declaration
 
   const toggleJourRecurrent = (jour) => {
     setJoursRecurrents((prev) =>
@@ -204,6 +205,24 @@ export default function MonEspace() {
       toast.error('La date de fin doit être après la date de début');
       return;
     }
+    if (editingId) {
+      setSubmitting(true);
+      try {
+        await axios.put(`${API}/absences/${editingId}`, { date_debut: dateDebut, date_fin: dateFin, raison });
+        toast.success('Absence modifiee et renvoyee');
+        setEditingId(null);
+        setDateDebut('');
+        setDateFin('');
+        setRaisonSelect('');
+        setRaisonAutre('');
+        fetchAbsences();
+      } catch (err) {
+        toast.error(err.response?.data?.detail || "Erreur lors de la modification");
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
     if (absenceType === 'recurrente' && joursRecurrents.length === 0) {
       toast.error('Choisis au moins un jour (vendredi et/ou dimanche)');
       return;
@@ -259,6 +278,25 @@ export default function MonEspace() {
     } catch (err) {
       toast.error("Erreur lors de l'annulation de la série");
     }
+  };
+
+  const handleEdit = (a) => {
+    setEditingId(a.id);
+    setAbsenceType('simple');
+    setDateDebut(a.date_debut);
+    setDateFin(a.date_fin);
+    const isKnownReason = (enums.absence_reasons || []).includes(a.raison);
+    setRaisonSelect(isKnownReason ? a.raison : 'Autre');
+    setRaisonAutre(isKnownReason ? '' : a.raison);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setDateDebut('');
+    setDateFin('');
+    setRaisonSelect('');
+    setRaisonAutre('');
   };
 
   const formatDate = (d) => {
@@ -376,6 +414,12 @@ export default function MonEspace() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {editingId && (
+              <p className="text-sm rounded-md bg-primary/10 text-primary px-3 py-2">
+                Modification de l'absence selectionnee - les nouvelles dates et la raison remplaceront l'ancienne declaration.
+              </p>
+            )}
+            {!editingId && (
             <div className="space-y-2">
               <Label>Type d'absence</Label>
               <div className="flex gap-2">
@@ -397,6 +441,7 @@ export default function MonEspace() {
                 </Button>
               </div>
             </div>
+            )}
 
             {absenceType === 'recurrente' && (
               <>
@@ -504,10 +549,17 @@ export default function MonEspace() {
                 />
               )}
             </div>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-              Envoyer
-            </Button>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={submitting}>
+                {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : editingId ? <Edit className="w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                {editingId ? 'Modifier et renvoyer' : 'Envoyer'}
+              </Button>
+              {editingId && (
+                <Button type="button" variant="outline" onClick={handleCancelEdit}>
+                  Annuler
+                </Button>
+              )}
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -541,15 +593,28 @@ export default function MonEspace() {
                     </p>
                     <p className="text-xs text-muted-foreground">{a.raison}</p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 w-8 p-0 text-destructive"
-                    onClick={() => a.recurrence_id ? handleDeleteRecurrence(a.recurrence_id) : handleDelete(a.id)}
-                    title={a.recurrence_id ? 'Annuler toute la série' : 'Annuler cette absence'}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {!a.recurrence_id && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handleEdit(a)}
+                        title="Modifier cette absence"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 text-destructive"
+                      onClick={() => a.recurrence_id ? handleDeleteRecurrence(a.recurrence_id) : handleDelete(a.id)}
+                      title={a.recurrence_id ? 'Annuler toute la serie' : 'Annuler cette absence'}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

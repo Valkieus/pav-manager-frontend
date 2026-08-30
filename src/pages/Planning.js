@@ -1875,6 +1875,22 @@ export default function Planning() {
     return false;
   });
 
+  // Liste live des absences declarees qui recouvrent une date de ce planning
+  // (jour actif) - recalculee a chaque chargement des absences du mois, donc
+  // toujours a jour meme si l'absence a ete modifiee ou supprimee apres la
+  // redaction du texte libre "Absences de l'equipe" ci-dessous (#413).
+  const declaredAbsencesForActiveDay = monthAbsences.filter((a) => {
+    const start = new Date(a.date_debut + 'T00:00:00');
+    const end = new Date(a.date_fin + 'T00:00:00');
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      if (currentDates.includes(`${y}-${m}-${day}`)) return true;
+    }
+    return false;
+  });
+
   if (evenementView) {
     return <PlanningEvenementSection onBack={() => setEvenementView(false)} technicienNames={technicienNames} isSuperAdmin={isSuperAdmin} />;
   }
@@ -2533,6 +2549,20 @@ export default function Planning() {
           <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-semibold">Absences de l'équipe</label>
+              {declaredAbsencesForActiveDay.length > 0 && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-2 space-y-1 text-xs">
+                  <p className="font-semibold text-amber-800 dark:text-amber-400">Absences déclarées (auto, toujours à jour) :</p>
+                  {declaredAbsencesForActiveDay.map((a) => (
+                    <p key={a.id} className="text-amber-900 dark:text-amber-300">
+                      <span className="font-medium">{a.full_name}</span> du{' '}
+                      {new Date(a.date_debut + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                      {' '}au{' '}
+                      {new Date(a.date_fin + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                      {' — '}{a.raison}
+                    </p>
+                  ))}
+                </div>
+              )}
               <textarea
                 className="w-full min-h-[120px] text-sm border border-input rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-ring p-2 resize-y"
                 value={absences[activeDay] || ''}

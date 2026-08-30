@@ -22,9 +22,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../components/ui/dialog';
+import { Calendar } from '../components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 
 import { toast } from 'sonner';
-import { Loader2, CalendarOff, Trash2, Send, ShieldCheck, Download, UserX, GraduationCap, IdCard, Upload, CheckCircle2, AlertCircle, Clock, Repeat, Settings, Check, X, Edit, Plus } from 'lucide-react';
+import { Loader2, CalendarOff, Trash2, Send, ShieldCheck, Download, UserX, GraduationCap, IdCard, Upload, CheckCircle2, AlertCircle, Clock, Repeat, Settings, Check, X, Edit, Plus, Calendar as CalendarIcon } from 'lucide-react';
 import { downloadOrShareFile, downloadStatusMessage, reserveTabForIOSFallback } from '../utils/fileDownload';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -443,15 +445,34 @@ export default function MonEspace() {
               </>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{absenceType === 'recurrente' ? 'À partir du' : 'Du'}</Label>
-                <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label>{absenceType === 'recurrente' ? "Jusqu'au" : 'Au'}</Label>
-                <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} required />
-              </div>
+            <div className="space-y-2">
+              <Label>{absenceType === 'recurrente' ? "Période (à partir du / jusqu'au)" : 'Dates'}</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" className="w-full justify-start font-normal">
+                    <CalendarIcon className="w-4 h-4 mr-2" />
+                    {dateDebut && dateFin
+                      ? `${formatDate(dateDebut)} → ${formatDate(dateFin)}`
+                      : dateDebut
+                        ? `${formatDate(dateDebut)} → ...`
+                        : 'Choisir les dates sur le calendrier'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="range"
+                    selected={{
+                      from: dateDebut ? new Date(dateDebut + 'T00:00:00') : undefined,
+                      to: dateFin ? new Date(dateFin + 'T00:00:00') : undefined,
+                    }}
+                    onSelect={(range) => {
+                      setDateDebut(range?.from ? range.from.toISOString().slice(0, 10) : '');
+                      setDateFin(range?.to ? range.to.toISOString().slice(0, 10) : '');
+                    }}
+                    numberOfMonths={1}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             {absenceType === 'recurrente' && (
               <p className="text-xs text-muted-foreground -mt-2">

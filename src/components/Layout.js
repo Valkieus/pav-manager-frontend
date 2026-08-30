@@ -39,7 +39,6 @@ import {
   Moon,
   LogOut,
   ChevronRight,
-  Video,
   Building2,
   X,
   Loader2,

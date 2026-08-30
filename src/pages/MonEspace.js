@@ -309,7 +309,7 @@ export default function MonEspace() {
             Signaler une absence
           </CardTitle>
           {isGestionnairePlus() && (
-            <Dialog open={reasonManagerOpen} onOpenChange={(open) => { setReasonManagerOpen(oopen); if (!open) { setNewReasonLabel(''); setRenamingReason(null); } }}>
+            <Dialog open={reasonManagerOpen} onOpenChange={(open) => { setReasonManagerOpen(open); if (!open) { setNewReasonLabel(''); setRenamingReason(null); } }}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Settings className="w-4 h-4 mr-2" />

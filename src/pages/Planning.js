@@ -1515,14 +1515,34 @@ export default function Planning() {
   };
 
   const addRole = (tableKey, sectionIdx, day) => {
+    const otherDay = day === 'vendredi' ? 'dimanche' : (day === 'dimanche' ? 'vendredi' : null);
     setSections(prev => {
+      const newRole = { key: `custom_${Date.now()}`, label: 'Nouveau poste', slots: 1 };
       const updated = { ...prev, [day]: { ...prev[day] } };
       updated[day][tableKey] = [...prev[day][tableKey]];
       updated[day][tableKey][sectionIdx] = { ...updated[day][tableKey][sectionIdx] };
       updated[day][tableKey][sectionIdx].roles = [
         ...updated[day][tableKey][sectionIdx].roles,
-        { key: `custom_${Date.now()}`, label: 'Nouveau poste', slots: 1 }
+        newRole
       ];
+      // Miroir Vendredi <-> Dimanche : la meme ligne est ajoutee dans la
+      // meme categorie sur l'autre jour, si elle existe.
+      if (otherDay && prev[otherDay] && prev[otherDay][tableKey]) {
+        const currentSectionName = prev[day][tableKey][sectionIdx]?.name;
+        let mirrorIdx = prev[otherDay][tableKey].findIndex((s) => s.name === currentSectionName);
+        if (mirrorIdx === -1 && prev[otherDay][tableKey][sectionIdx]) {
+          mirrorIdx = sectionIdx;
+        }
+        if (mirrorIdx !== -1) {
+          updated[otherDay] = { ...prev[otherDay] };
+          updated[otherDay][tableKey] = [...prev[otherDay][tableKey]];
+          updated[otherDay][tableKey][mirrorIdx] = { ...updated[otherDay][tableKey][mirrorIdx] };
+          updated[otherDay][tableKey][mirrorIdx].roles = [
+            ...updated[otherDay][tableKey][mirrorIdx].roles,
+            { ...newRole }
+          ];
+        }
+      }
       return updated;
     });
   };

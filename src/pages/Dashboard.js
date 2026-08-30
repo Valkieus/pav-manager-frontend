@@ -1082,9 +1082,9 @@ export default function Dashboard() {
               </button>
               )}
 
-              {/* Cahier de Louange (CEC songs) — visible à tous, y compris
-                  Membre/Technicien, contrairement aux autres liens de ce
-                  bandeau réservés à partir de Gestionnaire. */}
+              {/* Cahier de Louange (CEC songs) — #417 : masqué pour
+                  Technicien, reste visible à partir de Responsable. */}
+              {!isMembre && (
               <a
                 href="https://cec-songs.netlify.app/"
                 target="_blank"
@@ -1100,6 +1100,7 @@ export default function Dashboard() {
                 </div>
                 <ExternalLink className="w-3.5 h-3.5 text-muted-foreground ml-1 shrink-0" />
               </a>
+              )}
 
               {/* Recherche Biblique — visible à tous, comme le Cahier de
                   Louange ci-dessus. */}

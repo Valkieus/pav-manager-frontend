@@ -24,6 +24,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import {
   CalendarDays,
@@ -51,6 +57,8 @@ import {
   CopyPlus,
   ArrowLeftRight,
   FileSpreadsheet,
+  Download,
+  ChevronDown,
 } from 'lucide-react';
 import PlanningEvenementSection from './PlanningEvenementSection';
 import { getCachedTechniciens, setCachedTechniciens } from '../lib/technicienCache';
@@ -2067,17 +2075,29 @@ export default function Planning() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={handlePrint} data-testid="print-btn" className="flex-1 sm:flex-none">
-            <Printer className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Imprimer</span>
-          </Button>
-          <Button variant="outline" onClick={handleExportPng} disabled={exportingPng} data-testid="export-png-btn" className="flex-1 sm:flex-none">
-            {exportingPng ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <ImageDown className="w-4 h-4 sm:mr-2" />}
-            <span className="hidden sm:inline">Enregistrer en PNG</span>
-          </Button>
-          <Button variant="outline" onClick={handleExportXlsx} disabled={exportingXlsx} data-testid="export-xlsx-btn" className="flex-1 sm:flex-none">
-            {exportingXlsx ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 sm:mr-2" />}
-            <span className="hidden sm:inline">Enregistrer en Excel</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" data-testid="export-menu-btn" className="flex-1 sm:flex-none">
+                <Download className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Exporter</span>
+                <ChevronDown className="w-3.5 h-3.5 ml-1 hidden sm:inline" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handlePrint} data-testid="print-btn">
+                <Printer className="w-4 h-4 mr-2" />
+                Imprimer
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportPng} disabled={exportingPng} data-testid="export-png-btn">
+                {exportingPng ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ImageDown className="w-4 h-4 mr-2" />}
+                Enregistrer en PNG
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportXlsx} disabled={exportingXlsx} data-testid="export-xlsx-btn">
+                {exportingXlsx ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 mr-2" />}
+                Enregistrer en Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canManage() && (
             <Button variant="outline" onClick={() => setEvenementView(true)} data-testid="planning-evenement-btn" className="flex-1 sm:flex-none">
               <PartyPopper className="w-4 h-4 sm:mr-2" />

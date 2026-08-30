@@ -50,10 +50,12 @@ import {
   Cloud,
   CopyPlus,
   ArrowLeftRight,
+  FileSpreadsheet,
 } from 'lucide-react';
 import PlanningEvenementSection from './PlanningEvenementSection';
 import { getCachedTechniciens, setCachedTechniciens } from '../lib/technicienCache';
 import { downloadOrShareFile, downloadStatusMessage, reserveTabForIOSFallback } from '../utils/fileDownload';
+import * as XLSX from 'xlsx-js-style';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Name-case display transform applied to assigned names — pure CSS
@@ -541,6 +543,131 @@ function buildPlanningExportSVG({
   return { svg: svgParts.join(''), width: totalWidth, height: totalHeight };
 }
 
+// Builds an .xlsx workbook mirroring the current planning view — same data
+// walk as buildPlanningExportSVG above (title/subtitle, table1, table2,
+// footer), but emitting spreadsheet rows instead of SVG draw commands.
+// Uses xlsx-js-style rather than plain "xlsx": the community "xlsx"
+// package silently drops cell style writes (fills/bold survive in memory
+// but never make it into the .xlsx file), so a colored/bold export needs
+// this fork instead — same API, styles actually persist.
+function buildPlanningExportXLSX({
+  activeDay, currentMonth, currentYear, currentDates, daySections,
+  affectations, blockedCells, titreOverrides, dateLabels, formatDate, nameCase,
+}) {
+  const BAND_HEX = activeDay === 'dimanche' ? 'FCE4D6' : 'BDD7EE';
+  const TITLE_HEX = activeDay === 'dimanche' ? 'C55A11' : '1F4E78';
+  const GREY_HEX = 'D1D5DB';
+  const THIN = { style: 'thin', color: { rgb: '000000' } };
+  const CELL_BORDER = { top: THIN, bottom: THIN, left: THIN, right: THIN };
+
+  const nDates = currentDates.length || 1;
+  const nCols = 1 + nDates;
+
+  const aoa = [];
+  const merges = [];
+  const styleOps = [];
+  const addRow = (cells) => { aoa.push(cells); return aoa.length - 1; };
+  const setStyle = (r, c, style) => styleOps.push({ r, c, style });
+  const styleRange = (r, c1, c2, style) => { for (let c = c1; c <= c2; c++) setStyle(r, c, style); };
+
+  const titleText = titreOverrides?.[activeDay]?.titre
+    || `${(MOIS_NOMS[currentMonth - 1] || '').toUpperCase()} ${currentYear} - ${activeDay.toUpperCase()}`;
+  let r = addRow([titleText, ...Array(nDates).fill(null)]);
+  merges.push({ s: { r, c: 0 }, e: { r, c: nCols - 1 } });
+  setStyle(r, 0, { font: { bold: true, sz: 16, color: { rgb: TITLE_HEX } }, alignment: { horizontal: 'center', vertical: 'center' } });
+
+  const subText = titreOverrides?.[activeDay]?.sous_titre
+    || (activeDay === 'dimanche' ? 'RDV à partir de 8h00 en salle 114' : 'RDV à partir de 18h30 en salle 114');
+  r = addRow([subText, ...Array(nDates).fill(null)]);
+  merges.push({ s: { r, c: 0 }, e: { r, c: nCols - 1 } });
+  styleRange(r, 0, nCols - 1, { font: { bold: true, color: { rgb: TITLE_HEX } }, fill: { fgColor: { rgb: BAND_HEX } }, alignment: { horizontal: 'center', vertical: 'center' } });
+
+  addRow(Array(nCols).fill(null));
+
+  const drawTable = (tableSections) => {
+    const headerCells = ['AFFECTATION'];
+    currentDates.forEach((date) => {
+      const guestLabel = dateLabels?.[activeDay]?.[date];
+      headerCells.push(guestLabel ? `${formatDate(date)}\n${guestLabel}` : formatDate(date));
+    });
+    const headerRow = addRow(headerCells);
+    styleRange(headerRow, 0, nCols - 1, {
+      font: { bold: true, color: { rgb: TITLE_HEX } },
+      fill: { fgColor: { rgb: BAND_HEX } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+      border: CELL_BORDER,
+    });
+    setStyle(headerRow, 0, {
+      font: { bold: true, color: { rgb: TITLE_HEX } },
+      fill: { fgColor: { rgb: BAND_HEX } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+      border: CELL_BORDER,
+    });
+
+    (tableSections || []).forEach((section) => {
+      if (!section.standalone) {
+        const bandRow = addRow([section.name, ...Array(nDates).fill(null)]);
+        merges.push({ s: { r: bandRow, c: 0 }, e: { r: bandRow, c: nCols - 1 } });
+        styleRange(bandRow, 0, nCols - 1, {
+          font: { bold: true, color: { rgb: TITLE_HEX } },
+          fill: { fgColor: { rgb: BAND_HEX } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: CELL_BORDER,
+        });
+      }
+      section.roles.forEach((role) => {
+        const firstRow = aoa.length;
+        for (let slotIdx = 0; slotIdx < role.slots; slotIdx++) {
+          const key = `${role.key}_${slotIdx}`;
+          const rowCells = [slotIdx === 0 ? role.label : ''];
+          currentDates.forEach((_, dateIdx) => {
+            const singleBlocked = !!(blockedCells[key]?.[dateIdx]);
+            const isBlocked = role.blocked || singleBlocked;
+            const raw = affectations[key]?.[dateIdx] || '';
+            rowCells.push(isBlocked ? '' : applyNameCase(raw, nameCase));
+          });
+          const rowIdx = addRow(rowCells);
+          setStyle(rowIdx, 0, { font: { bold: true }, alignment: { vertical: 'center', wrapText: true }, border: CELL_BORDER });
+          currentDates.forEach((_, dateIdx) => {
+            const singleBlocked = !!(blockedCells[key]?.[dateIdx]);
+            const isBlocked = role.blocked || singleBlocked;
+            const cellStyle = { alignment: { horizontal: 'center', vertical: 'center' }, border: CELL_BORDER };
+            if (isBlocked) cellStyle.fill = { fgColor: { rgb: GREY_HEX } };
+            setStyle(rowIdx, 1 + dateIdx, cellStyle);
+          });
+        }
+        if (role.slots > 1) {
+          merges.push({ s: { r: firstRow, c: 0 }, e: { r: firstRow + role.slots - 1, c: 0 } });
+        }
+      });
+    });
+  };
+
+  drawTable(daySections.table1 || []);
+  addRow(Array(nCols).fill(null));
+  drawTable(daySections.table2 || []);
+
+  addRow(Array(nCols).fill(null));
+  const footerRow = addRow(['SOUS RÉSERVE DE CHANGEMENTS ÉVENTUELS FAITS PAR LE RESPONSABLE DU DÉPARTEMENT', ...Array(nDates).fill(null)]);
+  merges.push({ s: { r: footerRow, c: 0 }, e: { r: footerRow, c: nCols - 1 } });
+  styleRange(footerRow, 0, nCols - 1, { font: { italic: true, sz: 9, color: { rgb: '555555' } }, alignment: { horizontal: 'center' } });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = merges;
+  ws['!cols'] = [{ wch: 28 }, ...Array(nDates).fill({ wch: 16 })];
+  styleOps.forEach(({ r: rr, c: cc, style }) => {
+    const ref = XLSX.utils.encode_cell({ r: rr, c: cc });
+    if (!ws[ref]) ws[ref] = { t: 's', v: '' };
+    ws[ref].s = { ...(ws[ref].s || {}), ...style };
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, activeDay === 'dimanche' ? 'Dimanche' : 'Vendredi');
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  return new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+
 async function svgToPngDataUrl(svgString, width, height, scale = 2) {
   const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -666,10 +793,11 @@ export default function Planning() {
   const autoSaveTimerRef = useRef(null);
   const skipNextAutoSaveRef = useRef(true);
   const [exportingPng, setExportingPng] = useState(false);
+  const [exportingXlsx, setExportingXlsx] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(2026);
-  const [activeDay, setActiveDay] = useState('dimanche');
+  const [activeDay, setActiveDay] = useState('vendredi');
   // Planning scoping for the Responsable role — a Responsable in a
   // poste/section-scoped group (e.g. Planning_cadreurs) can only fill in
   // cells within their scope; enforced for real on the backend, mirrored
@@ -1275,6 +1403,46 @@ export default function Planning() {
       setExportingPng(false);
     }
   };
+
+  // Mirrors handleExportPng's structure — same source data, same filename
+  // pattern, same download helper — just producing a workbook instead of a
+  // PNG. See buildPlanningExportXLSX above.
+  const handleExportXlsx = async () => {
+    setExportingXlsx(true);
+    try {
+      const blob = buildPlanningExportXLSX({
+        activeDay,
+        currentMonth,
+        currentYear,
+        currentDates,
+        daySections,
+        affectations,
+        blockedCells,
+        titreOverrides,
+        dateLabels,
+        formatDate,
+        nameCase: affichageNoms,
+      });
+      const moisSlug = (MOIS_NOMS[currentMonth - 1] || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      const filename = `planning-${moisSlug}-${currentYear}-${activeDay}.xlsx`;
+      const status = await downloadOrShareFile(blob, filename, { title: filename });
+      let msg;
+      if (status === 'blocked') msg = "Impossible d'enregistrer le fichier — réessaie";
+      else if (status === 'downloaded') msg = 'Le fichier Excel a été téléchargé';
+      else msg = downloadStatusMessage(status);
+      if (status === 'blocked') toast.error(msg);
+      else if (msg) toast.success(msg);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erreur lors de l'export Excel");
+    } finally {
+      setExportingXlsx(false);
+    }
+  };
+
 
   const handleEditRole = (tableKey, sectionIdx, roleIdx, day) => {
     const role = sections[day][tableKey][sectionIdx].roles[roleIdx];
@@ -1906,6 +2074,10 @@ export default function Planning() {
             {exportingPng ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <ImageDown className="w-4 h-4 sm:mr-2" />}
             <span className="hidden sm:inline">Enregistrer en PNG</span>
           </Button>
+          <Button variant="outline" onClick={handleExportXlsx} disabled={exportingXlsx} data-testid="export-xlsx-btn" className="flex-1 sm:flex-none">
+            {exportingXlsx ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 sm:mr-2" />}
+            <span className="hidden sm:inline">Enregistrer en Excel</span>
+          </Button>
           {canManage() && (
             <Button variant="outline" onClick={() => setEvenementView(true)} data-testid="planning-evenement-btn" className="flex-1 sm:flex-none">
               <PartyPopper className="w-4 h-4 sm:mr-2" />
@@ -2100,11 +2272,11 @@ export default function Planning() {
       {/* Day Tabs */}
       <Tabs value={activeDay} onValueChange={setActiveDay} className="print:hidden">
         <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="dimanche" className={THEME.dimanche.tab}>
-            Dimanche
-          </TabsTrigger>
           <TabsTrigger value="vendredi" className={THEME.vendredi.tab}>
             Vendredi
+          </TabsTrigger>
+          <TabsTrigger value="dimanche" className={THEME.dimanche.tab}>
+            Dimanche
           </TabsTrigger>
         </TabsList>
       </Tabs>

@@ -1218,6 +1218,26 @@ export default function Planning() {
     const toDay = copyDaysDirection === 'dimanche_to_vendredi' ? 'vendredi' : 'dimanche';
     const baseKey = (key, day) => (day === 'vendredi' && key.startsWith('v_')) ? key.slice(2) : key;
 
+    const fromDatesCount = (dates[fromDay] || []).length;
+    const toDatesCount = (dates[toDay] || []).length;
+    const fromLabel = fromDay === 'dimanche' ? 'Dimanche' : 'Vendredi';
+    const toLabel = toDay === 'dimanche' ? 'Dimanche' : 'Vendredi';
+
+    // Vendredi et Dimanche n'ont pas forcement le meme nombre de dates dans
+    // le mois (ex: 4 vendredis mais 5 dimanches). La copie se fait case par
+    // case (1ere case -> 1ere case, etc.), donc si les deux jours n'ont pas
+    // le meme nombre de dates, une copie directe peut associer un nom a la
+    // mauvaise semaine. On previent avant de continuer (cause du bug ou
+    // un nom apparaissait comme affecte a une date ou ce n'etait pas le cas).
+    if (fromDatesCount !== toDatesCount) {
+      const confirmed = window.confirm(
+        `${fromLabel} a ${fromDatesCount} date(s) ce mois-ci et ${toLabel} en a ${toDatesCount}. ` +
+        `La copie se fait case par case (1ere vers 1ere, 2eme vers 2eme, etc.), donc certains noms ` +
+        `pourraient se retrouver sur la mauvaise semaine. Continuer quand meme ?`
+      );
+      if (!confirmed) return;
+    }
+
     const fromSections = sections[fromDay] || DEFAULT_SECTIONS[fromDay];
     const toSections = sections[toDay] || DEFAULT_SECTIONS[toDay];
 
@@ -1237,8 +1257,13 @@ export default function Planning() {
           if (!target) return; // pas de rôle équivalent en face — on ignore silencieusement
           const maxSlots = Math.max(role.slots || 1, target.slots || 1);
           for (let slotIdx = 0; slotIdx < maxSlots; slotIdx++) {
-            const val = affectations[`${role.key}_${slotIdx}`];
-            if (val) {
+            const rawVal = affectations[`${role.key}_${slotIdx}`];
+            // On tronque a la longueur reelle du jour de destination pour
+            // ne pas laisser trainer une valeur sur un index de date qui
+            // n'existe pas (ou plus) en face.
+            const val = Array.isArray(rawVal) ? rawVal.slice(0, toDatesCount) : rawVal;
+            const hasContent = Array.isArray(val) ? val.some((v) => v) : !!val;
+            if (hasContent) {
               updated[`${target.key}_${slotIdx}`] = val;
               copiedCount++;
             }
@@ -1249,8 +1274,6 @@ export default function Planning() {
 
     setAffectations(updated);
     setCopyDaysDialog(false);
-    const fromLabel = fromDay === 'dimanche' ? 'Dimanche' : 'Vendredi';
-    const toLabel = toDay === 'dimanche' ? 'Dimanche' : 'Vendredi';
     if (copiedCount === 0) {
       toast.info(`Rien à copier : aucune case remplie côté ${fromLabel}, ou aucun rôle équivalent côté ${toLabel}.`);
     } else {

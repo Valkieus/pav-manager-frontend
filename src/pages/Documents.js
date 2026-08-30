@@ -72,7 +72,7 @@ const colorForCategory = (catId, categories) => {
 };
 
 export default function Documents() {
-  const { canManage, isAdmin, isSuperAdmin } = useAuth();
+  const { canManage, isAdmin, isSuperAdmin, user } = useAuth();
   const [documents, setDocuments] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -306,7 +306,7 @@ export default function Documents() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="documents">Documents</TabsTrigger>
-          {isAdmin() && <TabsTrigger value="categories">Catégories</TabsTrigger>}
+          {canManage() && <TabsTrigger value="categories">Catégories</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="documents" className="space-y-4">
@@ -481,6 +481,15 @@ export default function Documents() {
                         </div>
                       )}
                     </div>
+                    {/* Tâche #416 : un Responsable n'a pas de sélecteur de branches — son
+                        document est automatiquement cantonné à sa/ses propre(s)
+                        équipe(s) côté serveur (voir create_document). */}
+                    {user?.niveau_acces === 'Responsable' && (
+                      <p className="text-xs text-muted-foreground border-t border-border pt-3">
+                        Ce document sera visible uniquement par les membres de votre/vos équipe(s)
+                        {user?.branches?.length ? ` (${user.branches.join(', ')})` : ''}, ainsi que par la Gestion/l'Administration.
+                      </p>
+                    )}
                     <div className="flex gap-2">
                       <Button type="button" variant="outline" className="flex-1" onClick={() => setDialogOpen(false)}>
                         Annuler
@@ -578,8 +587,17 @@ export default function Documents() {
           )}
         </TabsContent>
 
-        {isAdmin() && (
+        {canManage() && (
           <TabsContent value="categories" className="space-y-4">
+            {/* Tâche #416 : une rubrique créée par un Responsable est privée —
+                réservée à lui seul (Gestionnaire+/Admin+ la voient aussi, pour
+                supervision, comme le reste ici). */}
+            {!isAdmin() && (
+              <p className="text-xs text-muted-foreground">
+                Les rubriques que vous créez sont visibles uniquement par vous
+                (et par la Gestion/l'Administration).
+              </p>
+            )}
             <div className="flex justify-end">
               <Dialog open={categoryDialogOpen} onOpenChange={(open) => {
                 setCategoryDialogOpen(open);
@@ -641,11 +659,21 @@ export default function Documents() {
                       <div className="flex items-center gap-2">
                         <FolderOpen className="w-5 h-5 text-primary" />
                         <CardTitle className="text-lg">{cat.nom}</CardTitle>
+                        {cat.private_to && (
+                          <Badge variant="outline" className="text-xs flex items-center gap-1">
+                            <Lock className="w-3 h-3" /> Privée{cat.created_by_name ? ` · ${cat.created_by_name}` : ''}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => handleEditCategory(cat)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
+                        {/* Tâche #416 : le backend (PUT/DELETE) reste réservé à
+                            Super Admin ; on ne montre donc plus ces actions à
+                            Gestionnaire/Responsable pour éviter un 403 muet. */}
+                        {isSuperAdmin() && (
+                          <Button size="sm" variant="ghost" onClick={() => handleEditCategory(cat)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        )}
                         {isSuperAdmin() && (
                           <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDeleteCategory(cat.id)}>
                             <Trash2 className="w-4 h-4" />

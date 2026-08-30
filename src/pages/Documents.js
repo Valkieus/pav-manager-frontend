@@ -329,7 +329,7 @@ export default function Documents() {
                   <SelectItem value="all">Toutes les catégories</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
-                      {cat.nom} ({getDocCountByCategory(cat.id)})
+                      {cat.nom}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -686,9 +686,6 @@ export default function Documents() {
                     {cat.description && (
                       <p className="text-sm text-muted-foreground mb-2">{cat.description}</p>
                     )}
-                    <Badge variant="secondary">
-                      {getDocCountByCategory(cat.id)} document(s)
-                    </Badge>
                   </CardContent>
                 </Card>
               ))}

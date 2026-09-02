@@ -406,7 +406,7 @@ export default function Actualites() {
           {featured && (
             <Card className="overflow-hidden card-hover animate-fadeIn">
               <div className="grid grid-cols-1 md:grid-cols-2">
-                <div className="aspect-video md:aspect-auto bg-gradient-to-br from-primary/20 via-primary/10 to-transparent relative overflow-hidden min-h-[200px]">
+                <div className="aspect-[32/9] md:aspect-auto bg-gradient-to-br from-primary/20 via-primary/10 to-transparent relative overflow-hidden min-h-[200px]">
                   {featured.image_url ? (
                     <img
                       src={featured.image_url}
@@ -455,7 +455,7 @@ export default function Actualites() {
                 {rest.map((a) => (
                   <Card key={a.id} className="overflow-hidden card-hover animate-fadeIn">
                     {a.image_url ? (
-                      <div className="aspect-video bg-muted relative overflow-hidden">
+                      <div className="aspect-[32/9] bg-muted relative overflow-hidden">
                         <img
                           src={a.image_url}
                           alt={a.titre}
@@ -512,7 +512,7 @@ export default function Actualites() {
                 {pastActualites.map((a) => (
                   <Card key={a.id} className="overflow-hidden opacity-90">
                     {a.image_url ? (
-                      <div className="aspect-video bg-muted relative overflow-hidden">
+                      <div className="aspect-[32/9] bg-muted relative overflow-hidden">
                         <img
                           src={a.image_url}
                           alt={a.titre}

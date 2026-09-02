@@ -411,7 +411,7 @@ export default function Actualites() {
                     <img
                       src={featured.image_url}
                       alt={featured.titre}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                       onError={(e) => { e.target.style.display = 'none'; }}
                     />
                   ) : (
@@ -459,7 +459,7 @@ export default function Actualites() {
                         <img
                           src={a.image_url}
                           alt={a.titre}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                           onError={(e) => { e.target.style.display = 'none'; }}
                         />
                       </div>
@@ -516,7 +516,7 @@ export default function Actualites() {
                         <img
                           src={a.image_url}
                           alt={a.titre}
-                          className="w-full h-full object-cover grayscale-[30%]"
+                          className="w-full h-full object-contain grayscale-[30%]"
                           onError={(e) => { e.target.style.display = 'none'; }}
                         />
                       </div>

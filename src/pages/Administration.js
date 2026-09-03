@@ -249,6 +249,7 @@ export default function Administration() {
   const [users, setUsers] = useState([]);
   const [userSearch, setUserSearch] = useState('');
   const [userLevelFilter, setUserLevelFilter] = useState('all');
+  const [userDetailOpen, setUserDetailOpen] = useState(null);
   const [groups, setGroups] = useState([]);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1752,11 +1753,8 @@ export default function Administration() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Utilisateur</TableHead>
-                      <TableHead>Nom complet</TableHead>
                       <TableHead>Niveau d'accès</TableHead>
                       <TableHead>Statut</TableHead>
-                      <TableHead>Créé le</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1776,7 +1774,7 @@ export default function Administration() {
                       // clic échouer en 403 (assert_gestionnaire_user_mgmt_scope).
                       const outOfGestionnaireScope = isGestionnaireOnly && ['Admin', 'Admin (lecture seule)', 'Super Admin'].includes(u.niveau_acces);
                       return (
-                      <TableRow key={u.id}>
+                      <TableRow key={u.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setUserDetailOpen(u)}>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -1787,49 +1785,15 @@ export default function Administration() {
                             {isProtected && <Badge variant="outline" className="text-xs" title="Compte protégé — ne peut pas être supprimé, désactivé ou rétrogradé">Protégé</Badge>}
                           </div>
                         </TableCell>
-                        <TableCell>{u.full_name}</TableCell>
+                        
                         <TableCell><Badge className={getNiveauAccesColor(u.niveau_acces)}>{u.niveau_acces}</Badge></TableCell>
                         <TableCell>
                           <Badge className={u.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}>
                             {u.is_active ? 'Actif' : 'Inactif'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{new Date(u.created_at).toLocaleDateString('fr-FR')}</TableCell>
-                        <TableCell className="text-right">
-                          {isReadOnlyAdmin || outOfGestionnaireScope ? (
-                            <span className="text-xs text-muted-foreground" title={outOfGestionnaireScope ? "Un Gestionnaire ne peut pas gérer un compte Admin ou Super Admin" : undefined}>
-                              {outOfGestionnaireScope ? 'Hors périmètre' : 'Lecture seule'}
-                            </span>
-                          ) : (
-                          <div className="flex justify-end gap-1">
-                            <Button size="sm" variant="ghost" title="Modifier" onClick={() => handleEditUser(u)}>
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            {(!isProtected || u.id === currentUser?.id) && (
-                              <Button size="sm" variant="ghost" title="Réinitialiser mot de passe" onClick={() => {
-                                setSelectedUserForReset(u);
-                                setResetPasswordDialogOpen(true);
-                              }}>
-                                <Key className="w-4 h-4" />
-                              </Button>
-                            )}
-                            <Button size="sm" variant="ghost" title="Attribuer groupes" onClick={() => openAssignDialog(u)}>
-                              <UserCog className="w-4 h-4" />
-                            </Button>
-                            {u.id !== currentUser?.id && !isProtected && (
-                              <>
-                                <Button size="sm" variant="ghost" onClick={() => handleToggleUserStatus(u)}>
-                                  <Lock className={`w-4 h-4 ${u.is_active ? 'text-amber-500' : 'text-emerald-500'}`} />
-                                </Button>
-                                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDeleteUser(u.id)}>
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
+                        
+                        </TableRow>
                       );
                     })}
                   </TableBody>
@@ -1839,6 +1803,75 @@ export default function Administration() {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
+
+        {userDetailOpen && (
+        <Dialog open={!!userDetailOpen} onOpenChange={(open) => !open && setUserDetailOpen(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 flex-wrap">
+                {userDetailOpen.username}
+                {userDetailOpen.id === currentUser?.id && <Badge variant="outline" className="text-xs">Vous</Badge>}
+                {['Guichard', 'svc-ops-s5xf3f'].includes(userDetailOpen.username) && <Badge variant="outline" className="text-xs" title="Compte protégé — ne peut pas être supprimé, désactivé ou rétrogradé">Protégé</Badge>}
+              </DialogTitle>
+              <DialogDescription>{userDetailOpen.full_name}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Niveau d'accès</span>
+                <Badge className={getNiveauAccesColor(userDetailOpen.niveau_acces)}>{userDetailOpen.niveau_acces}</Badge>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Statut</span>
+                <Badge className={userDetailOpen.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}>{userDetailOpen.is_active ? 'Actif' : 'Inactif'}</Badge>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Créé le</span>
+                <span className="text-muted-foreground">{new Date(userDetailOpen.created_at).toLocaleDateString('fr-FR')}</span>
+              </div>
+            </div>
+            <DialogFooter className="flex-wrap gap-2 sm:justify-start">
+              {(() => {
+                const u = userDetailOpen;
+                const isProtectedDetail = ['Guichard', 'svc-ops-s5xf3f'].includes(u.username);
+                const outOfGestionnaireScopeDetail = isGestionnaireOnly && ['Admin', 'Admin (lecture seule)', 'Super Admin'].includes(u.niveau_acces);
+                if (isReadOnlyAdmin || outOfGestionnaireScopeDetail) {
+                  return (
+                    <span className="text-xs text-muted-foreground" title={outOfGestionnaireScopeDetail ? "Un Gestionnaire ne peut pas gérer un compte Admin ou Super Admin" : undefined}>
+                      {outOfGestionnaireScopeDetail ? 'Hors périmètre' : 'Lecture seule'}
+                    </span>
+                  );
+                }
+                return (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => { setUserDetailOpen(null); handleEditUser(u); }}>
+                      <Edit className="w-4 h-4 mr-2" />Modifier
+                    </Button>
+                    {(!isProtectedDetail || u.id === currentUser?.id) && (
+                      <Button size="sm" variant="outline" onClick={() => { setUserDetailOpen(null); setSelectedUserForReset(u); setResetPasswordDialogOpen(true); }}>
+                        <Key className="w-4 h-4 mr-2" />Réinitialiser mot de passe
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => { setUserDetailOpen(null); openAssignDialog(u); }}>
+                      <UserCog className="w-4 h-4 mr-2" />Attribuer groupes
+                    </Button>
+                    {u.id !== currentUser?.id && !isProtectedDetail && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => { handleToggleUserStatus(u); setUserDetailOpen(null); }}>
+                          <Lock className={`w-4 h-4 mr-2 ${u.is_active ? 'text-amber-500' : 'text-emerald-500'}`} />
+                          {u.is_active ? 'Désactiver' : 'Activer'}
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-destructive" onClick={() => { handleDeleteUser(u.id); setUserDetailOpen(null); }}>
+                          <Trash2 className="w-4 h-4 mr-2" />Supprimer
+                        </Button>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         )}
 
         {/* GROUPS TAB — not exposed to Admin (lecture seule) */}

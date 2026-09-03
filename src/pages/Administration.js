@@ -248,6 +248,7 @@ export default function Administration() {
   ));
   const [users, setUsers] = useState([]);
   const [userSearch, setUserSearch] = useState('');
+  const [userLevelFilter, setUserLevelFilter] = useState('all');
   const [groups, setGroups] = useState([]);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1718,14 +1719,27 @@ export default function Administration() {
           </div>
           )}
 
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
-              placeholder="Rechercher un utilisateur..."
-              className="pl-9"
-            />
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="relative max-w-sm flex-1 min-w-[220px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Rechercher un utilisateur..."
+                className="pl-9"
+              />
+            </div>
+            <Select value={userLevelFilter} onValueChange={setUserLevelFilter}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Filtrer par niveau" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les niveaux</SelectItem>
+                {NIVEAUX_ACCES.map((n) => (
+                  <SelectItem key={n} value={n}>{n}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <Card>
@@ -1748,10 +1762,12 @@ export default function Administration() {
                   <TableBody>
                     {users.filter((u) => {
                       const q = userSearch.trim().toLowerCase();
-                      if (!q) return true;
-                      return (u.username || '').toLowerCase().includes(q)
+                      const matchesSearch = !q
+                        || (u.username || '').toLowerCase().includes(q)
                         || (u.full_name || '').toLowerCase().includes(q)
                         || (u.niveau_acces || '').toLowerCase().includes(q);
+                      const matchesLevel = userLevelFilter === 'all' || u.niveau_acces === userLevelFilter;
+                      return matchesSearch && matchesLevel;
                     }).map((u) => {
                       const isProtected = ['Guichard', 'Guichard_Secours'].includes(u.username);
                       // 20/08/2026 (#298) : un Gestionnaire n'a pas la main

@@ -413,6 +413,7 @@ export default function Actualites() {
                       alt={featured.titre}
                       className="w-full h-full object-contain"
                       onError={(e) => { e.target.style.display = 'none'; }}
+                      style={{ maskImage: 'radial-gradient(ellipse 45% 75% at 100% 0%, transparent 8%, black 55%)', WebkitMaskImage: 'radial-gradient(ellipse 45% 75% at 100% 0%, transparent 8%, black 55%)' }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -461,6 +462,7 @@ export default function Actualites() {
                           alt={a.titre}
                           className="w-full h-full object-contain"
                           onError={(e) => { e.target.style.display = 'none'; }}
+                          style={{ maskImage: 'radial-gradient(ellipse 45% 75% at 100% 0%, transparent 8%, black 55%)', WebkitMaskImage: 'radial-gradient(ellipse 45% 75% at 100% 0%, transparent 8%, black 55%)' }}
                         />
                       </div>
                     ) : (
@@ -518,6 +520,7 @@ export default function Actualites() {
                           alt={a.titre}
                           className="w-full h-full object-contain grayscale-[30%]"
                           onError={(e) => { e.target.style.display = 'none'; }}
+                          style={{ maskImage: 'radial-gradient(ellipse 45% 75% at 100% 0%, transparent 8%, black 55%)', WebkitMaskImage: 'radial-gradient(ellipse 45% 75% at 100% 0%, transparent 8%, black 55%)' }}
                         />
                       </div>
                     ) : (

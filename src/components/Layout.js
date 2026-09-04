@@ -399,6 +399,49 @@ export const Layout = ({ children }) => {
     return () => window.removeEventListener('keydown', handleEscape);
   }, []);
 
+  // Swipe left-to-right (starting near the screen's left edge) opens the
+  // mobile menu — a common drawer gesture. Kept edge-only (touch must start
+  // within EDGE_ZONE px of the left border) so it never intercepts normal
+  // horizontal scrolling elsewhere on the page (e.g. the Planning table).
+  useEffect(() => {
+    let startX = null;
+    let startY = null;
+    const EDGE_ZONE = 24;
+    const SWIPE_THRESHOLD = 60;
+
+    const onTouchStart = (e) => {
+      if (window.innerWidth >= 1024) { startX = null; return; }
+      if (sidebarOpen) { startX = null; return; }
+      const t = e.touches[0];
+      if (!t || t.clientX > EDGE_ZONE) { startX = null; return; }
+      startX = t.clientX;
+      startY = t.clientY;
+    };
+
+    const onTouchMove = (e) => {
+      if (startX === null) return;
+      const t = e.touches[0];
+      if (!t) return;
+      const dx = t.clientX - startX;
+      const dy = Math.abs(t.clientY - startY);
+      if (dx > SWIPE_THRESHOLD && dx > dy * 1.5) {
+        setSidebarOpen(true);
+        startX = null;
+      }
+    };
+
+    const onTouchEnd = () => { startX = null; startY = null; };
+
+    document.addEventListener('touchstart', onTouchStart, { passive: true });
+    document.addEventListener('touchmove', onTouchMove, { passive: true });
+    document.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', onTouchStart);
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [sidebarOpen]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -449,10 +492,10 @@ export const Layout = ({ children }) => {
 
       {/* Sidebar */}
       <aside className={`
-        fixed lg:sticky top-0 left-0 z-50 h-screen w-72 sm:w-64
-        bg-card border-r border-border
+        fixed lg:sticky top-0 right-0 lg:right-auto lg:left-0 z-50 h-screen w-72 sm:w-64
+        bg-card border-l lg:border-l-0 lg:border-r border-border
         transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        ${sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
       `}>
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -525,14 +568,6 @@ export const Layout = ({ children }) => {
         {/* Header */}
         <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-lg border-b border-border">
           <div className="flex items-center justify-between px-3 sm:px-4 md:px-6 h-14 sm:h-16">
-            <button
-              className="lg:hidden p-2 hover:bg-muted rounded-lg -ml-2"
-              onClick={() => setSidebarOpen(true)}
-              data-testid="mobile-menu-btn"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-
             <div className="flex-1" />
 
             <div className="flex items-center gap-1 sm:gap-2">
@@ -660,6 +695,14 @@ export const Layout = ({ children }) => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              <button
+                className="lg:hidden p-2 hover:bg-muted rounded-lg -mr-1"
+                onClick={() => setSidebarOpen(true)}
+                data-testid="mobile-menu-btn"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </header>

@@ -252,6 +252,9 @@ export default function Administration() {
   const [userDetailOpen, setUserDetailOpen] = useState(null);
   const [groups, setGroups] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [logSearch, setLogSearch] = useState('');
+  const [logModuleFilter, setLogModuleFilter] = useState('all');
+  const [logSeverityFilter, setLogSeverityFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   
   // Maintenance Mode
@@ -1288,6 +1291,16 @@ export default function Administration() {
     if (action.includes('Refus')) return '❌';
     if (action.includes('Archivage')) return '📦';
     return '📋';
+  };
+
+  const getSeverityBadge = (severity) => {
+    const map = {
+      critical: { label: 'Critique', className: 'bg-red-100 text-red-800' },
+      warning: { label: 'Attention', className: 'bg-amber-100 text-amber-800' },
+      info: { label: 'Info', className: 'bg-slate-100 text-slate-600' },
+    };
+    const s = map[severity] || map.info;
+    return <Badge className={s.className + ' text-xs'}>{s.label}</Badge>;
   };
 
   return (
@@ -2355,11 +2368,46 @@ export default function Administration() {
         {/* LOGS TAB */}
         {(canViewReadOnlyTabs || isGestionnaireOnly) && (
         <TabsContent value="logs" className="space-y-4">
-          <div className="flex items-center justify-end gap-2">
-            <span className="text-xs text-muted-foreground">Mise à jour automatique toutes les 20s</span>
-            <Button variant="outline" onClick={fetchLogs}>
-              <RefreshCw className="w-4 h-4 mr-2" /> Actualiser
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2 items-center flex-1">
+              <div className="relative max-w-xs flex-1 min-w-[180px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={logSearch}
+                  onChange={(e) => setLogSearch(e.target.value)}
+                  placeholder="Rechercher (action, utilisateur, détails)..."
+                  className="pl-9"
+                />
+              </div>
+              <Select value={logModuleFilter} onValueChange={setLogModuleFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Module" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les modules</SelectItem>
+                  {Array.from(new Set(logs.map((l) => l.module || 'Général'))).sort().map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={logSeverityFilter} onValueChange={setLogSeverityFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Sévérité" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes sévérités</SelectItem>
+                  <SelectItem value="critical">Critique</SelectItem>
+                  <SelectItem value="warning">Attention</SelectItem>
+                  <SelectItem value="info">Info</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground hidden sm:inline">Mise à jour automatique toutes les 20s</span>
+              <Button variant="outline" onClick={fetchLogs}>
+                <RefreshCw className="w-4 h-4 mr-2" /> Actualiser
+              </Button>
+            </div>
           </div>
 
           <Card>
@@ -2377,16 +2425,31 @@ export default function Administration() {
                     <TableRow>
                       <TableHead className="w-12"></TableHead>
                       <TableHead>Action</TableHead>
+                      <TableHead>Module</TableHead>
+                      <TableHead>Sévérité</TableHead>
                       <TableHead>Utilisateur</TableHead>
                       <TableHead>Détails</TableHead>
                       <TableHead>Date & Heure</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {logs.map((log) => (
+                    {logs.filter((log) => {
+                      const q = logSearch.trim().toLowerCase();
+                      const matchesSearch = !q
+                        || (log.action || '').toLowerCase().includes(q)
+                        || (log.user_name || '').toLowerCase().includes(q)
+                        || (log.details || '').toLowerCase().includes(q);
+                      const logModule = log.module || 'Général';
+                      const matchesModule = logModuleFilter === 'all' || logModule === logModuleFilter;
+                      const logSeverity = log.severity || 'info';
+                      const matchesSeverity = logSeverityFilter === 'all' || logSeverity === logSeverityFilter;
+                      return matchesSearch && matchesModule && matchesSeverity;
+                    }).map((log) => (
                       <TableRow key={log.id}>
                         <TableCell className="text-xl">{getActionIcon(log.action)}</TableCell>
                         <TableCell className="font-medium">{log.action}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-xs">{log.module || 'Général'}</Badge></TableCell>
+                        <TableCell>{getSeverityBadge(log.severity || 'info')}</TableCell>
                         <TableCell className="text-muted-foreground">{log.user_name}</TableCell>
                         <TableCell className="text-muted-foreground max-w-xs truncate">{log.details}</TableCell>
                         <TableCell className="text-muted-foreground font-mono text-xs">

@@ -492,10 +492,10 @@ export const Layout = ({ children }) => {
 
       {/* Sidebar */}
       <aside className={`
-        fixed lg:sticky top-0 right-0 lg:right-auto lg:left-0 z-50 h-screen w-72 sm:w-64
-        bg-card border-l lg:border-l-0 lg:border-r border-border
+        fixed lg:sticky top-0 left-0 z-50 h-screen w-72 sm:w-64
+        bg-card border-r border-border
         transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -568,6 +568,14 @@ export const Layout = ({ children }) => {
         {/* Header */}
         <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-lg border-b border-border">
           <div className="flex items-center justify-between px-3 sm:px-4 md:px-6 h-14 sm:h-16">
+            <button
+              className="lg:hidden p-2 hover:bg-muted rounded-lg -ml-2"
+              onClick={() => setSidebarOpen(true)}
+              data-testid="mobile-menu-btn"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
             <div className="flex-1" />
 
             <div className="flex items-center gap-1 sm:gap-2">
@@ -695,14 +703,6 @@ export const Layout = ({ children }) => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-
-              <button
-                className="lg:hidden p-2 hover:bg-muted rounded-lg -mr-1"
-                onClick={() => setSidebarOpen(true)}
-                data-testid="mobile-menu-btn"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
             </div>
           </div>
         </header>

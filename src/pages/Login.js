@@ -65,7 +65,9 @@ export default function Login() {
               <Label htmlFor="username">Identifiant</Label>
               <Input
                 id="username"
+                name="username"
                 type="text"
+                autoComplete="username"
                 placeholder="Entrez votre identifiant"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -81,7 +83,9 @@ export default function Login() {
               <div className="relative">
                 <Input
                   id="password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   placeholder="Entrez votre mot de passe"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

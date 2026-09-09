@@ -412,6 +412,7 @@ const MiniCalendar = ({ year, month, serviceDates = [], events = [], onServiceDa
           const hasAbsence = dayEvents.some((e) => e.type === 'absence');
           const hasFormation = dayEvents.some((e) => e.type === 'formation');
           const hasEvenement = dayEvents.some((e) => e.type === 'evenement' && !e.invite);
+          const eventRingClass = hasGuest ? 'ring-1 ring-inset ring-amber-500' : hasFormation ? 'ring-1 ring-inset ring-violet-500' : hasEvenement ? 'ring-1 ring-inset ring-blue-500' : hasAbsence ? 'ring-1 ring-inset ring-slate-400' : '';
           const isToday = dateStr === todayStr;
           const title = [
             isService ? `Service (${serviceInfo.jour}${serviceInfo.poste ? ` — ${serviceInfo.poste}` : ''})` : null,
@@ -425,28 +426,28 @@ const MiniCalendar = ({ year, month, serviceDates = [], events = [], onServiceDa
               title={title || undefined}
               onClick={isService ? () => onServiceDayClick?.(dateStr, serviceInfo) : undefined}
               className={`relative aspect-square flex items-center justify-center rounded-md text-xs
-                ${isToday ? 'ring-2 ring-primary' : ''}
+                ${isToday ? 'ring-2 ring-primary' : eventRingClass}
                 ${isService ? 'bg-primary/10 font-semibold text-primary cursor-pointer hover:bg-primary/20 transition-colors' : 'text-foreground'}`}
             >
               {d}
               {dayEvents.length > 0 && (
                 <span className="absolute bottom-0.5 flex items-center gap-0.5">
-                  {hasGuest && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
-                  {hasAbsence && <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />}
-                  {hasFormation && <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />}
-                  {hasEvenement && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                  {hasGuest && <span className="w-2 h-2 rounded-full bg-amber-500" />}
+                  {hasAbsence && <span className="w-2 h-2 rounded-full bg-slate-400" />}
+                  {hasFormation && <span className="w-2 h-2 rounded-full bg-violet-500" />}
+                  {hasEvenement && <span className="w-2 h-2 rounded-full bg-blue-500" />}
                 </span>
               )}
             </Tag>
           );
         })}
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-[11px] text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-primary/10 inline-block" /> Jour de service</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" /> Événement</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" /> Invité</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" /> Mon absence</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-violet-500 inline-block" /> Ma formation</span>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mt-3 text-xs font-medium text-foreground/80">
+        <span className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5"><span className="w-3 h-3 rounded border-2 border-primary bg-primary/20 inline-block" /> Jour de service</span>
+        <span className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" /> Événement</span>
+        <span className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> Invité</span>
+        <span className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" /> Mon absence</span>
+        <span className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5"><span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block" /> Ma formation</span>
       </div>
     </div>
   );

@@ -1124,32 +1124,6 @@ export default function Dashboard() {
         </div>
       </Card>
 
-      {/* Branches Stats */}
-      {!isMembre && visibleBranchesStats.length > 0 && (
-        <Card className="animate-fadeIn stagger-5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
-              Répartition par Branche
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Bandeau: single scrollable strip instead of a wrapped grid. */}
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-              {visibleBranchesStats.map((item) => (
-                <Badge
-                  key={item.branche}
-                  variant="outline"
-                  className="px-3 py-1.5 text-sm shrink-0 whitespace-nowrap"
-                >
-                  {item.branche}: <span className="font-bold ml-1">{item.count}</span>
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Organigramme — visible to everyone, Membre included */}
       <Card className="animate-fadeIn stagger-5">
         <CardHeader>

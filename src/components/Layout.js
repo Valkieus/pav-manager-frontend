@@ -52,7 +52,8 @@ import {
   Inbox,
   Sparkles,
   BellRing,
-  BellOff
+  BellOff,
+  Copy
 } from 'lucide-react';
 import { isPushSupported, getPushSubscriptionState, subscribeToPush, unsubscribeFromPush } from '../utils/push';
 
@@ -207,6 +208,7 @@ export const Layout = ({ children }) => {
   // endpoint PushManager), lu au montage et tenu à jour après chaque action.
   const [pushState, setPushState] = useState({ supported: false, subscribed: false });
   const [pushBusy, setPushBusy] = useState(false);
+  const [braveHelpOpen, setBraveHelpOpen] = useState(false);
   const refreshPushState = async () => {
     const s = await getPushSubscriptionState();
     setPushState(s);
@@ -231,6 +233,15 @@ export const Layout = ({ children }) => {
     }
   };
 
+  const handleCopyBraveSettingsLink = async () => {
+    try {
+      await navigator.clipboard.writeText('brave://settings/privacy');
+      toast.success('Lien copie - colle-le dans un nouvel onglet');
+    } catch {
+      toast.error('Impossible de copier - tape brave://settings/privacy dans un nouvel onglet');
+    }
+  };
+
   const handleTogglePush = async () => {
     setPushBusy(true);
     try {
@@ -247,6 +258,10 @@ export const Layout = ({ children }) => {
           toast.error("Notifications push non supportées sur ce navigateur/appareil");
         } else if (res.reason === 'server_disabled') {
           toast.error("Notifications push non configurées côté serveur — contacte l'administrateur");
+        } else if (res.reason === 'brave_push_disabled') {
+          setBraveHelpOpen(true);
+        } else if (res.reason === 'push_service_unavailable') {
+          toast.error("Le service de notifications de ton navigateur est injoignable — vérifie ta connexion, ton pare-feu, ou une extension qui bloque Google.", { duration: 8000 });
         } else {
           toast.error(`Impossible d'activer les notifications push${res.message ? ` : ${res.message}` : ''}`);
         }
@@ -786,6 +801,33 @@ export const Layout = ({ children }) => {
           <DialogFooter>
             <Button className="w-full" onClick={markOnboardingSeen}>
               J'ai compris
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={braveHelpOpen} onOpenChange={setBraveHelpOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Activer les notifications sur Brave
+            </DialogTitle>
+            <DialogDescription>
+              Brave bloque par defaut le service Google necessaire aux notifications push. Une seule fois par navigateur :
+            </DialogDescription>
+          </DialogHeader>
+          <ol className="space-y-2 text-sm text-muted-foreground list-decimal pl-4">
+            <li>Ouvre un nouvel onglet et colle-y <code className="text-foreground bg-muted px-1 rounded">brave://settings/privacy</code></li>
+            <li>Active <strong className="text-foreground">« Utiliser les services Google pour la messagerie push »</strong></li>
+            <li>Reviens ici et clique sur « Reessayer »</li>
+          </ol>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button type="button" variant="outline" onClick={handleCopyBraveSettingsLink}>
+              <Copy className="w-4 h-4 mr-2" />
+              Copier le lien
+            </Button>
+            <Button type="button" onClick={() => { setBraveHelpOpen(false); handleTogglePush(); }}>
+              Reessayer
             </Button>
           </DialogFooter>
         </DialogContent>

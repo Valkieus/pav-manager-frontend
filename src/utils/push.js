@@ -11,6 +11,18 @@ export function isPushSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
 
+// Brave desactive par defaut le relais Google (FCM) utilise par l'API Push
+// standard : sans lui, `pushManager.subscribe()` echoue systematiquement avec
+// "Registration failed - push service error", quel que soit le site. Detecter
+// Brave permet d'afficher l'etape exacte a suivre au lieu d'un message opaque.
+export async function isBraveBrowser() {
+  try {
+    return !!(navigator.brave && (await navigator.brave.isBrave()));
+  } catch {
+    return false;
+  }
+}
+
 // La applicationServerKey attendue par PushManager.subscribe() doit être un
 // Uint8Array, pas la chaîne base64url brute renvoyée par le backend.
 function urlBase64ToUint8Array(base64String) {
@@ -71,7 +83,15 @@ export async function subscribeToPush(axios) {
     return { ok: true };
   } catch (err) {
     console.error('[push] subscribeToPush failed:', err);
-    return { ok: false, reason: 'error', error: err, message: err?.message || String(err) };
+    const rawMsg = err?.message || String(err);
+    // Message d'erreur natif du navigateur quand le service de push (relais
+    // Google/FCM) est injoignable ou desactive — le cas le plus frequent est
+    // Brave, qui coupe ce relais par defaut pour la confidentialite.
+    if (/push service|registration failed/i.test(rawMsg)) {
+      const brave = await isBraveBrowser();
+      return { ok: false, reason: brave ? 'brave_push_disabled' : 'push_service_unavailable', message: rawMsg };
+    }
+    return { ok: false, reason: 'error', error: err, message: rawMsg };
   }
 }
 

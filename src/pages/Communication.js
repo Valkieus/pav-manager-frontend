@@ -26,7 +26,9 @@ import {
   Calendar,
   Users,
   Building2,
-  MessageCircle
+  MessageCircle,
+  Settings,
+  Lock
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -40,6 +42,15 @@ const BRANCHES = ['Supervision', 'Coordination', 'Production', 'Live', 'Animatio
 
 const CAN_COMPOSE = ['Responsable', 'Gestionnaire', 'Admin', 'Super Admin'];
 const CAN_VIEW_HISTORY = ['Responsable', 'Gestionnaire', 'Admin (lecture seule)', 'Admin', 'Super Admin'];
+const CAN_MANAGE_CHAT_SETTINGS = ['Gestionnaire', 'Admin', 'Super Admin'];
+// Doit rester en phase avec NIVEAUX_ACCES cote backend (ordre hierarchique).
+const NIVEAUX_ACCES_ORDRE = ['Technicien', 'Responsable', 'Gestionnaire', 'Admin (lecture seule)', 'Admin', 'Super Admin'];
+const CHAT_WRITE_LEVELS = ['Technicien', 'Responsable', 'Gestionnaire'];
+const CHAT_WRITE_LABELS = {
+  Technicien: 'Tout le monde',
+  Responsable: 'Responsable et plus',
+  Gestionnaire: 'Gestionnaire et plus',
+};
 
 const emptyForm = {
   titre: '',
@@ -114,6 +125,9 @@ export default function Communication() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [sendingChat, setSendingChat] = useState(false);
+  const [chatSettings, setChatSettings] = useState({ min_niveau_ecriture: 'Technicien' });
+  const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
+  const [savingChatSettings, setSavingChatSettings] = useState(false);
 
   const fetchReceived = async () => {
     setLoadingReceived(true);
@@ -163,6 +177,7 @@ export default function Communication() {
   useEffect(() => {
     if (tab !== 'groupchat') return;
     setChatLoading(true);
+    fetchChatSettings();
     fetchChat();
     const interval = setInterval(fetchChat, 15000);
     return () => clearInterval(interval);
@@ -184,6 +199,32 @@ export default function Communication() {
       setSendingChat(false);
     }
   };
+
+  const fetchChatSettings = async () => {
+    try {
+      const res = await axios.get(`${API}/communications/chat/settings`);
+      setChatSettings(res.data);
+    } catch (err) {
+      // silencieux : ne bloque pas l'affichage du chat
+    }
+  };
+
+  const handleUpdateChatSettings = async (niveau) => {
+    setSavingChatSettings(true);
+    try {
+      const res = await axios.put(`${API}/communications/chat/settings`, { min_niveau_ecriture: niveau });
+      setChatSettings(res.data);
+      toast.success('Permissions du groupchat mises a jour');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Erreur lors de la mise a jour");
+    } finally {
+      setSavingChatSettings(false);
+    }
+  };
+
+  const canWriteChat = !!user &&
+    user.niveau_acces !== 'Admin (lecture seule)' &&
+    NIVEAUX_ACCES_ORDRE.indexOf(user.niveau_acces) >= NIVEAUX_ACCES_ORDRE.indexOf(chatSettings.min_niveau_ecriture || 'Technicien');
 
   const toggleNiveau = (niveau) => {
     setForm((f) => ({
@@ -227,11 +268,12 @@ export default function Communication() {
     <div className="space-y-6" data-testid="communication-page">
       <div>
         <h1 className="text-2xl font-bold">Communication</h1>
-        <p className="text-muted-foreground">Memos internes et annonces ciblées</p>
+        <p className="text-muted-foreground">Portail d'equipe : annonces ciblees et groupchat</p>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-2 self-center hidden sm:inline">Annonces</span>
           <TabsTrigger value="recues" className="flex items-center gap-2">
             <Inbox className="w-4 h-4" />
             Reçues
@@ -248,6 +290,7 @@ export default function Communication() {
               Historique
             </TabsTrigger>
           )}
+          <span className="w-px h-5 bg-border mx-1 self-center" aria-hidden="true" />
           <TabsTrigger value="groupchat" className="flex items-center gap-2">
             <MessageCircle className="w-4 h-4" />
             Groupchat
@@ -379,9 +422,45 @@ export default function Communication() {
         <TabsContent value="groupchat" className="mt-4">
           <Card>
             <CardContent className="p-0 flex flex-col h-[60vh]">
-              <div className="px-4 py-2 border-b border-border text-xs text-muted-foreground">
-                Discussion ouverte a tous. Les messages sont automatiquement supprimes au bout de 30 jours.
+              <div className="px-4 py-2 border-b border-border flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  {canWriteChat
+                    ? 'Discussion ouverte. Les messages sont automatiquement supprimes au bout de 30 jours.'
+                    : `Lecture seule : seuls les ${CHAT_WRITE_LABELS[chatSettings.min_niveau_ecriture] || 'autorises'} peuvent ecrire ici. Les messages sont automatiquement supprimes au bout de 30 jours.`}
+                </p>
+                {CAN_MANAGE_CHAT_SETTINGS.includes(user?.niveau_acces) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 h-7 w-7"
+                    onClick={() => setChatSettingsOpen((v) => !v)}
+                    data-testid="groupchat-settings-toggle"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
+              {chatSettingsOpen && CAN_MANAGE_CHAT_SETTINGS.includes(user?.niveau_acces) && (
+                <div className="px-4 py-3 border-b border-border bg-muted/30 space-y-2">
+                  <p className="text-xs font-medium">Qui peut ecrire dans ce groupchat ?</p>
+                  <div className="flex flex-wrap gap-2">
+                    {CHAT_WRITE_LEVELS.map((niveau) => (
+                      <Button
+                        key={niveau}
+                        type="button"
+                        size="sm"
+                        variant={chatSettings.min_niveau_ecriture === niveau ? 'default' : 'outline'}
+                        disabled={savingChatSettings}
+                        onClick={() => handleUpdateChatSettings(niveau)}
+                        data-testid={`groupchat-perm-${niveau}`}
+                      >
+                        {CHAT_WRITE_LABELS[niveau]}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {chatLoading ? (
                   <div className="flex items-center justify-center h-full">
@@ -406,18 +485,25 @@ export default function Communication() {
                   ))
                 )}
               </div>
-              <form onSubmit={handleSendChat} className="flex items-center gap-2 p-3 border-t border-border">
-                <Input
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Ecrire un message..."
-                  maxLength={2000}
-                  data-testid="groupchat-input"
-                />
-                <Button type="submit" disabled={sendingChat || !chatInput.trim()} data-testid="groupchat-send">
-                  {sendingChat ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                </Button>
-              </form>
+              {canWriteChat ? (
+                <form onSubmit={handleSendChat} className="flex items-center gap-2 p-3 border-t border-border">
+                  <Input
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder="Ecrire un message..."
+                    maxLength={2000}
+                    data-testid="groupchat-input"
+                  />
+                  <Button type="submit" disabled={sendingChat || !chatInput.trim()} data-testid="groupchat-send">
+                    {sendingChat ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </Button>
+                </form>
+              ) : (
+                <div className="flex items-center justify-center gap-2 p-3 border-t border-border text-xs text-muted-foreground">
+                  <Lock className="w-3 h-3" />
+                  Ecriture reservee aux {CHAT_WRITE_LABELS[chatSettings.min_niveau_ecriture] || 'autorises'}.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

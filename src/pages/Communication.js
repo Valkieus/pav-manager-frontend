@@ -29,6 +29,9 @@ import {
   Settings,
   Lock,
   Radio,
+  ArrowLeft,
+  Trash2,
+  Clock,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -43,6 +46,9 @@ const BRANCHES = ['Supervision', 'Coordination', 'Production', 'Live', 'Animatio
 const CAN_COMPOSE = ['Responsable', 'Gestionnaire', 'Admin', 'Super Admin'];
 const CAN_VIEW_HISTORY = ['Responsable', 'Gestionnaire', 'Admin (lecture seule)', 'Admin', 'Super Admin'];
 const CAN_MANAGE_CHAT_SETTINGS = ['Gestionnaire', 'Admin', 'Super Admin'];
+const CAN_MANAGE_GROUPS = ['Admin', 'Super Admin'];
+const EPHEMERAL_OPTIONS = ['off', '24h', '7j', '90j'];
+const EPHEMERAL_LABELS = { off: 'Désactivé', '24h': '24 heures', '7j': '7 jours', '90j': '90 jours' };
 // Doit rester en phase avec NIVEAUX_ACCES cote backend (ordre hierarchique).
 const NIVEAUX_ACCES_ORDRE = ['Technicien', 'Responsable', 'Gestionnaire', 'Admin (lecture seule)', 'Admin', 'Super Admin'];
 const CHAT_WRITE_LEVELS = ['Technicien', 'Responsable', 'Gestionnaire'];
@@ -149,13 +155,22 @@ export default function Communication() {
   const [loadingSent, setLoadingSent] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatInput, setChatInput] = useState('');
-  const [sendingChat, setSendingChat] = useState(false);
-  const [chatSettings, setChatSettings] = useState({ min_niveau_ecriture: 'Technicien' });
-  const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
-  const [savingChatSettings, setSavingChatSettings] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [activeGroupId, setActiveGroupId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messageInput, setMessageInput] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [mentionable, setMentionable] = useState({ users: [], roles: [], postes: [] });
+  const [mentionQuery, setMentionQuery] = useState(null);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingText, setEditingText] = useState('');
+  const [groupFormOpen, setGroupFormOpen] = useState(false);
+  const [groupFormMode, setGroupFormMode] = useState('create');
+  const [groupFormData, setGroupFormData] = useState({ id: null, nom: '', description: '', min_niveau_ecriture: 'Technicien', ephemeral_mode: 'off' });
+  const [savingGroup, setSavingGroup] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const fetchReceived = async () => {
     setLoadingReceived(true);
@@ -191,68 +206,220 @@ export default function Communication() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  const fetchChat = async () => {
+  const fetchGroups = async () => {
+    setGroupsLoading(true);
     try {
-      const res = await axios.get(`${API}/communications/chat`);
-      setChatMessages(Array.isArray(res.data) ? res.data : []);
+      const res = await axios.get(API + '/communications/discussions/groups');
+      const list = Array.isArray(res.data) ? res.data : [];
+      setGroups(list);
+      if (!activeGroupId && list.length > 0) {
+        const def = list.find((g) => g.is_default) || list[0];
+        setActiveGroupId(def.id);
+      }
     } catch (err) {
-      // silencieux : le groupe ne doit pas bruyamment echouer en arriere-plan
+      // silencieux
     } finally {
-      setChatLoading(false);
+      setGroupsLoading(false);
+    }
+  };
+
+  const fetchMessages = async (groupId) => {
+    if (!groupId) return;
+    setMessagesLoading(true);
+    try {
+      const res = await axios.get(API + '/communications/discussions/groups/' + groupId + '/messages');
+      setMessages(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      // silencieux
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
+  const fetchMentionable = async () => {
+    try {
+      const res = await axios.get(API + '/communications/mentionable');
+      setMentionable({
+        users: (res.data && res.data.users) || [],
+        roles: (res.data && res.data.roles) || [],
+        postes: (res.data && res.data.postes) || [],
+      });
+    } catch (err) {
+      // silencieux
     }
   };
 
   useEffect(() => {
     if (tab !== 'groupchat') return;
-    setChatLoading(true);
-    fetchChatSettings();
-    fetchChat();
-    const interval = setInterval(fetchChat, 15000);
-    return () => clearInterval(interval);
+    fetchGroups();
+    fetchMentionable();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  const handleSendChat = async (e) => {
+  useEffect(() => {
+    if (tab !== 'groupchat' || !activeGroupId) return;
+    fetchMessages(activeGroupId);
+    const interval = setInterval(() => fetchMessages(activeGroupId), 15000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, activeGroupId]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const activeGroup = groups.find((g) => g.id === activeGroupId) || null;
+  const canWriteActiveGroup = activeGroup
+    ? NIVEAUX_ACCES_ORDRE.indexOf(user && user.niveau_acces) >= NIVEAUX_ACCES_ORDRE.indexOf(activeGroup.min_niveau_ecriture || 'Technicien')
+    : false;
+
+  const canEditMessage = (msg) => {
+    if (!msg || !user || msg.auteur_id !== user.id) return false;
+    const age = now - new Date(msg.created_at).getTime();
+    return age < 180000;
+  };
+
+  const handleSelectGroup = (groupId) => {
+    setActiveGroupId(groupId);
+    setMessageInput('');
+    setMentionQuery(null);
+    setEditingMessageId(null);
+  };
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    const texte = chatInput.trim();
+    const texte = messageInput.trim();
+    if (!texte || !activeGroupId) return;
+    setSendingMessage(true);
+    try {
+      await axios.post(API + '/communications/discussions/groups/' + activeGroupId + '/messages', { message: texte });
+      setMessageInput('');
+      setMentionQuery(null);
+      fetchMessages(activeGroupId);
+    } catch (err) {
+      toast.error((err.response && err.response.data && err.response.data.detail) || "Envoi du message impossible");
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  const handleStartEdit = (msg) => {
+    setEditingMessageId(msg.id);
+    setEditingText(msg.message);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingText('');
+  };
+
+  const handleSaveEdit = async (messageId) => {
+    const texte = editingText.trim();
     if (!texte) return;
-    setSendingChat(true);
     try {
-      await axios.post(`${API}/communications/chat`, { message: texte });
-      setChatInput('');
-      fetchChat();
+      await axios.put(API + '/communications/discussions/messages/' + messageId, { message: texte });
+      setEditingMessageId(null);
+      setEditingText('');
+      fetchMessages(activeGroupId);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Erreur lors de l'envoi du message");
+      toast.error((err.response && err.response.data && err.response.data.detail) || "Modification impossible");
+    }
+  };
+
+  const openCreateGroupForm = () => {
+    setGroupFormMode('create');
+    setGroupFormData({ id: null, nom: '', description: '', min_niveau_ecriture: 'Technicien', ephemeral_mode: 'off' });
+    setGroupFormOpen(true);
+  };
+
+  const openEditGroupForm = (g) => {
+    if (!g) return;
+    setGroupFormMode('edit');
+    setGroupFormData({
+      id: g.id,
+      nom: g.nom,
+      description: g.description || '',
+      min_niveau_ecriture: g.min_niveau_ecriture || 'Technicien',
+      ephemeral_mode: g.ephemeral_mode || 'off',
+    });
+    setGroupFormOpen(true);
+  };
+
+  const handleSubmitGroupForm = async (e) => {
+    e.preventDefault();
+    if (!groupFormData.nom.trim()) return;
+    setSavingGroup(true);
+    try {
+      const payload = {
+        nom: groupFormData.nom.trim(),
+        description: groupFormData.description.trim(),
+        min_niveau_ecriture: groupFormData.min_niveau_ecriture,
+        ephemeral_mode: groupFormData.ephemeral_mode,
+      };
+      if (groupFormMode === 'create') {
+        const res = await axios.post(API + '/communications/discussions/groups', payload);
+        toast.success('Groupe créé');
+        setGroupFormOpen(false);
+        await fetchGroups();
+        setActiveGroupId(res.data.id);
+      } else {
+        await axios.put(API + '/communications/discussions/groups/' + groupFormData.id, payload);
+        toast.success('Groupe modifié');
+        setGroupFormOpen(false);
+        fetchGroups();
+      }
+    } catch (err) {
+      toast.error((err.response && err.response.data && err.response.data.detail) || "Erreur");
     } finally {
-      setSendingChat(false);
+      setSavingGroup(false);
     }
   };
 
-  const fetchChatSettings = async () => {
+  const handleDeleteGroup = async (g) => {
+    if (!g || g.is_default) return;
+    if (!window.confirm("Supprimer le groupe \"" + g.nom + "\" ? Cette action est irréversible.")) return;
     try {
-      const res = await axios.get(`${API}/communications/chat/settings`);
-      setChatSettings(res.data);
+      await axios.delete(API + '/communications/discussions/groups/' + g.id);
+      toast.success('Groupe supprimé');
+      if (activeGroupId === g.id) setActiveGroupId(null);
+      fetchGroups();
     } catch (err) {
-      // silencieux : ne bloque pas l'affichage du groupe
+      toast.error((err.response && err.response.data && err.response.data.detail) || "Suppression impossible");
     }
   };
 
-  const handleUpdateChatSettings = async (niveau) => {
-    setSavingChatSettings(true);
-    try {
-      const res = await axios.put(`${API}/communications/chat/settings`, { min_niveau_ecriture: niveau });
-      setChatSettings(res.data);
-      toast.success('Permissions du groupe mises a jour');
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Erreur lors de la mise a jour");
-    } finally {
-      setSavingChatSettings(false);
-    }
+  const renderMessageText = (text) => {
+    const parts = String(text || '').split(/(@[\w\-']+)/g);
+    return parts.map((part, i) => {
+      if (part.charAt(0) === '@' && part.length > 1) {
+        return <span key={i} className="font-semibold text-indigo-600 dark:text-indigo-400">{part}</span>;
+      }
+      return <span key={i}>{part}</span>;
+    });
   };
 
-  const canWriteChat = !!user &&
-    user.niveau_acces !== 'Admin (lecture seule)' &&
-    NIVEAUX_ACCES_ORDRE.indexOf(user.niveau_acces) >= NIVEAUX_ACCES_ORDRE.indexOf(chatSettings.min_niveau_ecriture || 'Technicien');
+  const mentionSuggestions = (() => {
+    if (mentionQuery === null) return [];
+    const q = mentionQuery.toLowerCase();
+    const usersList = mentionable.users.map((u) => Object.assign({}, u, { kind: 'user' }));
+    const rolesList = mentionable.roles.map((r) => Object.assign({}, r, { kind: 'role' }));
+    const postesList = mentionable.postes.map((p) => Object.assign({}, p, { kind: 'poste' }));
+    const all = usersList.concat(rolesList, postesList);
+    return all.filter((item) => item.nom.toLowerCase().indexOf(q) !== -1).slice(0, 8);
+  })();
+
+  const handleMessageInputChange = (val) => {
+    setMessageInput(val);
+    const m = val.match(/@([\w\-']*)$/);
+    setMentionQuery(m ? m[1] : null);
+  };
+
+  const selectMention = (nomValue) => {
+    const withoutTrigger = messageInput.replace(/@([\w\-']*)$/, '');
+    setMessageInput(withoutTrigger + '@' + nomValue + ' ');
+    setMentionQuery(null);
+  };
 
   const toggleNiveau = (niveau) => {
     setForm((f) => ({
@@ -293,7 +460,6 @@ export default function Communication() {
   };
 
   const showChaineHeader = tab === 'recues' || tab === 'envoyer' || tab === 'historique';
-  const showGroupeHeader = tab === 'groupchat';
 
   return (
     <div className="space-y-6" data-testid="communication-page">
@@ -324,7 +490,7 @@ export default function Communication() {
           <span className="w-px h-5 bg-border mx-1 self-center" aria-hidden="true" />
           <TabsTrigger value="groupchat" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
-            Groupe
+            Discussions
           </TabsTrigger>
         </TabsList>
 
@@ -336,55 +502,6 @@ export default function Communication() {
             <div className="min-w-0">
               <p className="font-semibold text-sm truncate">Chaine PAV Manager</p>
               <p className="text-xs text-muted-foreground">Diffusion officielle - toute l'equipe est abonnee</p>
-            </div>
-          </div>
-        )}
-
-        {showGroupeHeader && (
-          <div className="mt-4 flex items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3">
-            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0">
-              <Users className="w-5 h-5 text-white" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold text-sm truncate">Groupe PAV Manager</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {canWriteChat
-                  ? "Discussion ouverte a toute l'equipe"
-                  : `Lecture seule : seuls les ${CHAT_WRITE_LABELS[chatSettings.min_niveau_ecriture] || 'autorises'} peuvent ecrire`}
-              </p>
-            </div>
-            {CAN_MANAGE_CHAT_SETTINGS.includes(user?.niveau_acces) && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="shrink-0 h-8 w-8"
-                onClick={() => setChatSettingsOpen((v) => !v)}
-                data-testid="groupchat-settings-toggle"
-              >
-                <Settings className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
-        )}
-
-        {showGroupeHeader && chatSettingsOpen && CAN_MANAGE_CHAT_SETTINGS.includes(user?.niveau_acces) && (
-          <div className="mt-2 rounded-xl border border-border bg-muted/30 px-4 py-3 space-y-2">
-            <p className="text-xs font-medium">Qui peut ecrire dans ce groupe ?</p>
-            <div className="flex flex-wrap gap-2">
-              {CHAT_WRITE_LEVELS.map((niveau) => (
-                <Button
-                  key={niveau}
-                  type="button"
-                  size="sm"
-                  variant={chatSettings.min_niveau_ecriture === niveau ? 'default' : 'outline'}
-                  disabled={savingChatSettings}
-                  onClick={() => handleUpdateChatSettings(niveau)}
-                  data-testid={`groupchat-perm-${niveau}`}
-                >
-                  {CHAT_WRITE_LABELS[niveau]}
-                </Button>
-              ))}
             </div>
           </div>
         )}
@@ -511,68 +628,274 @@ export default function Communication() {
             )}
           </TabsContent>
         )}
-        <TabsContent value="groupchat" className="mt-4">
-          <Card>
-            <CardContent className="p-0 flex flex-col h-[60vh]">
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {chatLoading ? (
-                  <div className="flex items-center justify-center h-full">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <TabsContent value="groupchat" className="mt-2 space-y-4">
+          {!activeGroupId ? (
+            <Card>
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="font-semibold text-sm">Discussions</p>
+                    <p className="text-xs text-muted-foreground">Choisissez un groupe pour discuter</p>
                   </div>
-                ) : chatMessages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                    <Users className="w-10 h-10 text-muted-foreground/50 mb-3" />
-                    <p className="text-muted-foreground text-sm">Aucun message pour le moment. Lancez la discussion !</p>
+                  {CAN_MANAGE_GROUPS.includes(user?.niveau_acces) && (
+                    <Button type="button" size="sm" onClick={openCreateGroupForm} data-testid="create-group-btn">
+                      + Nouveau groupe
+                    </Button>
+                  )}
+                </div>
+                {groupsLoading ? (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Chargement...
                   </div>
+                ) : groups.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-8 text-center">Aucun groupe pour le moment</p>
                 ) : (
-                  chatMessages.map((m) => {
-                    const mine = m.auteur_id === user?.id;
-                    const style = senderStyle(m.auteur_nom);
-                    return (
-                      <div key={m.id} className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
-                        {!mine && (
-                          <div className={`w-7 h-7 rounded-full ${style.bg} text-white text-[10px] font-bold flex items-center justify-center shrink-0 mb-4`}>
-                            {initials(m.auteur_nom)}
+                  <div className="space-y-1">
+                    {groups.map((g) => {
+                      const style = senderStyle(g.nom);
+                      return (
+                        <div
+                          key={g.id}
+                          className="flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => handleSelectGroup(g.id)}
+                          data-testid={"group-row-" + g.id}
+                        >
+                          <div className={"w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-white font-semibold " + style.bg}>
+                            {initials(g.nom)}
                           </div>
-                        )}
-                        <div className="flex flex-col max-w-[75%]">
-                          <div className={`rounded-2xl px-3 py-2 ${mine ? 'bg-primary text-primary-foreground rounded-br-sm' : 'bg-muted rounded-bl-sm'}`}>
-                            {!mine && (
-                              <p className={`text-xs font-semibold mb-1 ${style.text}`}>{m.auteur_nom}</p>
-                            )}
-                            <p className="text-sm whitespace-pre-wrap break-words">{m.message}</p>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-sm truncate">{g.nom}</p>
+                              {g.is_default && (
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Global</Badge>
+                              )}
+                              {g.ephemeral_mode && g.ephemeral_mode !== 'off' && (
+                                <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">{g.description || 'Aucune description'}</p>
                           </div>
-                          <p className={`text-[10px] text-muted-foreground mt-1 ${mine ? 'text-right' : 'text-left'}`}>{formatDate(m.created_at)}</p>
                         </div>
-                      </div>
-                    );
-                  })
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3">
+                <Button type="button" variant="ghost" size="icon" className="shrink-0 h-8 w-8" onClick={() => setActiveGroupId(null)} data-testid="back-to-groups-btn">
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
+                <div className={"w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white font-semibold " + (senderStyle(activeGroup?.nom || '').bg)}>
+                  {initials(activeGroup?.nom || '?')}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm truncate">{activeGroup?.nom}</p>
+                    {activeGroup?.is_default && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Global</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {canWriteActiveGroup
+                      ? (activeGroup?.description || "Discussion ouverte")
+                      : ("Lecture seule : seuls les " + (CHAT_WRITE_LABELS[activeGroup?.min_niveau_ecriture] || 'autorises') + " peuvent écrire")}
+                  </p>
+                </div>
+                {CAN_MANAGE_GROUPS.includes(user?.niveau_acces) && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditGroupForm(activeGroup)} data-testid="edit-group-btn">
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                    {!activeGroup?.is_default && (
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteGroup(activeGroup)} data-testid="delete-group-btn">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
-              {canWriteChat ? (
-                <form onSubmit={handleSendChat} className="flex items-center gap-2 p-3 border-t border-border">
-                  <Input
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Ecrire un message..."
-                    maxLength={2000}
-                    data-testid="groupchat-input"
-                  />
-                  <Button type="submit" disabled={sendingChat || !chatInput.trim()} data-testid="groupchat-send">
-                    {sendingChat ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  </Button>
-                </form>
-              ) : (
-                <div className="flex items-center justify-center gap-2 p-3 border-t border-border text-xs text-muted-foreground">
-                  <Lock className="w-3 h-3" />
-                  Ecriture reservee aux {CHAT_WRITE_LABELS[chatSettings.min_niveau_ecriture] || 'autorises'}.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-      </Tabs>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex flex-col gap-3 max-h-[420px] overflow-y-auto pr-1" data-testid="messages-list">
+                    {messagesLoading ? (
+                      <div className="flex items-center justify-center py-8 text-muted-foreground">
+                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                        Chargement...
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-8 text-center">Aucun message. Soyez le premier à écrire !</p>
+                    ) : (
+                      messages.map((msg) => {
+                        const mine = msg.auteur_id === user?.id;
+                        const style = senderStyle(msg.auteur_nom);
+                        const editable = canEditMessage(msg);
+                        return (
+                          <div key={msg.id} className={"flex gap-2 " + (mine ? "flex-row-reverse" : "flex-row")}>
+                            {!mine && (
+                              <div className={"w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold " + style.bg}>
+                                {initials(msg.auteur_nom)}
+                              </div>
+                            )}
+                            <div className={"max-w-[75%] rounded-2xl px-3 py-2 " + (mine ? "bg-indigo-600 text-white" : "bg-muted")}>
+                              {!mine && (
+                                <p className={"text-xs font-semibold mb-0.5 " + style.text}>{msg.auteur_nom}</p>
+                              )}
+                              {editingMessageId === msg.id ? (
+                                <div className="flex items-center gap-1.5">
+                                  <Input
+                                    value={editingText}
+                                    onChange={(e) => setEditingText(e.target.value)}
+                                    className="h-8 text-sm bg-background text-foreground"
+                                    data-testid="edit-message-input"
+                                  />
+                                  <Button type="button" size="sm" className="h-8 px-2" onClick={() => handleSaveEdit(msg.id)} data-testid="save-edit-btn">OK</Button>
+                                  <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={handleCancelEdit}>Annuler</Button>
+                                </div>
+                              ) : (
+                                <>
+                                  <p className="text-sm whitespace-pre-wrap break-words">{renderMessageText(msg.message)}</p>
+                                  <div className={"flex items-center gap-2 mt-0.5 text-[10px] " + (mine ? "text-indigo-100" : "text-muted-foreground")}>
+                                    <span>
+                                      {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    {msg.edited_at && <span>modifié</span>}
+                                    {msg.expires_at && <Clock className="w-3 h-3" />}
+                                    {mine && editable && (
+                                      <button type="button" className="underline" onClick={() => handleStartEdit(msg)} data-testid="start-edit-btn">
+                                        modifier
+                                      </button>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {canWriteActiveGroup ? (
+                    <form onSubmit={handleSendMessage} className="mt-3 relative">
+                      {mentionSuggestions.length > 0 && (
+                        <div className="absolute bottom-full mb-1 left-0 right-0 bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
+                          {mentionSuggestions.map((item) => (
+                            <button
+                              type="button"
+                              key={item.kind + "-" + item.id}
+                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted flex items-center gap-2"
+                              onClick={() => selectMention(item.nom)}
+                            >
+                              <span className="text-xs text-muted-foreground">
+                                {item.kind === 'user' ? '@' : item.kind === 'role' ? '#' : '~'}
+                              </span>
+                              {item.nom}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={messageInput}
+                          onChange={(e) => handleMessageInputChange(e.target.value)}
+                          placeholder="Écrire un message... (@ pour mentionner)"
+                          className="flex-1"
+                          data-testid="message-input"
+                        />
+                        <Button type="submit" size="icon" disabled={sendingMessage || !messageInput.trim()} data-testid="send-message-btn">
+                          {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="mt-3 text-xs text-center text-muted-foreground py-2 flex items-center justify-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5" />
+                      Écriture réservée aux {CHAT_WRITE_LABELS[activeGroup?.min_niveau_ecriture] || 'autorises'}.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {groupFormOpen && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setGroupFormOpen(false)}>
+              <Card className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                <CardContent className="p-4 space-y-3">
+                  <p className="font-semibold text-sm">
+                    {groupFormMode === 'create' ? 'Nouveau groupe' : 'Modifier le groupe'}
+                  </p>
+                  <form onSubmit={handleSubmitGroupForm} className="space-y-3">
+                    <div className="space-y-1">
+                      <Label>Nom du groupe</Label>
+                      <Input
+                        value={groupFormData.nom}
+                        onChange={(e) => setGroupFormData((f) => ({ ...f, nom: e.target.value }))}
+                        data-testid="group-form-nom"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Description</Label>
+                      <Textarea
+                        value={groupFormData.description}
+                        onChange={(e) => setGroupFormData((f) => ({ ...f, description: e.target.value }))}
+                        rows={2}
+                        data-testid="group-form-description"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Qui peut écrire ?</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {CHAT_WRITE_LEVELS.map((niveau) => (
+                          <Button
+                            key={niveau}
+                            type="button"
+                            size="sm"
+                            variant={groupFormData.min_niveau_ecriture === niveau ? 'default' : 'outline'}
+                            onClick={() => setGroupFormData((f) => ({ ...f, min_niveau_ecriture: niveau }))}
+                          >
+                            {CHAT_WRITE_LABELS[niveau]}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Messages éphémères</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {EPHEMERAL_OPTIONS.map((opt) => (
+                          <Button
+                            key={opt}
+                            type="button"
+                            size="sm"
+                            variant={groupFormData.ephemeral_mode === opt ? 'default' : 'outline'}
+                            onClick={() => setGroupFormData((f) => ({ ...f, ephemeral_mode: opt }))}
+                          >
+                            {EPHEMERAL_LABELS[opt]}
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Les nouveaux messages de ce groupe seront supprimés automatiquement après ce délai.
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <Button type="button" variant="ghost" onClick={() => setGroupFormOpen(false)}>Annuler</Button>
+                      <Button type="submit" disabled={savingGroup}>
+                        {savingGroup ? <Loader2 className="w-4 h-4 animate-spin" /> : (groupFormMode === 'create' ? 'Créer' : 'Enregistrer')}
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent></Tabs>
     </div>
   );
 }

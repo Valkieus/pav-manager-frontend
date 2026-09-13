@@ -31,7 +31,7 @@ import {
   Radio,
 } from 'lucide-react';
 
-const API = `\${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Niveaux ciblables depuis le formulaire de composition. Les Techniciens ne
 // figurent pas dans cette liste : leur inclusion passe uniquement par
@@ -160,7 +160,7 @@ export default function Communication() {
   const fetchReceived = async () => {
     setLoadingReceived(true);
     try {
-      const res = await axios.get(`\${API}/communications/received`);
+      const res = await axios.get(`${API}/communications/received`);
       setReceived(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       toast.error('Erreur lors du chargement des communications');
@@ -172,7 +172,7 @@ export default function Communication() {
   const fetchSent = async () => {
     setLoadingSent(true);
     try {
-      const res = await axios.get(`\${API}/communications`);
+      const res = await axios.get(`${API}/communications`);
       setSent(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       toast.error("Erreur lors du chargement de l'historique");
@@ -193,7 +193,7 @@ export default function Communication() {
 
   const fetchChat = async () => {
     try {
-      const res = await axios.get(`\${API}/communications/chat`);
+      const res = await axios.get(`${API}/communications/chat`);
       setChatMessages(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       // silencieux : le groupe ne doit pas bruyamment echouer en arriere-plan
@@ -218,7 +218,7 @@ export default function Communication() {
     if (!texte) return;
     setSendingChat(true);
     try {
-      await axios.post(`\${API}/communications/chat`, { message: texte });
+      await axios.post(`${API}/communications/chat`, { message: texte });
       setChatInput('');
       fetchChat();
     } catch (err) {
@@ -230,7 +230,7 @@ export default function Communication() {
 
   const fetchChatSettings = async () => {
     try {
-      const res = await axios.get(`\${API}/communications/chat/settings`);
+      const res = await axios.get(`${API}/communications/chat/settings`);
       setChatSettings(res.data);
     } catch (err) {
       // silencieux : ne bloque pas l'affichage du groupe
@@ -240,7 +240,7 @@ export default function Communication() {
   const handleUpdateChatSettings = async (niveau) => {
     setSavingChatSettings(true);
     try {
-      const res = await axios.put(`\${API}/communications/chat/settings`, { min_niveau_ecriture: niveau });
+      const res = await axios.put(`${API}/communications/chat/settings`, { min_niveau_ecriture: niveau });
       setChatSettings(res.data);
       toast.success('Permissions du groupe mises a jour');
     } catch (err) {
@@ -280,8 +280,8 @@ export default function Communication() {
     }
     setSubmitting(true);
     try {
-      const res = await axios.post(`\${API}/communications`, form);
-      toast.success(`Communication envoyée à \${res.data.nb_destinataires} destinataire(s)`);
+      const res = await axios.post(`${API}/communications`, form);
+      toast.success(`Communication envoyée à ${res.data.nb_destinataires} destinataire(s)`);
       setForm(emptyForm);
       fetchReceived();
       if (tab === 'historique') fetchSent();
@@ -350,7 +350,7 @@ export default function Communication() {
               <p className="text-xs text-muted-foreground truncate">
                 {canWriteChat
                   ? "Discussion ouverte a toute l'equipe"
-                  : `Lecture seule : seuls les \${CHAT_WRITE_LABELS[chatSettings.min_niveau_ecriture] || 'autorises'} peuvent ecrire`}
+                  : `Lecture seule : seuls les ${CHAT_WRITE_LABELS[chatSettings.min_niveau_ecriture] || 'autorises'} peuvent ecrire`}
               </p>
             </div>
             {CAN_MANAGE_CHAT_SETTINGS.includes(user?.niveau_acces) && (
@@ -380,7 +380,7 @@ export default function Communication() {
                   variant={chatSettings.min_niveau_ecriture === niveau ? 'default' : 'outline'}
                   disabled={savingChatSettings}
                   onClick={() => handleUpdateChatSettings(niveau)}
-                  data-testid={`groupchat-perm-\${niveau}`}
+                  data-testid={`groupchat-perm-${niveau}`}
                 >
                   {CHAT_WRITE_LABELS[niveau]}
                 </Button>
@@ -529,20 +529,20 @@ export default function Communication() {
                     const mine = m.auteur_id === user?.id;
                     const style = senderStyle(m.auteur_nom);
                     return (
-                      <div key={m.id} className={`flex items-end gap-2 \${mine ? 'justify-end' : 'justify-start'}`}>
+                      <div key={m.id} className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
                         {!mine && (
-                          <div className={`w-7 h-7 rounded-full \${style.bg} text-white text-[10px] font-bold flex items-center justify-center shrink-0 mb-4`}>
+                          <div className={`w-7 h-7 rounded-full ${style.bg} text-white text-[10px] font-bold flex items-center justify-center shrink-0 mb-4`}>
                             {initials(m.auteur_nom)}
                           </div>
                         )}
                         <div className="flex flex-col max-w-[75%]">
-                          <div className={`rounded-2xl px-3 py-2 \${mine ? 'bg-primary text-primary-foreground rounded-br-sm' : 'bg-muted rounded-bl-sm'}`}>
+                          <div className={`rounded-2xl px-3 py-2 ${mine ? 'bg-primary text-primary-foreground rounded-br-sm' : 'bg-muted rounded-bl-sm'}`}>
                             {!mine && (
-                              <p className={`text-xs font-semibold mb-1 \${style.text}`}>{m.auteur_nom}</p>
+                              <p className={`text-xs font-semibold mb-1 ${style.text}`}>{m.auteur_nom}</p>
                             )}
                             <p className="text-sm whitespace-pre-wrap break-words">{m.message}</p>
                           </div>
-                          <p className={`text-[10px] text-muted-foreground mt-1 \${mine ? 'text-right' : 'text-left'}`}>{formatDate(m.created_at)}</p>
+                          <p className={`text-[10px] text-muted-foreground mt-1 ${mine ? 'text-right' : 'text-left'}`}>{formatDate(m.created_at)}</p>
                         </div>
                       </div>
                     );

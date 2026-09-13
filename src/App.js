@@ -24,6 +24,7 @@ const Formations = lazy(() => import("./pages/Formations"));
 const Salles = lazy(() => import("./pages/Salles"));
 const Documents = lazy(() => import("./pages/Documents"));
 const Administration = lazy(() => import("./pages/Administration"));
+const Communication = lazy(() => import("./pages/Communication"));
 const PublicReservation = lazy(() => import("./pages/PublicReservation"));
 
 const PageLoader = () => (
@@ -92,6 +93,7 @@ function AppRoutes() {
       <Route path="/salles" element={<ProtectedRoute><Salles /></ProtectedRoute>} />
       <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
       <Route path="/administration" element={<ProtectedRoute><Administration /></ProtectedRoute>} />
+<Route path="/communication" element={<ProtectedRoute><Communication /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </Suspense>

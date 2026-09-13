@@ -26,12 +26,12 @@ import {
   Calendar,
   Users,
   Building2,
-  MessageCircle,
   Settings,
-  Lock
+  Lock,
+  Radio,
 } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = \`\${process.env.REACT_APP_BACKEND_URL}/api\`;
 
 // Niveaux ciblables depuis le formulaire de composition. Les Techniciens ne
 // figurent pas dans cette liste : leur inclusion passe uniquement par
@@ -50,6 +50,34 @@ const CHAT_WRITE_LABELS = {
   Technicien: 'Tout le monde',
   Responsable: 'Responsable et plus',
   Gestionnaire: 'Gestionnaire et plus',
+};
+
+// Palette a la WhatsApp : chaque participant du groupe recoit une couleur
+// stable (nom + avatar) deduite d'un hash simple de son nom.
+const AVATAR_PALETTE = [
+  { bg: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
+  { bg: 'bg-sky-500', text: 'text-sky-600 dark:text-sky-400' },
+  { bg: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
+  { bg: 'bg-fuchsia-500', text: 'text-fuchsia-600 dark:text-fuchsia-400' },
+  { bg: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400' },
+  { bg: 'bg-teal-500', text: 'text-teal-600 dark:text-teal-400' },
+  { bg: 'bg-orange-500', text: 'text-orange-600 dark:text-orange-400' },
+  { bg: 'bg-cyan-500', text: 'text-cyan-600 dark:text-cyan-400' },
+];
+
+const senderStyle = (name) => {
+  if (!name) return AVATAR_PALETTE[0];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) % 1000003;
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+};
+
+const initials = (name) => {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  const first = (parts[0] || '')[0] || '';
+  const second = parts.length > 1 ? (parts[1] || '')[0] || '' : '';
+  return (first + second).toUpperCase();
 };
 
 const emptyForm = {
@@ -132,7 +160,7 @@ export default function Communication() {
   const fetchReceived = async () => {
     setLoadingReceived(true);
     try {
-      const res = await axios.get(`${API}/communications/received`);
+      const res = await axios.get(\`\${API}/communications/received\`);
       setReceived(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       toast.error('Erreur lors du chargement des communications');
@@ -144,7 +172,7 @@ export default function Communication() {
   const fetchSent = async () => {
     setLoadingSent(true);
     try {
-      const res = await axios.get(`${API}/communications`);
+      const res = await axios.get(\`\${API}/communications\`);
       setSent(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       toast.error("Erreur lors du chargement de l'historique");
@@ -165,10 +193,10 @@ export default function Communication() {
 
   const fetchChat = async () => {
     try {
-      const res = await axios.get(`${API}/communications/chat`);
+      const res = await axios.get(\`\${API}/communications/chat\`);
       setChatMessages(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      // silencieux : le groupchat ne doit pas bruyamment echouer en arriere-plan
+      // silencieux : le groupe ne doit pas bruyamment echouer en arriere-plan
     } finally {
       setChatLoading(false);
     }
@@ -190,7 +218,7 @@ export default function Communication() {
     if (!texte) return;
     setSendingChat(true);
     try {
-      await axios.post(`${API}/communications/chat`, { message: texte });
+      await axios.post(\`\${API}/communications/chat\`, { message: texte });
       setChatInput('');
       fetchChat();
     } catch (err) {
@@ -202,19 +230,19 @@ export default function Communication() {
 
   const fetchChatSettings = async () => {
     try {
-      const res = await axios.get(`${API}/communications/chat/settings`);
+      const res = await axios.get(\`\${API}/communications/chat/settings\`);
       setChatSettings(res.data);
     } catch (err) {
-      // silencieux : ne bloque pas l'affichage du chat
+      // silencieux : ne bloque pas l'affichage du groupe
     }
   };
 
   const handleUpdateChatSettings = async (niveau) => {
     setSavingChatSettings(true);
     try {
-      const res = await axios.put(`${API}/communications/chat/settings`, { min_niveau_ecriture: niveau });
+      const res = await axios.put(\`\${API}/communications/chat/settings\`, { min_niveau_ecriture: niveau });
       setChatSettings(res.data);
-      toast.success('Permissions du groupchat mises a jour');
+      toast.success('Permissions du groupe mises a jour');
     } catch (err) {
       toast.error(err.response?.data?.detail || "Erreur lors de la mise a jour");
     } finally {
@@ -252,8 +280,8 @@ export default function Communication() {
     }
     setSubmitting(true);
     try {
-      const res = await axios.post(`${API}/communications`, form);
-      toast.success(`Communication envoyée à ${res.data.nb_destinataires} destinataire(s)`);
+      const res = await axios.post(\`\${API}/communications\`, form);
+      toast.success(\`Communication envoyée à \${res.data.nb_destinataires} destinataire(s)\`);
       setForm(emptyForm);
       fetchReceived();
       if (tab === 'historique') fetchSent();
@@ -264,16 +292,19 @@ export default function Communication() {
     }
   };
 
+  const showChaineHeader = tab === 'recues' || tab === 'envoyer' || tab === 'historique';
+  const showGroupeHeader = tab === 'groupchat';
+
   return (
     <div className="space-y-6" data-testid="communication-page">
       <div>
         <h1 className="text-2xl font-bold">Communication</h1>
-        <p className="text-muted-foreground">Portail d'equipe : annonces ciblees et groupchat</p>
+        <p className="text-muted-foreground">Une chaine pour les annonces, un groupe pour discuter</p>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-2 self-center hidden sm:inline">Annonces</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-2 self-center hidden sm:inline">Chaine</span>
           <TabsTrigger value="recues" className="flex items-center gap-2">
             <Inbox className="w-4 h-4" />
             Reçues
@@ -292,10 +323,71 @@ export default function Communication() {
           )}
           <span className="w-px h-5 bg-border mx-1 self-center" aria-hidden="true" />
           <TabsTrigger value="groupchat" className="flex items-center gap-2">
-            <MessageCircle className="w-4 h-4" />
-            Groupchat
+            <Users className="w-4 h-4" />
+            Groupe
           </TabsTrigger>
         </TabsList>
+
+        {showChaineHeader && (
+          <div className="mt-4 flex items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3">
+            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
+              <Radio className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-sm truncate">Chaine PAV Manager</p>
+              <p className="text-xs text-muted-foreground">Diffusion officielle - toute l'equipe est abonnee</p>
+            </div>
+          </div>
+        )}
+
+        {showGroupeHeader && (
+          <div className="mt-4 flex items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3">
+            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0">
+              <Users className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-sm truncate">Groupe PAV Manager</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {canWriteChat
+                  ? "Discussion ouverte a toute l'equipe"
+                  : \`Lecture seule : seuls les \${CHAT_WRITE_LABELS[chatSettings.min_niveau_ecriture] || 'autorises'} peuvent ecrire\`}
+              </p>
+            </div>
+            {CAN_MANAGE_CHAT_SETTINGS.includes(user?.niveau_acces) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0 h-8 w-8"
+                onClick={() => setChatSettingsOpen((v) => !v)}
+                data-testid="groupchat-settings-toggle"
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        )}
+
+        {showGroupeHeader && chatSettingsOpen && CAN_MANAGE_CHAT_SETTINGS.includes(user?.niveau_acces) && (
+          <div className="mt-2 rounded-xl border border-border bg-muted/30 px-4 py-3 space-y-2">
+            <p className="text-xs font-medium">Qui peut ecrire dans ce groupe ?</p>
+            <div className="flex flex-wrap gap-2">
+              {CHAT_WRITE_LEVELS.map((niveau) => (
+                <Button
+                  key={niveau}
+                  type="button"
+                  size="sm"
+                  variant={chatSettings.min_niveau_ecriture === niveau ? 'default' : 'outline'}
+                  disabled={savingChatSettings}
+                  onClick={() => handleUpdateChatSettings(niveau)}
+                  data-testid={\`groupchat-perm-\${niveau}\`}
+                >
+                  {CHAT_WRITE_LABELS[niveau]}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <TabsContent value="recues" className="mt-4 space-y-4">
           {loadingReceived ? (
@@ -422,45 +514,6 @@ export default function Communication() {
         <TabsContent value="groupchat" className="mt-4">
           <Card>
             <CardContent className="p-0 flex flex-col h-[60vh]">
-              <div className="px-4 py-2 border-b border-border flex items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">
-                  {canWriteChat
-                    ? 'Discussion ouverte. Les messages sont automatiquement supprimes au bout de 30 jours.'
-                    : `Lecture seule : seuls les ${CHAT_WRITE_LABELS[chatSettings.min_niveau_ecriture] || 'autorises'} peuvent ecrire ici. Les messages sont automatiquement supprimes au bout de 30 jours.`}
-                </p>
-                {CAN_MANAGE_CHAT_SETTINGS.includes(user?.niveau_acces) && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 h-7 w-7"
-                    onClick={() => setChatSettingsOpen((v) => !v)}
-                    data-testid="groupchat-settings-toggle"
-                  >
-                    <Settings className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-              {chatSettingsOpen && CAN_MANAGE_CHAT_SETTINGS.includes(user?.niveau_acces) && (
-                <div className="px-4 py-3 border-b border-border bg-muted/30 space-y-2">
-                  <p className="text-xs font-medium">Qui peut ecrire dans ce groupchat ?</p>
-                  <div className="flex flex-wrap gap-2">
-                    {CHAT_WRITE_LEVELS.map((niveau) => (
-                      <Button
-                        key={niveau}
-                        type="button"
-                        size="sm"
-                        variant={chatSettings.min_niveau_ecriture === niveau ? 'default' : 'outline'}
-                        disabled={savingChatSettings}
-                        onClick={() => handleUpdateChatSettings(niveau)}
-                        data-testid={`groupchat-perm-${niveau}`}
-                      >
-                        {CHAT_WRITE_LABELS[niveau]}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {chatLoading ? (
                   <div className="flex items-center justify-center h-full">
@@ -468,21 +521,32 @@ export default function Communication() {
                   </div>
                 ) : chatMessages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center">
-                    <MessageCircle className="w-10 h-10 text-muted-foreground/50 mb-3" />
+                    <Users className="w-10 h-10 text-muted-foreground/50 mb-3" />
                     <p className="text-muted-foreground text-sm">Aucun message pour le moment. Lancez la discussion !</p>
                   </div>
                 ) : (
-                  chatMessages.map((m) => (
-                    <div key={m.id} className={`flex flex-col ${m.auteur_id === user?.id ? 'items-end' : 'items-start'}`}>
-                      <div className={`max-w-[75%] rounded-lg px-3 py-2 ${m.auteur_id === user?.id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                        {m.auteur_id !== user?.id && (
-                          <p className="text-xs font-semibold mb-1 opacity-80">{m.auteur_nom}</p>
+                  chatMessages.map((m) => {
+                    const mine = m.auteur_id === user?.id;
+                    const style = senderStyle(m.auteur_nom);
+                    return (
+                      <div key={m.id} className={\`flex items-end gap-2 \${mine ? 'justify-end' : 'justify-start'}\`}>
+                        {!mine && (
+                          <div className={\`w-7 h-7 rounded-full \${style.bg} text-white text-[10px] font-bold flex items-center justify-center shrink-0 mb-4\`}>
+                            {initials(m.auteur_nom)}
+                          </div>
                         )}
-                        <p className="text-sm whitespace-pre-wrap break-words">{m.message}</p>
+                        <div className="flex flex-col max-w-[75%]">
+                          <div className={\`rounded-2xl px-3 py-2 \${mine ? 'bg-primary text-primary-foreground rounded-br-sm' : 'bg-muted rounded-bl-sm'}\`}>
+                            {!mine && (
+                              <p className={\`text-xs font-semibold mb-1 \${style.text}\`}>{m.auteur_nom}</p>
+                            )}
+                            <p className="text-sm whitespace-pre-wrap break-words">{m.message}</p>
+                          </div>
+                          <p className={\`text-[10px] text-muted-foreground mt-1 \${mine ? 'text-right' : 'text-left'}\`}>{formatDate(m.created_at)}</p>
+                        </div>
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-1">{formatDate(m.created_at)}</p>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
               {canWriteChat ? (

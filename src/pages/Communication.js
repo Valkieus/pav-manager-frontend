@@ -162,7 +162,7 @@ export default function Communication() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageInput, setMessageInput] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [mentionable, setMentionable] = useState({ users: [], roles: [], postes: [] });
+  const [mentionable, setMentionable] = useState({ users: [], roles: [], postes: [], specials: [] });
   const [mentionQuery, setMentionQuery] = useState(null);
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingText, setEditingText] = useState('');
@@ -243,6 +243,7 @@ export default function Communication() {
         users: (res.data && res.data.users) || [],
         roles: (res.data && res.data.roles) || [],
         postes: (res.data && res.data.postes) || [],
+        specials: (res.data && res.data.specials) || [],
       });
     } catch (err) {
       // silencieux
@@ -393,7 +394,7 @@ export default function Communication() {
     const parts = String(text || '').split(/(@[\w\-']+)/g);
     return parts.map((part, i) => {
       if (part.charAt(0) === '@' && part.length > 1) {
-        return <span key={i} className="font-semibold text-indigo-600 dark:text-indigo-400">{part}</span>;
+        const isPav = part.toLowerCase() === '@pav'; return <span key={i} className={isPav ? 'font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded px-1' : 'font-semibold text-indigo-600 dark:text-indigo-400'}>{part}</span>;
       }
       return <span key={i}>{part}</span>;
     });
@@ -405,7 +406,8 @@ export default function Communication() {
     const usersList = mentionable.users.map((u) => Object.assign({}, u, { kind: 'user' }));
     const rolesList = mentionable.roles.map((r) => Object.assign({}, r, { kind: 'role' }));
     const postesList = mentionable.postes.map((p) => Object.assign({}, p, { kind: 'poste' }));
-    const all = usersList.concat(rolesList, postesList);
+    const specialsList = (mentionable.specials || []).map((s) => Object.assign({}, s, { kind: 'special' }));
+    const all = specialsList.concat(usersList, rolesList, postesList);
     return all.filter((item) => item.nom.toLowerCase().indexOf(q) !== -1).slice(0, 8);
   })();
 
@@ -788,13 +790,13 @@ export default function Communication() {
                             <button
                               type="button"
                               key={item.kind + "-" + item.id}
-                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted flex items-center gap-2"
+                              className={"w-full text-left px-3 py-1.5 text-sm hover:bg-muted flex items-center gap-2" + (item.kind === 'special' ? ' text-amber-600 dark:text-amber-400 font-medium' : '')}
                               onClick={() => selectMention(item.nom)}
                             >
                               <span className="text-xs text-muted-foreground">
-                                {item.kind === 'user' ? '@' : item.kind === 'role' ? '#' : '~'}
+                                {item.kind === 'special' ? '@' : item.kind === 'user' ? '@' : item.kind === 'role' ? '#' : '~'}
                               </span>
-                              {item.nom}
+                              {item.kind === 'special' ? ('Tout le monde (' + item.nom + ')') : item.nom}
                             </button>
                           ))}
                         </div>

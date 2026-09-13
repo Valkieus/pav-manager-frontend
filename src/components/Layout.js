@@ -53,7 +53,8 @@ import {
   Sparkles,
   BellRing,
   BellOff,
-  Copy
+  Copy,
+  MessageSquare
 } from 'lucide-react';
 import { isPushSupported, getPushSubscriptionState, subscribeToPush, unsubscribeFromPush } from '../utils/push';
 
@@ -135,6 +136,7 @@ const navItems = [
   { path: '/devis', icon: FileText, label: 'Devis & Achat', minRole: 'Responsable' },
   { path: '/formations', icon: GraduationCap, label: 'Formations', minRole: 'Technicien' },
   { path: '/documents', icon: FolderOpen, label: 'Base de connaissance', minRole: 'Technicien' },
+  { path: '/communication', icon: MessageSquare, label: 'Communication', minRole: 'Technicien' },
   { path: '/administration', icon: Settings, label: 'Administration', minRole: 'Gestionnaire' },
 ];
 

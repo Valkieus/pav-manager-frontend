@@ -102,7 +102,7 @@ const formatDate = (iso) => {
   }
 };
 
-const CommunicationCard = ({ comm, showDestinataires }) => (
+const CommunicationCard = ({ comm, showDestinataires, user, onDelete }) => (
   <Card className="card-hover animate-fadeIn">
     <CardContent className="p-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
@@ -139,6 +139,11 @@ const CommunicationCard = ({ comm, showDestinataires }) => (
           <Badge variant="outline" className="text-[10px]">Techniciens inclus</Badge>
         )}
       </div>
+          {onDelete && ((user && comm.expediteur_id === user.id) || (user && user.niveau_acces === 'Super Admin')) && (
+        <button type="button" className="text-xs text-red-500 underline mt-1" onClick={() => onDelete(comm.id)} data-testid="delete-comm-btn">
+          supprimer
+        </button>
+      )}
     </CardContent>
   </Card>
 );
@@ -325,6 +330,27 @@ export default function Communication() {
       fetchMessages(activeGroupId);
     } catch (err) {
       toast.error((err.response && err.response.data && err.response.data.detail) || "Modification impossible");
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!window.confirm('Supprimer ce message ?')) return;
+    try {
+      await axios.delete(API + '/communications/discussions/messages/' + messageId);
+      fetchMessages(activeGroupId);
+    } catch (err) {
+      toast.error((err.response && err.response.data && err.response.data.detail) || 'Suppression impossible');
+    }
+  };
+
+  const handleDeleteCommunication = async (id) => {
+    if (!window.confirm('Supprimer ce message ?')) return;
+    try {
+      await axios.delete(API + '/communications/' + id);
+      fetchReceived();
+      fetchSent();
+    } catch (err) {
+      toast.error((err.response && err.response.data && err.response.data.detail) || 'Suppression impossible');
     }
   };
 
@@ -523,7 +549,7 @@ export default function Communication() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {received.map((c) => (
-                <CommunicationCard key={c.id} comm={c} />
+                <CommunicationCard key={c.id} comm={c} user={user} onDelete={handleDeleteCommunication} />
               ))}
             </div>
           )}
@@ -624,7 +650,7 @@ export default function Communication() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {sent.map((c) => (
-                  <CommunicationCard key={c.id} comm={c} showDestinataires />
+                  <CommunicationCard key={c.id} comm={c} showDestinataires user={user} onDelete={handleDeleteCommunication} />
                 ))}
               </div>
             )}
@@ -772,6 +798,11 @@ export default function Communication() {
                                         modifier
                                       </button>
                                     )}
+                            {((mine && editable) || (user && user.niveau_acces === 'Super Admin')) && (
+                              <button type="button" className="underline text-red-500" onClick={() => handleDeleteMessage(msg.id)} data-testid="delete-message-btn">
+                                            supprimer
+                                            </button>
+                            )}
                                   </div>
                                 </>
                               )}

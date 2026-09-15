@@ -89,7 +89,7 @@ const SUPERVISED_COLLECTIONS_FRONT = [
   'users', 'techniciens', 'planning', 'absences', 'formations',
   'formation_suggestions', 'devis', 'fournisseurs', 'materiel', 'salles',
   'creneaux', 'reservations', 'notifications', 'logs', 'groups',
-  'actualites', 'documents', 'organigramme', 'settings',
+  'actualites', 'documents', 'organigramme', 'settings', 'communications', 'communication_chat',
 ];
 
 // Pages that can individually be put into maintenance (mirrors Layout.js navItems)
@@ -104,6 +104,7 @@ const MAINTENANCE_PAGES = [
   { path: '/devis', label: 'Devis & Achat' },
   { path: '/formations', label: 'Formations' },
   { path: '/documents', label: 'Base de connaissance' },
+  { path: '/communication', label: 'Communication' },
 ];
 
 // Roles that can be individually targeted by a maintenance activation.

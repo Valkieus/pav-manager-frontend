@@ -46,7 +46,8 @@ const BRANCHES = ['Supervision', 'Coordination', 'Production', 'Live', 'Animatio
 const CAN_COMPOSE = ['Responsable', 'Gestionnaire', 'Admin', 'Super Admin'];
 const CAN_VIEW_HISTORY = ['Responsable', 'Gestionnaire', 'Admin (lecture seule)', 'Admin', 'Super Admin'];
 const CAN_MANAGE_CHAT_SETTINGS = ['Gestionnaire', 'Admin', 'Super Admin'];
-const CAN_MANAGE_GROUPS = ['Admin', 'Super Admin'];
+const CAN_MANAGE_GROUPS = ['Gestionnaire', 'Admin', 'Super Admin'];
+const CAN_MODERATE_MESSAGES = ['Gestionnaire', 'Admin', 'Super Admin'];
 const EPHEMERAL_OPTIONS = ['off', '24h', '7j', '90j'];
 const EPHEMERAL_LABELS = { off: 'Désactivé', '24h': '24 heures', '7j': '7 jours', '90j': '90 jours' };
 // Doit rester en phase avec NIVEAUX_ACCES cote backend (ordre hierarchique).
@@ -139,7 +140,7 @@ const CommunicationCard = ({ comm, showDestinataires, user, onDelete }) => (
           <Badge variant="outline" className="text-[10px]">Techniciens inclus</Badge>
         )}
       </div>
-          {onDelete && ((user && comm.expediteur_id === user.id) || (user && user.niveau_acces === 'Super Admin')) && (
+          {onDelete && ((user && comm.expediteur_id === user.id) || (user && CAN_MODERATE_MESSAGES.includes(user.niveau_acces))) && (
         <button type="button" className="text-xs text-red-500 underline mt-1" onClick={() => onDelete(comm.id)} data-testid="delete-comm-btn">
           supprimer
         </button>
@@ -798,7 +799,7 @@ export default function Communication() {
                                         modifier
                                       </button>
                                     )}
-                            {((mine && editable) || (user && user.niveau_acces === 'Super Admin')) && (
+                            {((mine && editable) || (user && CAN_MODERATE_MESSAGES.includes(user.niveau_acces))) && (
                               <button type="button" className="underline text-red-500" onClick={() => handleDeleteMessage(msg.id)} data-testid="delete-message-btn">
                                             supprimer
                                             </button>

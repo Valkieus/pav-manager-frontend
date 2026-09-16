@@ -1,12 +1,17 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { useAuth } from "../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -14,14 +19,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '../components/ui/dialog';
+} from "../components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../components/ui/select';
+} from "../components/ui/select";
 import {
   Table,
   TableBody,
@@ -29,25 +34,17 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../components/ui/table';
-import { toast } from 'sonner';
-import { 
-  Plus, 
-  Users, 
-  Loader2,
-  Trash2,
-  Shield,
-  UserCheck
-} from 'lucide-react';
+} from "../components/ui/table";
+import { toast } from "sonner";
+import { Plus, Users, Loader2, Trash2, Shield, UserCheck } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const roles = [
-  'Supervision',
-  'Responsable PAV',
-  'Responsable de Branche',
-  'Coordination',
-  'Gestionnaire'
+  "Supervision",
+  "Responsable PAV",
+  "Responsable de Branche",
+  "Coordination",
 ];
 
 export default function UsersManagement() {
@@ -58,16 +55,16 @@ export default function UsersManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
-    username: '',
-    password: '',
-    full_name: '',
-    role: ''
+    username: "",
+    password: "",
+    full_name: "",
+    role: "",
   });
 
   useEffect(() => {
     if (!isSupervision()) {
-      toast.error('Accès réservé à la Supervision');
-      navigate('/');
+      toast.error("Accès réservé à la Supervision");
+      navigate("/");
       return;
     }
     fetchUsers();
@@ -78,7 +75,7 @@ export default function UsersManagement() {
       const res = await axios.get(`${API}/auth/users`);
       setUsers(res.data);
     } catch (err) {
-      toast.error('Erreur lors du chargement');
+      toast.error("Erreur lors du chargement");
     } finally {
       setLoading(false);
     }
@@ -89,37 +86,39 @@ export default function UsersManagement() {
     setSubmitting(true);
     try {
       await axios.post(`${API}/auth/users`, form);
-      toast.success('Utilisateur créé');
+      toast.success("Utilisateur créé");
       setDialogOpen(false);
-      setForm({ username: '', password: '', full_name: '', role: '' });
+      setForm({ username: "", password: "", full_name: "", role: "" });
       fetchUsers();
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Erreur');
+      toast.error(err.response?.data?.detail || "Erreur");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer cet utilisateur ?')) return;
+    if (!window.confirm("Supprimer cet utilisateur ?")) return;
     try {
       await axios.delete(`${API}/auth/users/${id}`);
-      toast.success('Utilisateur supprimé');
+      toast.success("Utilisateur supprimé");
       fetchUsers();
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Erreur');
+      toast.error(err.response?.data?.detail || "Erreur");
     }
   };
 
   const getRoleBadge = (role) => {
     const colors = {
-      'Supervision': 'bg-primary/10 text-primary',
-      'Responsable PAV': 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400',
-      'Responsable de Branche': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-      'Coordination': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-      'Gestionnaire': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+      Supervision: "bg-primary/10 text-primary",
+      "Responsable PAV":
+        "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400",
+      "Responsable de Branche":
+        "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+      Coordination:
+        "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
     };
-    return <Badge className={colors[role] || 'bg-muted'}>{role}</Badge>;
+    return <Badge className={colors[role] || "bg-muted"}>{role}</Badge>;
   };
 
   return (
@@ -128,12 +127,17 @@ export default function UsersManagement() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Gestion des Utilisateurs</h1>
-          <p className="text-muted-foreground">Administrez les comptes utilisateurs</p>
+          <p className="text-muted-foreground">
+            Administrez les comptes utilisateurs
+          </p>
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="shadow-lg shadow-primary/20" data-testid="add-user-btn">
+            <Button
+              className="shadow-lg shadow-primary/20"
+              data-testid="add-user-btn"
+            >
               <Plus className="w-4 h-4 mr-2" />
               Nouvel utilisateur
             </Button>
@@ -151,7 +155,9 @@ export default function UsersManagement() {
                 <Input
                   id="username"
                   value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, username: e.target.value })
+                  }
                   required
                   data-testid="user-username"
                 />
@@ -162,7 +168,9 @@ export default function UsersManagement() {
                   id="password"
                   type="password"
                   value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, password: e.target.value })
+                  }
                   required
                   data-testid="user-password"
                 />
@@ -172,7 +180,9 @@ export default function UsersManagement() {
                 <Input
                   id="full_name"
                   value={form.full_name}
-                  onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, full_name: e.target.value })
+                  }
                   required
                   data-testid="user-fullname"
                 />
@@ -188,13 +198,22 @@ export default function UsersManagement() {
                   </SelectTrigger>
                   <SelectContent>
                     {roles.map((role) => (
-                      <SelectItem key={role} value={role}>{role}</SelectItem>
+                      <SelectItem key={role} value={role}>
+                        {role}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" className="w-full" disabled={submitting} data-testid="user-submit">
-                {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={submitting}
+                data-testid="user-submit"
+              >
+                {submitting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
                 Créer l'utilisateur
               </Button>
             </form>
@@ -228,24 +247,30 @@ export default function UsersManagement() {
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                           <span className="text-primary text-sm font-medium">
-                            {u.full_name?.charAt(0) || 'U'}
+                            {u.full_name?.charAt(0) || "U"}
                           </span>
                         </div>
                         <span className="font-medium">{u.username}</span>
                         {u.id === currentUser?.id && (
-                          <Badge variant="outline" className="text-xs">Vous</Badge>
+                          <Badge variant="outline" className="text-xs">
+                            Vous
+                          </Badge>
                         )}
                       </div>
                     </TableCell>
                     <TableCell>{u.full_name}</TableCell>
                     <TableCell>{getRoleBadge(u.role)}</TableCell>
                     <TableCell>
-                      <Badge className={u.is_active ? 'status-validated' : 'status-rejected'}>
-                        {u.is_active ? 'Actif' : 'Inactif'}
+                      <Badge
+                        className={
+                          u.is_active ? "status-validated" : "status-rejected"
+                        }
+                      >
+                        {u.is_active ? "Actif" : "Inactif"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(u.created_at).toLocaleDateString('fr-FR')}
+                      {new Date(u.created_at).toLocaleDateString("fr-FR")}
                     </TableCell>
                     <TableCell className="text-right">
                       {u.id !== currentUser?.id && (

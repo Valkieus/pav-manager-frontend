@@ -31,7 +31,7 @@ export default function Confidentialite() {
             <p className="text-sm text-muted-foreground">
               Dernière mise à jour : juillet 2026. Cette page décrit, conformément au Règlement Général sur la
               Protection des Données (RGPD), comment PAV Manager traite les données personnelles des techniciens,
-              gestionnaires et personnes réservant une salle.
+              de la Coordination et des personnes réservant une salle.
             </p>
 
             <Section title="1. Responsable de traitement">
@@ -49,16 +49,16 @@ export default function Confidentialite() {
                 <li>Données professionnelles : branche(s), sous-branche(s), niveau technicien, niveau d'accès, badge.</li>
                 <li>Données de planning : affectations, absences déclarées, notes internes.</li>
                 <li>Données de gestion : devis, demandes de formation, réservations de salle (y compris pour les
-                  personnes externes au PAV qui réservent via un lien de partage).</li>
+                personnes externes au PAV qui réservent via un lien de partage).</li>
                 <li>Journal technique : identifiant de connexion, actions effectuées et horodatage (journal
-                  d'activité), à des fins de sécurité et de traçabilité.</li>
+                d'activité), à des fins de sécurité et de traçabilité.</li>
               </ul>
             </Section>
 
             <Section title="3. Finalités et bases légales">
               <ul className="list-disc pl-5 space-y-1">
                 <li>Gestion des plannings et des ressources humaines du département — exécution des missions internes
-                  du PAV / intérêt légitime.</li>
+                du PAV / intérêt légitime.</li>
                 <li>Gestion des devis, formations et réservations de salle — intérêt légitime de gestion administrative.</li>
                 <li>Sécurité applicative (journal d'activité, contrôle d'accès par rôle) — intérêt légitime.</li>
                 <li>Notifications email automatiques (confirmations, validations, refus) — exécution du service demandé.</li>
@@ -68,10 +68,10 @@ export default function Confidentialite() {
             <Section title="4. Durées de conservation">
               <ul className="list-disc pl-5 space-y-1">
                 <li>Fiches techniciens et comptes : conservés tant que la personne est active au sein du département,
-                  puis archivés ou supprimés sur demande.</li>
+                puis archivés ou supprimés sur demande.</li>
                 <li>Journal d'activité (logs) : purgé automatiquement après 12 mois.</li>
                 <li>Réservations de salle, devis, formations : conservés à des fins d'historique de gestion, archivables
-                  par un administrateur.</li>
+                par un administrateur.</li>
               </ul>
             </Section>
 
@@ -88,11 +88,11 @@ export default function Confidentialite() {
               <p>Conformément au RGPD, vous disposez des droits suivants sur vos données :</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li><b>Droit d'accès et de portabilité</b> : téléchargez l'ensemble de vos données depuis « Mon espace »
-                  (bouton « Télécharger mes données »).</li>
-                <li><b>Droit de rectification</b> : demandez la correction de vos informations auprès d'un Gestionnaire
-                  ou Super Admin.</li>
+                (bouton « Télécharger mes données »).</li>
+                <li><b>Droit de rectification</b> : demandez la correction de vos informations auprès de la Coordination
+                ou d'un Super Admin.</li>
                 <li><b>Droit à l'effacement</b> : demandez la suppression de votre compte depuis « Mon espace » (bouton
-                  « Demander la suppression de mon compte ») — traitée sous 30 jours par un Super Admin.</li>
+                « Demander la suppression de mon compte ») — traitée sous 30 jours par un Super Admin.</li>
                 <li><b>Droit d'opposition</b> : vous pouvez vous opposer à un traitement en contactant l'administration.</li>
               </ul>
             </Section>

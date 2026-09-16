@@ -298,6 +298,43 @@ function ScopeChecklist({
   );
 }
 
+// Pastille de statut compacte pour le bandeau "vue d'ensemble" de Supervision
+// — un coup d'œil sur la santé globale (vert = ok, rouge = problème,
+// ambre = non configuré/à vérifier, gris = en cours de chargement). Purement
+// présentationnel : dérivé des données déjà chargées par la page
+// (systemStatus / infraStatus / b2Status), aucun appel réseau propre.
+function HealthPill({ icon: Icon, label, status, detail }) {
+  const frame = {
+    ok: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-400",
+    down: "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-900/20 dark:text-red-400",
+    warn: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-900/20 dark:text-amber-400",
+    loading: "border-border bg-muted/40 text-muted-foreground",
+  };
+  const dot = {
+    ok: "bg-emerald-500",
+    down: "bg-red-500",
+    warn: "bg-amber-500",
+    loading: "bg-muted-foreground/40 animate-pulse",
+  };
+  const key = status || "loading";
+  return (
+    <div
+      className={`flex items-center gap-2 p-2.5 rounded-lg border ${frame[key]}`}
+    >
+      <span className={`w-2 h-2 rounded-full shrink-0 ${dot[key]}`} />
+      <Icon className="w-4 h-4 shrink-0" />
+      <div className="min-w-0">
+        <p className="text-xs font-medium leading-tight truncate">{label}</p>
+        {detail && (
+          <p className="text-[10px] opacity-80 truncate leading-tight">
+            {detail}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Administration() {
   const { isSuperAdmin, isAdmin, user: currentUser } = useAuth();
   const navigate = useNavigate();
@@ -1460,8 +1497,7 @@ export default function Administration() {
   // Group -> members handlers (reverse direction of Assign Groups above)
   const openMembersDialog = (group) => {
     setSelectedGroupForMembers(group);
-    setSelectedMembe;
-    rUserIds(
+    setSelectedMemberUserIds(
       users
         .filter((u) => (u.group_ids || []).includes(group.id))
         .map((u) => u.id),
@@ -3282,13 +3318,24 @@ même limite pour éviter un 403 après coup. */}
 
         {/* SUPERVISION TAB */}
         {canViewReadOnlyTabs && (
-          <TabsContent value="supervision" className="space-y-4">
-            <div className="flex items-center justify-end gap-2">
-              <span className="text-xs text-muted-foreground">
-                Mise à jour automatique toutes les 30s
-              </span>
+          <TabsContent value="supervision" className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Activity className="w-4.5 h-4.5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm leading-tight">
+                    Vue d'ensemble
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Mise à jour automatique toutes les 30s
+                  </p>
+                </div>
+              </div>
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => {
                   fetchSystemStatus();
                   fetchInfraStatus();
@@ -3309,7 +3356,75 @@ même limite pour éviter un 403 après coup. */}
               </Button>
             </div>
 
-            {/* INFRASTRUCTURE : backend (Render) + frontend (Netlify), en direct */}
+            {/* Bandeau d'état global — santé de l'app en un coup d'œil */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <HealthPill
+                icon={Server}
+                label="Backend"
+                status={
+                  !infraStatus
+                    ? "loading"
+                    : infraStatus.backend?.ok
+                      ? "ok"
+                      : "down"
+                }
+                detail={infraStatus?.backend?.region}
+              />
+              <HealthPill
+                icon={Cloud}
+                label="Frontend"
+                status={
+                  !infraStatus
+                    ? "loading"
+                    : infraStatus.netlify?.configured === false
+                      ? "warn"
+                      : infraStatus.netlify?.ok
+                        ? "ok"
+                        : "down"
+                }
+                detail={infraStatus?.netlify?.state}
+              />
+              <HealthPill
+                icon={HardDrive}
+                label="Base de données"
+                status={
+                  !systemStatus
+                    ? "loading"
+                    : systemStatus.mongo_connected
+                      ? "ok"
+                      : "down"
+                }
+                detail={
+                  systemStatus
+                    ? formatBytes(systemStatus.db_data_size_bytes)
+                    : undefined
+                }
+              />
+              <HealthPill
+                icon={Cloud}
+                label="Stockage B2"
+                status={
+                  !b2Status
+                    ? "loading"
+                    : b2Status.primary?.configured ||
+                        b2Status.backup?.configured
+                      ? "ok"
+                      : "warn"
+                }
+                detail={
+                  b2Status?.active_account === "primary"
+                    ? "Compte principal actif"
+                    : b2Status?.active_account === "backup"
+                      ? "Compte de secours actif"
+                      : undefined
+                }
+              />
+            </div>
+
+            {/* SECTION : INFRASTRUCTURE — backend (Render) + frontend (Netlify), en direct */}
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2 pt-1">
+              <Cloud className="w-3.5 h-3.5" /> Infrastructure
+            </h3>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -3632,7 +3747,10 @@ même limite pour éviter un 403 après coup. */}
               </DialogContent>
             </Dialog>
 
-            {/* Redondance stockage (Backblaze B2) */}
+            {/* SECTION : REDONDANCE DU STOCKAGE (Backblaze B2) */}
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2 pt-1">
+              <HardDrive className="w-3.5 h-3.5" /> Redondance du stockage
+            </h3>
             <Card>
               <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
                 <div>
@@ -4010,106 +4128,118 @@ même limite pour éviter un 403 après coup. */}
               </div>
             ) : (
               <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Server className="w-5 h-5" /> État général
-                    </CardTitle>
-                    <CardDescription>
-                      Rien ici ne devrait t'inquiéter : l'utilisation actuelle
-                      est très faible. Cette page se met à jour à chaque
-                      ouverture pour que tu puisses vérifier quand tu veux.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
-                        {systemStatus.mongo_connected ? (
-                          <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" />
-                        ) : (
-                          <XCircle className="w-6 h-6 text-red-500 shrink-0" />
-                        )}
-                        <div>
-                          <p className="font-medium text-sm">Base de données</p>
-                          <p className="text-xs text-muted-foreground">
-                            {systemStatus.mongo_connected
-                              ? "Connectée, fonctionne normalement"
-                              : systemStatus.mongo_error ||
-                                "Problème de connexion"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
-                        <Activity className="w-6 h-6 text-primary shrink-0" />
-                        <div>
-                          <p className="font-medium text-sm">
-                            Serveur actif depuis
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatUptime(systemStatus.backend_uptime_seconds)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
-                        <HardDrive className="w-6 h-6 text-primary shrink-0" />
-                        <div>
-                          <p className="font-medium text-sm">
-                            Espace utilisé (données)
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatBytes(systemStatus.db_data_size_bytes)} sur
-                            disque
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Stockage de la base de données</CardTitle>
-                    <CardDescription>
-                      Pour référence : à titre de comparaison, une clé USB fait
-                      généralement 8 000 à 64 000 Mo — l'app utilise aujourd'hui
-                      une fraction infime de cet ordre de grandeur.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                      <div className="p-3 rounded-lg bg-muted/50">
-                        <p className="text-xs text-muted-foreground">Données</p>
-                        <p className="text-lg font-bold">
-                          {formatBytes(systemStatus.db_data_size_bytes)}
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-muted/50">
-                        <p className="text-xs text-muted-foreground">
-                          Sur disque
-                        </p>
-                        <p className="text-lg font-bold">
-                          {formatBytes(systemStatus.db_storage_size_bytes)}
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-muted/50">
-                        <p className="text-xs text-muted-foreground">Index</p>
-                        <p className="text-lg font-bold">
-                          {formatBytes(systemStatus.db_index_size_bytes)}
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-muted/50">
-                        <p className="text-xs text-muted-foreground">
-                          Documents
-                        </p>
-                        <p className="text-lg font-bold">
-                          {(systemStatus.db_objects_count || 0).toLocaleString(
-                            "fr-FR",
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2 pt-1">
+                  <HardDrive className="w-3.5 h-3.5" /> Base de données
+                </h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Server className="w-5 h-5" /> État général
+                      </CardTitle>
+                      <CardDescription>
+                        Rien ici ne devrait t'inquiéter : l'utilisation actuelle
+                        est très faible. Cette page se met à jour à chaque
+                        ouverture pour que tu puisses vérifier quand tu veux.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+                          {systemStatus.mongo_connected ? (
+                            <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" />
+                          ) : (
+                            <XCircle className="w-6 h-6 text-red-500 shrink-0" />
                           )}
-                        </p>
+                          <div>
+                            <p className="font-medium text-sm">
+                              Base de données
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {systemStatus.mongo_connected
+                                ? "Connectée, fonctionne normalement"
+                                : systemStatus.mongo_error ||
+                                  "Problème de connexion"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+                          <Activity className="w-6 h-6 text-primary shrink-0" />
+                          <div>
+                            <p className="font-medium text-sm">
+                              Serveur actif depuis
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatUptime(
+                                systemStatus.backend_uptime_seconds,
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+                          <HardDrive className="w-6 h-6 text-primary shrink-0" />
+                          <div>
+                            <p className="font-medium text-sm">
+                              Espace utilisé (données)
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatBytes(systemStatus.db_data_size_bytes)} sur
+                              disque
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Stockage de la base de données</CardTitle>
+                      <CardDescription>
+                        Pour référence : à titre de comparaison, une clé USB
+                        fait généralement 8 000 à 64 000 Mo — l'app utilise
+                        aujourd'hui une fraction infime de cet ordre de
+                        grandeur.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        <div className="p-3 rounded-lg bg-muted/50">
+                          <p className="text-xs text-muted-foreground">
+                            Données
+                          </p>
+                          <p className="text-lg font-bold">
+                            {formatBytes(systemStatus.db_data_size_bytes)}
+                          </p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-muted/50">
+                          <p className="text-xs text-muted-foreground">
+                            Sur disque
+                          </p>
+                          <p className="text-lg font-bold">
+                            {formatBytes(systemStatus.db_storage_size_bytes)}
+                          </p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-muted/50">
+                          <p className="text-xs text-muted-foreground">Index</p>
+                          <p className="text-lg font-bold">
+                            {formatBytes(systemStatus.db_index_size_bytes)}
+                          </p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-muted/50">
+                          <p className="text-xs text-muted-foreground">
+                            Documents
+                          </p>
+                          <p className="text-lg font-bold">
+                            {(
+                              systemStatus.db_objects_count || 0
+                            ).toLocaleString("fr-FR")}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
 
                 <Card>
                   <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
@@ -4289,6 +4419,10 @@ même limite pour éviter un 403 après coup. */}
                     </div>
                   </CardContent>
                 </Card>
+
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2 pt-1">
+                  <Power className="w-3.5 h-3.5" /> Nettoyage & actions
+                </h3>
 
                 {/* Nettoyage & maintenance */}
                 <Card>

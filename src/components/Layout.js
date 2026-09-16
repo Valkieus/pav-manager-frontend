@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Avatar, AvatarFallback } from './ui/avatar';
-import { Badge } from './ui/badge';
-import { ScrollArea } from './ui/scroll-area';
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import { Badge } from "./ui/badge";
+import { ScrollArea } from "./ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog';
+} from "./ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,16 +23,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from './ui/dropdown-menu';
-import { toast } from 'sonner';
-import axios from 'axios';
-import { 
-  LayoutDashboard, 
-  CalendarDays, 
-  Users, 
+} from "./ui/dropdown-menu";
+import { toast } from "sonner";
+import axios from "axios";
+import {
+  LayoutDashboard,
+  CalendarDays,
+  Users,
   Package,
-  FileText, 
-  GraduationCap, 
+  FileText,
+  GraduationCap,
   Settings,
   Menu,
   Sun,
@@ -54,9 +54,14 @@ import {
   BellRing,
   BellOff,
   Copy,
-  MessageSquare
-} from 'lucide-react';
-import { isPushSupported, getPushSubscriptionState, subscribeToPush, unsubscribeFromPush } from '../utils/push';
+  MessageSquare,
+} from "lucide-react";
+import {
+  isPushSupported,
+  getPushSubscriptionState,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "../utils/push";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -64,8 +69,8 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // shown once (right after login / the forced password-change popup),
 // dismissed permanently via the "onboarding_seen" flag on the account.
 const ONBOARDING_CONTENT = {
-  'Technicien': {
-    title: 'Bienvenue sur PAV Manager !',
+  Technicien: {
+    title: "Bienvenue sur PAV Manager !",
     points: [
       "Ton tableau de bord affiche tes prochains services et les invités à venir.",
       "Une absence à venir ? Déclare-la en un clic depuis « Mon espace ».",
@@ -73,40 +78,40 @@ const ONBOARDING_CONTENT = {
       "La cloche en haut à droite te prévient dès qu'il y a du nouveau.",
     ],
   },
-  'Gestionnaire': {
-    title: 'Bienvenue, Gestionnaire PAV !',
+  Coordination: {
+    title: "Bienvenue à la Coordination PAV !",
     points: [
       "Tu peux gérer le Planning, les Devis, les Salles et les Formations selon tes branches.",
       "La cloche en haut à droite signale les demandes qui nécessitent ton attention.",
       "Ton tableau de bord se limite aux branches qui te sont attribuées.",
     ],
   },
-  'Responsable': {
-    title: 'Bienvenue, Responsable !',
+  Responsable: {
+    title: "Bienvenue, Responsable !",
     points: [
       "Tu interviens en validation finale sur les Formations et supervises tes branches.",
       "Le tableau de bord te donne une vue d'ensemble : Devis, Formations, Effectif, Salles.",
       "La cloche en haut à droite regroupe toutes les notifications qui te concernent.",
     ],
   },
-  'Admin': {
-    title: 'Bienvenue, Administrateur !',
+  Admin: {
+    title: "Bienvenue, Administrateur !",
     points: [
       "Tu as accès en écriture à l'ensemble du département : Effectif, Planning, Devis, Salles, Documents, Actualités, Formations.",
       "L'onglet Administration te permet de gérer les utilisateurs, les groupes et les droits d'accès.",
       "Le redémarrage serveur, la purge des logs, la migration de données, le quota de stockage et le mode maintenance restent réservés au Super Admin.",
     ],
   },
-  'Admin (lecture seule)': {
-    title: 'Bienvenue, Administrateur (lecture seule) !',
+  "Admin (lecture seule)": {
+    title: "Bienvenue, Administrateur (lecture seule) !",
     points: [
       "Tu as une vue d'ensemble complète du département, sans restriction de branche.",
       "L'onglet Administration te permet de consulter les journaux d'activité et la supervision du système.",
       "Ton accès est en lecture seule : les actions de création, modification et suppression ne sont pas disponibles.",
     ],
   },
-  'Super Admin': {
-    title: 'Bienvenue, Super Admin !',
+  "Super Admin": {
+    title: "Bienvenue, Super Admin !",
     points: [
       "Tu as un accès complet : gestion des utilisateurs, des groupes de permissions et du mode maintenance.",
       "L'onglet Administration te permet de tout superviser, y compris les journaux d'activité.",
@@ -116,48 +121,115 @@ const ONBOARDING_CONTENT = {
 };
 
 // Navigation items with role-based access
-// minRole: minimum role required (Technicien < Responsable < Gestionnaire < Admin < Super Admin)
-// Gestionnaire (coordination) ranks above Responsable — Gestionnaire gets
-// Administration access (scoped to Groupes & Droits, see Administration.js)
-// while Responsable does not.
+// minRole: minimum role required (Technicien < Responsable < Coordination < Admin < Super Admin)
+// "Coordination" (ex-"Gestionnaire", renamed, same permissions/hierarchy
+// position) ranks above Responsable — Coordination gets Administration
+// access (scoped to Groupes & Droits, see Administration.js) while
+// Responsable does not.
 const navItems = [
-  { path: '/', icon: LayoutDashboard, label: 'Dashboard', minRole: 'Technicien' },
-  { path: '/actualites', icon: Newspaper, label: 'Actualités', minRole: 'Technicien' },
-  { path: '/planning', icon: CalendarDays, label: 'Planning', minRole: 'Technicien' },
-  { path: '/mon-espace', icon: CalendarOff, label: 'Mon espace', minRole: 'Technicien' },
-  { path: '/effectif', icon: Users, label: 'Effectif', minRole: 'Responsable' },
-  // Salles/Régisseurs (20/08/2026) : opt-in pour Responsable/Gestionnaire —
+  {
+    path: "/",
+    icon: LayoutDashboard,
+    label: "Dashboard",
+    minRole: "Technicien",
+  },
+  {
+    path: "/actualites",
+    icon: Newspaper,
+    label: "Actualités",
+    minRole: "Technicien",
+  },
+  {
+    path: "/planning",
+    icon: CalendarDays,
+    label: "Planning",
+    minRole: "Technicien",
+  },
+  {
+    path: "/mon-espace",
+    icon: CalendarOff,
+    label: "Mon espace",
+    minRole: "Technicien",
+  },
+  { path: "/effectif", icon: Users, label: "Effectif", minRole: "Responsable" },
+  // Salles/Régisseurs (20/08/2026) : opt-in pour Responsable/Coordination —
   // ces deux rôles ne voient l'entrée que s'ils appartiennent à un groupe
   // qui accorde au moins une des permissions listées ici (RO ou RW). Admin
   // (lecture seule) et au-dessus gardent l'accès total via minRole seul,
   // voir hasAccess() plus bas. Reflète le gating backend (has_any_group_permission).
-  { path: '/salles', icon: Building2, label: 'Salles', minRole: 'Responsable', groupPerms: ['salles.read', 'salles.write', 'salles.reservations'] },
-  { path: '/logistique', icon: Package, label: 'Régisseurs', minRole: 'Responsable', groupPerms: ['logistique.read', 'logistique.write'] },
-  { path: '/devis', icon: FileText, label: 'Devis & Achat', minRole: 'Responsable' },
-  { path: '/formations', icon: GraduationCap, label: 'Formations', minRole: 'Technicien' },
-  { path: '/documents', icon: FolderOpen, label: 'Base de connaissance', minRole: 'Technicien' },
-  { path: '/communication', icon: MessageSquare, label: 'Communication', minRole: 'Technicien' },
-  { path: '/administration', icon: Settings, label: 'Administration', minRole: 'Gestionnaire' },
+  {
+    path: "/salles",
+    icon: Building2,
+    label: "Salles",
+    minRole: "Responsable",
+    groupPerms: ["salles.read", "salles.write", "salles.reservations"],
+  },
+  {
+    path: "/logistique",
+    icon: Package,
+    label: "Régisseurs",
+    minRole: "Responsable",
+    groupPerms: ["logistique.read", "logistique.write"],
+  },
+  {
+    path: "/devis",
+    icon: FileText,
+    label: "Devis & Achat",
+    minRole: "Responsable",
+  },
+  {
+    path: "/formations",
+    icon: GraduationCap,
+    label: "Formations",
+    minRole: "Technicien",
+  },
+  {
+    path: "/documents",
+    icon: FolderOpen,
+    label: "Base de connaissance",
+    minRole: "Technicien",
+  },
+  {
+    path: "/communication",
+    icon: MessageSquare,
+    label: "Communication",
+    minRole: "Technicien",
+  },
+  {
+    path: "/administration",
+    icon: Settings,
+    label: "Administration",
+    minRole: "Coordination",
+  },
 ];
 
 const ROLE_HIERARCHY = {
-  'Technicien': 1,
-  'Responsable': 2,
-  'Gestionnaire': 3,
-  'Admin (lecture seule)': 4,
-  'Admin': 5,
-  'Super Admin': 6
+  Technicien: 1,
+  Responsable: 2,
+  Coordination: 3,
+  "Admin (lecture seule)": 4,
+  Admin: 5,
+  "Super Admin": 6,
 };
 
 export const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [maintenance, setMaintenance] = useState(null);
   const [notifications, setNotifications] = useState([]);
-  const { user, logout, isSuperAdmin, mustChangePassword, changePassword, canManage, onboardingSeen, markOnboardingSeen } = useAuth();
+  const {
+    user,
+    logout,
+    isSuperAdmin,
+    mustChangePassword,
+    changePassword,
+    canManage,
+    onboardingSeen,
+    markOnboardingSeen,
+  } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -169,7 +241,7 @@ export const Layout = ({ children }) => {
         const res = await axios.get(`${API}/maintenance`);
         setMaintenance(res.data);
       } catch (err) {
-        console.log('Could not check maintenance mode');
+        console.log("Could not check maintenance mode");
       }
     };
     checkMaintenance();
@@ -194,13 +266,15 @@ export const Layout = ({ children }) => {
     if (!user) return;
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 20000);
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchNotifications(); };
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', onVisible);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchNotifications();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
     return () => {
       clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -208,7 +282,10 @@ export const Layout = ({ children }) => {
   // Notifications push (téléphone/navigateur) — état d'abonnement de CET
   // appareil (indépendant du compte : chaque appareil a son propre
   // endpoint PushManager), lu au montage et tenu à jour après chaque action.
-  const [pushState, setPushState] = useState({ supported: false, subscribed: false });
+  const [pushState, setPushState] = useState({
+    supported: false,
+    subscribed: false,
+  });
   const [pushBusy, setPushBusy] = useState(false);
   const [braveHelpOpen, setBraveHelpOpen] = useState(false);
   const refreshPushState = async () => {
@@ -226,10 +303,12 @@ export const Layout = ({ children }) => {
     setTestPushBusy(true);
     try {
       const res = await axios.post(`${API}/push/test`);
-      toast.success(res.data?.message || 'Notification de test envoyée');
+      toast.success(res.data?.message || "Notification de test envoyée");
       fetchNotifications();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Erreur lors de l'envoi du test");
+      toast.error(
+        err.response?.data?.detail || "Erreur lors de l'envoi du test",
+      );
     } finally {
       setTestPushBusy(false);
     }
@@ -237,10 +316,12 @@ export const Layout = ({ children }) => {
 
   const handleCopyBraveSettingsLink = async () => {
     try {
-      await navigator.clipboard.writeText('brave://settings/privacy');
-      toast.success('Lien copie - colle-le dans un nouvel onglet');
+      await navigator.clipboard.writeText("brave://settings/privacy");
+      toast.success("Lien copie - colle-le dans un nouvel onglet");
     } catch {
-      toast.error('Impossible de copier - tape brave://settings/privacy dans un nouvel onglet');
+      toast.error(
+        "Impossible de copier - tape brave://settings/privacy dans un nouvel onglet",
+      );
     }
   };
 
@@ -249,23 +330,36 @@ export const Layout = ({ children }) => {
     try {
       if (pushState.subscribed) {
         await unsubscribeFromPush(axios);
-        toast.success('Notifications push désactivées sur cet appareil');
+        toast.success("Notifications push désactivées sur cet appareil");
       } else {
         const res = await subscribeToPush(axios);
         if (res.ok) {
-          toast.success('Notifications push activées — tu recevras une alerte même app fermée');
-        } else if (res.reason === 'denied') {
-          toast.error("Autorisation refusée — active les notifications pour ce site dans les réglages du navigateur");
-        } else if (res.reason === 'unsupported') {
-          toast.error("Notifications push non supportées sur ce navigateur/appareil");
-        } else if (res.reason === 'server_disabled') {
-          toast.error("Notifications push non configurées côté serveur — contacte l'administrateur");
-        } else if (res.reason === 'brave_push_disabled') {
+          toast.success(
+            "Notifications push activées — tu recevras une alerte même app fermée",
+          );
+        } else if (res.reason === "denied") {
+          toast.error(
+            "Autorisation refusée — active les notifications pour ce site dans les réglages du navigateur",
+          );
+        } else if (res.reason === "unsupported") {
+          toast.error(
+            "Notifications push non supportées sur ce navigateur/appareil",
+          );
+        } else if (res.reason === "server_disabled") {
+          toast.error(
+            "Notifications push non configurées côté serveur — contacte l'administrateur",
+          );
+        } else if (res.reason === "brave_push_disabled") {
           setBraveHelpOpen(true);
-        } else if (res.reason === 'push_service_unavailable') {
-          toast.error("Le service de notifications de ton navigateur est injoignable — vérifie ta connexion, ton pare-feu, ou une extension qui bloque Google.", { duration: 8000 });
+        } else if (res.reason === "push_service_unavailable") {
+          toast.error(
+            "Le service de notifications de ton navigateur est injoignable — vérifie ta connexion, ton pare-feu, ou une extension qui bloque Google.",
+            { duration: 8000 },
+          );
         } else {
-          toast.error(`Impossible d'activer les notifications push${res.message ? ` : ${res.message}` : ''}`);
+          toast.error(
+            `Impossible d'activer les notifications push${res.message ? ` : ${res.message}` : ""}`,
+          );
         }
       }
     } finally {
@@ -278,15 +372,20 @@ export const Layout = ({ children }) => {
   // est relayé ici par le service worker via postMessage, pour naviguer dans
   // la SPA déjà ouverte plutôt que de recharger une page blanche.
   useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
+    if (!("serviceWorker" in navigator)) return;
     const onMessage = (event) => {
-      if (event.data && event.data.type === 'PUSH_NAVIGATE' && event.data.link) {
+      if (
+        event.data &&
+        event.data.type === "PUSH_NAVIGATE" &&
+        event.data.link
+      ) {
         navigate(event.data.link);
         fetchNotifications();
       }
     };
-    navigator.serviceWorker.addEventListener('message', onMessage);
-    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () =>
+      navigator.serviceWorker.removeEventListener("message", onMessage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -297,14 +396,18 @@ export const Layout = ({ children }) => {
   // silent blank page, since nothing above catches render errors — an
   // ErrorBoundary now catches that class of crash too, but this is the
   // actual root cause, so it's fixed at the source.
-  const safeNotifications = Array.isArray(notifications) ? notifications.filter(Boolean) : [];
+  const safeNotifications = Array.isArray(notifications)
+    ? notifications.filter(Boolean)
+    : [];
   const unreadNotifications = safeNotifications.filter((n) => !n.is_read);
 
   const handleNotificationClick = async (notif) => {
     if (!notif) return;
     try {
       await axios.put(`${API}/notifications/${notif.id}/read`);
-      setNotifications((prev) => (Array.isArray(prev) ? prev : []).filter((n) => n && n.id !== notif.id));
+      setNotifications((prev) =>
+        (Array.isArray(prev) ? prev : []).filter((n) => n && n.id !== notif.id),
+      );
     } catch (err) {
       // silent
     }
@@ -314,7 +417,9 @@ export const Layout = ({ children }) => {
   const handleMarkAllRead = async () => {
     try {
       await axios.put(`${API}/notifications/read-all`);
-      setNotifications((prev) => (Array.isArray(prev) ? prev : []).filter((n) => n && n.is_read));
+      setNotifications((prev) =>
+        (Array.isArray(prev) ? prev : []).filter((n) => n && n.is_read),
+      );
     } catch (err) {
       toast.error("Erreur lors de la mise à jour des notifications");
     }
@@ -333,7 +438,7 @@ export const Layout = ({ children }) => {
 
   // Check if user has access to a menu item based on role, and — for the
   // handful of items marked groupPerms (Salles, Régisseurs) — based on
-  // group membership too, when the user's role is Responsable/Gestionnaire
+  // group membership too, when the user's role is Responsable/Coordination
   // (see comment on navItems above).
   const hasAccess = (item) => {
     if (!user) return true;
@@ -342,33 +447,41 @@ export const Layout = ({ children }) => {
       const requiredLevel = ROLE_HIERARCHY[item.minRole] || 0;
       if (userLevel < requiredLevel) return false;
     }
-    if (item.groupPerms && ['Responsable', 'Gestionnaire'].includes(user.niveau_acces)) {
+    if (
+      item.groupPerms &&
+      ["Responsable", "Coordination"].includes(user.niveau_acces)
+    ) {
       const perms = user.module_permissions || [];
-      return item.groupPerms.some(p => perms.includes(p));
+      return item.groupPerms.some((p) => perms.includes(p));
     }
     return true;
   };
 
   // Filter nav items based on user role
-  const filteredNavItems = navItems.filter(item => hasAccess(item));
+  const filteredNavItems = navItems.filter((item) => hasAccess(item));
 
   // Maintenance impacts the roles chosen by Super Admin when activating it.
   // If no specific roles were chosen (legacy behavior), it impacts everyone
-  // below Super Admin (Technicien, Gestionnaire, Responsable, Admin) — Super
+  // below Super Admin (Technicien, Coordination, Responsable, Admin) — Super
   // Admin can always get in to fix things, regardless of the selection.
-  const maintenanceAppliesToUser = maintenance?.is_active && !isSuperAdmin() &&
-    (!maintenance.affected_roles || maintenance.affected_roles.length === 0 ||
+  const maintenanceAppliesToUser =
+    maintenance?.is_active &&
+    !isSuperAdmin() &&
+    (!maintenance.affected_roles ||
+      maintenance.affected_roles.length === 0 ||
       maintenance.affected_roles.includes(user?.niveau_acces));
 
   // Scope "site" : le site entier est remplacé par l'écran de maintenance
   // (plus de nav, plus de sidebar).
-  const showMaintenancePage = maintenanceAppliesToUser && maintenance.scope !== 'page';
+  const showMaintenancePage =
+    maintenanceAppliesToUser && maintenance.scope !== "page";
 
   // Scope "page" : seule la page ciblée est concernée, et seul son contenu
   // (pas la nav ni la sidebar) est remplacé par le bloc de maintenance —
   // les autres pages restent utilisables normalement.
-  const showMaintenanceContentOnly = maintenanceAppliesToUser &&
-    maintenance.scope === 'page' &&
+  const showMaintenanceContentOnly =
+    maintenanceAppliesToUser &&
+    maintenance.scope === "page" &&
     location.pathname === maintenance.page_path;
 
   // Show password change dialog if required
@@ -381,22 +494,25 @@ export const Layout = ({ children }) => {
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (newPassword.length < 6) {
-      toast.error('Le mot de passe doit faire au moins 6 caractères');
+      toast.error("Le mot de passe doit faire au moins 6 caractères");
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error('Les mots de passe ne correspondent pas');
+      toast.error("Les mots de passe ne correspondent pas");
       return;
     }
     setSubmitting(true);
     try {
       await changePassword(newPassword);
-      toast.success('Mot de passe modifié avec succès');
+      toast.success("Mot de passe modifié avec succès");
       setPasswordDialogOpen(false);
-      setNewPassword('');
-      setConfirmPassword('');
+      setNewPassword("");
+      setConfirmPassword("");
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Erreur lors du changement de mot de passe');
+      toast.error(
+        err.response?.data?.detail ||
+          "Erreur lors du changement de mot de passe",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -410,10 +526,10 @@ export const Layout = ({ children }) => {
   // Close sidebar on escape key
   useEffect(() => {
     const handleEscape = (e) => {
-      if (e.key === 'Escape') setSidebarOpen(false);
+      if (e.key === "Escape") setSidebarOpen(false);
     };
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
   }, []);
 
   // Swipe left-to-right (starting near the screen's left edge) opens the
@@ -427,10 +543,19 @@ export const Layout = ({ children }) => {
     const SWIPE_THRESHOLD = 60;
 
     const onTouchStart = (e) => {
-      if (window.innerWidth >= 1024) { startX = null; return; }
-      if (sidebarOpen) { startX = null; return; }
+      if (window.innerWidth >= 1024) {
+        startX = null;
+        return;
+      }
+      if (sidebarOpen) {
+        startX = null;
+        return;
+      }
       const t = e.touches[0];
-      if (!t || t.clientX > EDGE_ZONE) { startX = null; return; }
+      if (!t || t.clientX > EDGE_ZONE) {
+        startX = null;
+        return;
+      }
       startX = t.clientX;
       startY = t.clientY;
     };
@@ -447,33 +572,36 @@ export const Layout = ({ children }) => {
       }
     };
 
-    const onTouchEnd = () => { startX = null; startY = null; };
+    const onTouchEnd = () => {
+      startX = null;
+      startY = null;
+    };
 
-    document.addEventListener('touchstart', onTouchStart, { passive: true });
-    document.addEventListener('touchmove', onTouchMove, { passive: true });
-    document.addEventListener('touchend', onTouchEnd, { passive: true });
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: true });
+    document.addEventListener("touchend", onTouchEnd, { passive: true });
     return () => {
-      document.removeEventListener('touchstart', onTouchStart);
-      document.removeEventListener('touchmove', onTouchMove);
-      document.removeEventListener('touchend', onTouchEnd);
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("touchend", onTouchEnd);
     };
   }, [sidebarOpen]);
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   const getNiveauAccesColor = (niveau) => {
     const colors = {
-      'Super Admin': 'bg-red-500',
-      'Admin': 'bg-orange-500',
-      'Admin (lecture seule)': 'bg-amber-500',
-      'Responsable': 'bg-blue-500',
-      'Gestionnaire': 'bg-green-500',
-      'Technicien': 'bg-gray-500'
+      "Super Admin": "bg-red-500",
+      Admin: "bg-orange-500",
+      "Admin (lecture seule)": "bg-amber-500",
+      Responsable: "bg-blue-500",
+      Coordination: "bg-green-500",
+      Technicien: "bg-gray-500",
     };
-    return colors[niveau] || 'bg-gray-500';
+    return colors[niveau] || "bg-gray-500";
   };
 
   // Show maintenance page for members
@@ -484,7 +612,8 @@ export const Layout = ({ children }) => {
           <AlertTriangle className="w-20 h-20 mx-auto text-yellow-500" />
           <h1 className="text-3xl font-bold">Maintenance en cours</h1>
           <p className="text-muted-foreground text-lg">
-            {maintenance?.message || 'Nous effectuons une maintenance. Veuillez réessayer plus tard.'}
+            {maintenance?.message ||
+              "Nous effectuons une maintenance. Veuillez réessayer plus tard."}
           </p>
           <div className="pt-4">
             <Button variant="outline" onClick={handleLogout}>
@@ -501,29 +630,39 @@ export const Layout = ({ children }) => {
     <div className="min-h-screen bg-background flex">
       {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside className={`
-        fixed lg:sticky top-0 left-0 z-50 h-screen w-72 sm:w-64
-        bg-card border-r border-border
-        transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
+      <aside
+        className={`
+fixed lg:sticky top-0 left-0 z-50 h-screen w-72 sm:w-64
+bg-card border-r border-border
+transform transition-transform duration-300 ease-in-out
+${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+`}
+      >
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="p-4 sm:p-6 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center shrink-0 overflow-hidden">
-                <img src="/logo.png" alt="PAV" className="w-8 h-8 object-contain" />
+                <img
+                  src="/logo.png"
+                  alt="PAV"
+                  className="w-8 h-8 object-contain"
+                />
               </div>
               <div className="min-w-0">
-                <h1 className="font-semibold text-foreground truncate">PAV Manager</h1>
-                <p className="text-xs text-muted-foreground truncate">Gestion Technique</p>
+                <h1 className="font-semibold text-foreground truncate">
+                  PAV Manager
+                </h1>
+                <p className="text-xs text-muted-foreground truncate">
+                  Gestion Technique
+                </p>
               </div>
             </div>
             {/* Close button for mobile */}
@@ -540,21 +679,26 @@ export const Layout = ({ children }) => {
             {filteredNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
-              const isUnderMaintenance = maintenanceAppliesToUser &&
-                maintenance.scope === 'page' &&
+              const isUnderMaintenance =
+                maintenanceAppliesToUser &&
+                maintenance.scope === "page" &&
                 maintenance.page_path === item.path;
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`sidebar-link ${isActive ? 'active' : ''}`}
-                  data-testid={`nav-${item.path.replace('/', '') || 'dashboard'}`}
-                  title={isUnderMaintenance ? 'Page en maintenance' : undefined}
+                  className={`sidebar-link ${isActive ? "active" : ""}`}
+                  data-testid={`nav-${item.path.replace("/", "") || "dashboard"}`}
+                  title={isUnderMaintenance ? "Page en maintenance" : undefined}
                 >
                   <Icon className="w-5 h-5 shrink-0" />
                   <span className="flex-1 truncate">{item.label}</span>
-                  {isUnderMaintenance && <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" />}
-                  {isActive && !isUnderMaintenance && <ChevronRight className="w-4 h-4 text-white/90 shrink-0" />}
+                  {isUnderMaintenance && (
+                    <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" />
+                  )}
+                  {isActive && !isUnderMaintenance && (
+                    <ChevronRight className="w-4 h-4 text-white/90 shrink-0" />
+                  )}
                 </Link>
               );
             })}
@@ -565,14 +709,20 @@ export const Layout = ({ children }) => {
             <div className="flex items-center gap-3 px-2 py-2">
               <Avatar className="w-9 h-9 shrink-0">
                 <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                  {user?.full_name?.charAt(0) || 'U'}
+                  {user?.full_name?.charAt(0) || "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{user?.full_name}</p>
+                <p className="text-sm font-medium truncate">
+                  {user?.full_name}
+                </p>
                 <div className="flex items-center gap-1">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${getNiveauAccesColor(user?.niveau_acces)}`} />
-                  <p className="text-xs text-muted-foreground truncate">{user?.niveau_acces}</p>
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${getNiveauAccesColor(user?.niveau_acces)}`}
+                  />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {user?.niveau_acces}
+                  </p>
                 </div>
               </div>
             </div>
@@ -598,11 +748,18 @@ export const Layout = ({ children }) => {
             <div className="flex items-center gap-1 sm:gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative w-9 h-9 sm:w-10 sm:h-10" data-testid="notifications-bell">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative w-9 h-9 sm:w-10 sm:h-10"
+                    data-testid="notifications-bell"
+                  >
                     <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                     {unreadNotifications.length > 0 && (
                       <Badge className="absolute top-0.5 right-0.5 h-4 min-w-4 px-1 bg-red-500 hover:bg-red-500 text-white text-[10px] leading-none flex items-center justify-center">
-                        {unreadNotifications.length > 9 ? '9+' : unreadNotifications.length}
+                        {unreadNotifications.length > 9
+                          ? "9+"
+                          : unreadNotifications.length}
                       </Badge>
                     )}
                   </Button>
@@ -622,7 +779,9 @@ export const Layout = ({ children }) => {
                   {unreadNotifications.length === 0 ? (
                     <div className="py-8 text-center px-4">
                       <Inbox className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />
-                      <p className="text-sm text-muted-foreground">Aucune nouvelle notification</p>
+                      <p className="text-sm text-muted-foreground">
+                        Aucune nouvelle notification
+                      </p>
                     </div>
                   ) : (
                     <ScrollArea className="max-h-80">
@@ -634,8 +793,12 @@ export const Layout = ({ children }) => {
                             className="w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors"
                           >
                             <p className="text-sm font-medium">{n.titre}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
-                            <p className="text-[11px] text-muted-foreground/70 mt-1">{notifTimeAgo(n.created_at)}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                              {n.message}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground/70 mt-1">
+                              {notifTimeAgo(n.created_at)}
+                            </p>
                           </button>
                         ))}
                       </div>
@@ -657,8 +820,8 @@ export const Layout = ({ children }) => {
                           <BellOff className="w-3.5 h-3.5" />
                         )}
                         {pushState.subscribed
-                          ? 'Notifications push activées sur cet appareil'
-                          : 'Activer les notifications sur cet appareil'}
+                          ? "Notifications push activées sur cet appareil"
+                          : "Activer les notifications sur cet appareil"}
                       </button>
                       {pushState.subscribed && (
                         <button
@@ -667,7 +830,11 @@ export const Layout = ({ children }) => {
                           disabled={testPushBusy}
                           className="w-full flex items-center gap-2 text-xs text-primary hover:underline disabled:opacity-60"
                         >
-                          {testPushBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                          {testPushBusy ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-3.5 h-3.5" />
+                          )}
                           Envoyer une notification de test
                         </button>
                       )}
@@ -683,7 +850,7 @@ export const Layout = ({ children }) => {
                 className="theme-toggle w-9 h-9 sm:w-10 sm:h-10"
                 data-testid="theme-toggle"
               >
-                {theme === 'light' ? (
+                {theme === "light" ? (
                   <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
                 ) : (
                   <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -692,10 +859,15 @@ export const Layout = ({ children }) => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="w-9 h-9 sm:w-10 sm:h-10" data-testid="user-menu">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-9 h-9 sm:w-10 sm:h-10"
+                    data-testid="user-menu"
+                  >
                     <Avatar className="w-7 h-7 sm:w-8 sm:h-8">
                       <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
-                        {user?.full_name?.charAt(0) || 'U'}
+                        {user?.full_name?.charAt(0) || "U"}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -704,17 +876,24 @@ export const Layout = ({ children }) => {
                   <DropdownMenuLabel>
                     <div className="flex flex-col">
                       <span className="truncate">{user?.full_name}</span>
-                      <span className="text-xs text-muted-foreground font-normal truncate">{user?.niveau_acces}</span>
+                      <span className="text-xs text-muted-foreground font-normal truncate">
+                        {user?.niveau_acces}
+                      </span>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {isSuperAdmin() && (
-                    <DropdownMenuItem onClick={() => navigate('/administration')}>
+                    <DropdownMenuItem
+                      onClick={() => navigate("/administration")}
+                    >
                       <Settings className="w-4 h-4 mr-2" />
                       Administration
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-destructive"
+                  >
                     <LogOut className="w-4 h-4 mr-2" />
                     Déconnexion
                   </DropdownMenuItem>
@@ -732,24 +911,34 @@ export const Layout = ({ children }) => {
                 <AlertTriangle className="w-16 h-16 mx-auto text-yellow-500" />
                 <h2 className="text-2xl font-bold">Page en maintenance</h2>
                 <p className="text-muted-foreground">
-                  {maintenance?.message || 'Cette page est temporairement indisponible. Veuillez réessayer plus tard.'}
+                  {maintenance?.message ||
+                    "Cette page est temporairement indisponible. Veuillez réessayer plus tard."}
                 </p>
               </div>
             </div>
-          ) : children}
+          ) : (
+            children
+          )}
         </main>
       </div>
 
       {/* Force Password Change Dialog */}
-      <Dialog open={passwordDialogOpen && mustChangePassword} onOpenChange={() => {}}>
-        <DialogContent className="max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+      <Dialog
+        open={passwordDialogOpen && mustChangePassword}
+        onOpenChange={() => {}}
+      >
+        <DialogContent
+          className="max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <KeyRound className="w-5 h-5 text-primary" />
               Changement de mot de passe obligatoire
             </DialogTitle>
             <DialogDescription>
-              Vous devez changer votre mot de passe pour continuer à utiliser l'application.
+              Vous devez changer votre mot de passe pour continuer à utiliser
+              l'application.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handlePasswordChange} className="space-y-4">
@@ -782,18 +971,32 @@ export const Layout = ({ children }) => {
       </Dialog>
 
       {/* First-login Onboarding Guide — shown once, right after login (or
-          after the forced password change above, if that applied), content
-          tailored per permission level. */}
-      <Dialog open={!!user && !mustChangePassword && !onboardingSeen} onOpenChange={() => {}}>
-        <DialogContent className="max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+after the forced password change above, if that applied), content
+tailored per permission level. */}
+      <Dialog
+        open={!!user && !mustChangePassword && !onboardingSeen}
+        onOpenChange={() => {}}
+      >
+        <DialogContent
+          className="max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
-              {(ONBOARDING_CONTENT[user?.niveau_acces] || ONBOARDING_CONTENT['Technicien']).title}
+              {
+                (
+                  ONBOARDING_CONTENT[user?.niveau_acces] ||
+                  ONBOARDING_CONTENT["Technicien"]
+                ).title
+              }
             </DialogTitle>
           </DialogHeader>
           <ul className="space-y-2 text-sm text-muted-foreground list-disc pl-4">
-            {(ONBOARDING_CONTENT[user?.niveau_acces] || ONBOARDING_CONTENT['Technicien']).points.map((p, i) => (
+            {(
+              ONBOARDING_CONTENT[user?.niveau_acces] ||
+              ONBOARDING_CONTENT["Technicien"]
+            ).points.map((p, i) => (
               <li key={i}>{p}</li>
             ))}
           </ul>
@@ -815,20 +1018,41 @@ export const Layout = ({ children }) => {
               Activer les notifications sur Brave
             </DialogTitle>
             <DialogDescription>
-              Brave bloque par defaut le service Google necessaire aux notifications push. Une seule fois par navigateur :
+              Brave bloque par defaut le service Google necessaire aux
+              notifications push. Une seule fois par navigateur :
             </DialogDescription>
           </DialogHeader>
           <ol className="space-y-2 text-sm text-muted-foreground list-decimal pl-4">
-            <li>Ouvre un nouvel onglet et colle-y <code className="text-foreground bg-muted px-1 rounded">brave://settings/privacy</code></li>
-            <li>Active <strong className="text-foreground">« Utiliser les services Google pour la messagerie push »</strong></li>
+            <li>
+              Ouvre un nouvel onglet et colle-y{" "}
+              <code className="text-foreground bg-muted px-1 rounded">
+                brave://settings/privacy
+              </code>
+            </li>
+            <li>
+              Active{" "}
+              <strong className="text-foreground">
+                « Utiliser les services Google pour la messagerie push »
+              </strong>
+            </li>
             <li>Reviens ici et clique sur « Reessayer »</li>
           </ol>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button type="button" variant="outline" onClick={handleCopyBraveSettingsLink}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCopyBraveSettingsLink}
+            >
               <Copy className="w-4 h-4 mr-2" />
               Copier le lien
             </Button>
-            <Button type="button" onClick={() => { setBraveHelpOpen(false); handleTogglePush(); }}>
+            <Button
+              type="button"
+              onClick={() => {
+                setBraveHelpOpen(false);
+                handleTogglePush();
+              }}
+            >
               Reessayer
             </Button>
           </DialogFooter>

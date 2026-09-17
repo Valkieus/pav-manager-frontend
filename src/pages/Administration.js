@@ -82,6 +82,11 @@ import {
   Bell,
   ArrowLeftRight,
   X,
+  Calendar,
+  GraduationCap,
+  BookOpen,
+  FileText,
+  MessageSquare,
 } from "lucide-react";
 import {
   downloadOrShareFile,
@@ -337,11 +342,225 @@ function HealthPill({ icon: Icon, label, status, detail }) {
 
 const NOTIFICATION_TYPE_ROLES = ["Technicien", "Responsable", "Gestionnaire", "Admin (lecture seule)", "Admin", "Super Admin"];
 
+const NOTIFICATION_CATEGORIES = [
+  {
+    key: "systeme",
+    label: "Système & Sécurité",
+    icon: Server,
+    color: "text-red-500",
+    chip: "bg-red-500/10 border-red-500/30 text-red-500",
+    types: ["quota_alerte", "securite", "crash", "maintenance", "supervision"],
+  },
+  {
+    key: "comptes",
+    label: "Comptes & Utilisateurs",
+    icon: Users,
+    color: "text-blue-500",
+    chip: "bg-blue-500/10 border-blue-500/30 text-blue-500",
+    types: ["compte_gestion", "suppression_compte", "technicien", "badge"],
+  },
+  {
+    key: "planning",
+    label: "Planning & Présence",
+    icon: Calendar,
+    color: "text-emerald-500",
+    chip: "bg-emerald-500/10 border-emerald-500/30 text-emerald-500",
+    types: ["planning_publie", "absence", "retard"],
+  },
+  {
+    key: "formations",
+    label: "Formations",
+    icon: GraduationCap,
+    color: "text-purple-500",
+    chip: "bg-purple-500/10 border-purple-500/30 text-purple-500",
+    types: ["formation_demande", "formation_statut", "formation_interet", "formation_suggestion"],
+  },
+  {
+    key: "academy",
+    label: "PAV Academy",
+    icon: BookOpen,
+    color: "text-indigo-500",
+    chip: "bg-indigo-500/10 border-indigo-500/30 text-indigo-500",
+    types: ["academy_assignment", "academy_correction", "academy_corrige"],
+  },
+  {
+    key: "devis",
+    label: "Devis & Achats",
+    icon: FileText,
+    color: "text-amber-500",
+    chip: "bg-amber-500/10 border-amber-500/30 text-amber-500",
+    types: ["devis"],
+  },
+  {
+    key: "communication",
+    label: "Actualités & Communication",
+    icon: MessageSquare,
+    color: "text-pink-500",
+    chip: "bg-pink-500/10 border-pink-500/30 text-pink-500",
+    types: ["actualite", "communication", "groupchat"],
+  },
+  {
+    key: "autre",
+    label: "Autre",
+    icon: Bell,
+    color: "text-slate-500",
+    chip: "bg-slate-500/10 border-slate-500/30 text-slate-500",
+    types: ["test"],
+  },
+];
+
+const NOTIFICATION_DEFAULT_HINTS = {
+  quota_alerte: "Super Admin",
+  test: "Toi-même (test personnel)",
+  suppression_compte: "Super Admin",
+  compte_gestion: "Admin, Super Admin",
+  securite: "Super Admin",
+  supervision: "Admin, Super Admin",
+  technicien: "Coordination, Admin",
+  badge: "Coordination",
+  devis: "Coordination, Responsable concerné",
+  formation_demande: "Coordination",
+  formation_statut: "Le demandeur",
+  formation_interet: "Le créateur de la formation",
+  formation_suggestion: "Coordination",
+  planning_publie: "Les personnes concernées",
+  absence: "Coordination, Responsable de branche",
+  actualite: "Tous les utilisateurs",
+  retard: "Paul, Delphine, Winchel, responsable(s) de branche",
+  maintenance: "Rôles impactés par le mode maintenance",
+  academy_assignment: "L'élève assigné",
+  academy_correction: "Examinateur + Coordination",
+  academy_corrige: "L'élève",
+  communication: "Tous les utilisateurs (Chaîne)",
+  groupchat: "Membres du groupe",
+  crash: "Tous les Super Admin",
+};
+
+function NotificationTypeRow({ row, users, savingType, onToggleRole, onToggleUser, onSetMode, onSave, onReset, isOpen, onToggleOpen }) {
+  const override = row.override;
+  const isConfigured = !!override;
+  const roles = (override && override.roles) || [];
+  const extraIds = (override && override.extra_user_ids) || [];
+  const mode = (override && override.mode) || "replace";
+  const defaultHint = NOTIFICATION_DEFAULT_HINTS[row.type_];
+
+  return (
+    <div className={`rounded-lg border transition-colors ${isOpen ? "border-primary/40 bg-muted/30" : "border-border"}`}>
+      <button
+        type="button"
+        onClick={onToggleOpen}
+        className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left"
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-medium truncate">{row.label}</p>
+          {!isConfigured && defaultHint && (
+            <p className="text-xs text-muted-foreground truncate">Par défaut : {defaultHint}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {isConfigured ? (
+            <Badge className="text-xs bg-primary/15 text-primary border-primary/30 hover:bg-primary/15">
+              Personnalisé
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs text-muted-foreground">
+              Défaut
+            </Badge>
+          )}
+          {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+        </div>
+      </button>
+      {isOpen && (
+        <div className="px-3 pb-3 space-y-3 border-t pt-3">
+          <div>
+            <p className="text-xs font-medium mb-2 text-muted-foreground">Rôles qui reçoivent cette notif</p>
+            <div className="flex flex-wrap gap-1.5">
+              {NOTIFICATION_TYPE_ROLES.map((role) => {
+                const active = roles.includes(role);
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => onToggleRole(row.type_, role)}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-transparent border-border text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {role}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium mb-2 text-muted-foreground">Comptes individuels en plus</p>
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+              {users.map((u) => {
+                const active = extraIds.includes(u.id);
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => onToggleUser(row.type_, u.id)}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                      active
+                        ? "bg-secondary text-secondary-foreground border-secondary-foreground/30"
+                        : "bg-transparent border-border text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {u.full_name || u.username}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <button
+              type="button"
+              onClick={() => onSetMode(row.type_, "replace")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-colors ${
+                mode === "replace" ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground"
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${mode === "replace" ? "bg-primary" : "bg-muted-foreground"}`} />
+              Remplace les destinataires par défaut
+            </button>
+            <button
+              type="button"
+              onClick={() => onSetMode(row.type_, "add")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-colors ${
+                mode === "add" ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground"
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${mode === "add" ? "bg-primary" : "bg-muted-foreground"}`} />
+              Vient en plus des destinataires par défaut
+            </button>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button size="sm" disabled={savingType === row.type_} onClick={() => onSave(row.type_)}>
+              Enregistrer
+            </Button>
+            {isConfigured && (
+              <Button size="sm" variant="outline" disabled={savingType === row.type_} onClick={() => onReset(row.type_)}>
+                Réinitialiser
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NotificationRoutingPanel() {
   const [routing, setRouting] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingType, setSavingType] = useState(null);
+  const [openCategories, setOpenCategories] = useState(() => new Set());
+  const [openType, setOpenType] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -413,99 +632,87 @@ function NotificationRoutingPanel() {
     }
   };
 
+  const toggleCategory = (key) => {
+    setOpenCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleTypeOpen = (type_) => {
+    setOpenType((prev) => (prev === type_ ? null : type_));
+  };
+
   if (loading) {
     return <div className="text-sm text-muted-foreground">Chargement...</div>;
   }
+
+  const routingByType = Object.fromEntries(routing.map((r) => [r.type_, r]));
 
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Gestion des notifications</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="w-5 h-5 text-primary" />
+            Gestion des notifications
+          </CardTitle>
           <CardDescription>
-            Pour chaque type de notification, choisis qui la reçoit : des rôles entiers et/ou des comptes individuels.
-            Sans configuration ici, le comportement par défaut de l'application s'applique.
+            Les notifications sont regroupées par thème. Ouvre un thème, puis une notification, pour choisir qui la
+            reçoit : des rôles entiers et/ou des comptes précis. Sans réglage, le comportement par défaut de
+            l'application s'applique (indiqué sous chaque notification).
           </CardDescription>
         </CardHeader>
       </Card>
-      {routing.map((row) => {
-        const override = row.override;
-        const isConfigured = !!override;
-        const roles = (override && override.roles) || [];
-        const extraIds = (override && override.extra_user_ids) || [];
-        const mode = (override && override.mode) || "replace";
+
+      {NOTIFICATION_CATEGORIES.map((cat) => {
+        const CatIcon = cat.icon;
+        const rows = cat.types.map((t) => routingByType[t]).filter(Boolean);
+        if (rows.length === 0) return null;
+        const configuredCount = rows.filter((r) => !!r.override).length;
+        const isOpen = openCategories.has(cat.key);
         return (
-          <Card key={row.type_}>
-            <CardHeader>
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <CardTitle className="text-base">{row.label}</CardTitle>
-                {isConfigured && (
-                  <Badge variant="outline" className="text-xs">Personnalisé</Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-sm font-medium mb-2">Rôles</p>
-                <div className="flex flex-wrap gap-2">
-                  {NOTIFICATION_TYPE_ROLES.map((role) => (
-                    <label key={role} className="flex items-center gap-1.5 text-sm border rounded-md px-2 py-1 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={roles.includes(role)}
-                        onChange={() => toggleRole(row.type_, role)}
-                      />
-                      {role}
-                    </label>
-                  ))}
+          <Card key={cat.key} className="overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleCategory(cat.key)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${cat.chip}`}>
+                  <CatIcon className={`w-4 h-4 ${cat.color}`} />
+                </div>
+                <div className="text-left min-w-0">
+                  <p className="text-sm font-semibold truncate">{cat.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {rows.length} notification{rows.length > 1 ? "s" : ""}
+                    {configuredCount > 0 ? ` · ${configuredCount} personnalisée${configuredCount > 1 ? "s" : ""}` : ""}
+                  </p>
                 </div>
               </div>
-              <div>
-                <p className="text-sm font-medium mb-2">Comptes individuels</p>
-                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-                  {users.map((u) => (
-                    <label key={u.id} className="flex items-center gap-1.5 text-sm border rounded-md px-2 py-1 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={extraIds.includes(u.id)}
-                        onChange={() => toggleUser(row.type_, u.id)}
-                      />
-                      {u.full_name || u.username}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-sm">
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="radio"
-                    name={`mode-${row.type_}`}
-                    checked={mode === "replace"}
-                    onChange={() => setMode(row.type_, "replace")}
+              {isOpen ? <ChevronUp className="w-5 h-5 text-muted-foreground shrink-0" /> : <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0" />}
+            </button>
+            {isOpen && (
+              <CardContent className="pt-0 space-y-2">
+                {rows.map((row) => (
+                  <NotificationTypeRow
+                    key={row.type_}
+                    row={row}
+                    users={users}
+                    savingType={savingType}
+                    onToggleRole={toggleRole}
+                    onToggleUser={toggleUser}
+                    onSetMode={setMode}
+                    onSave={save}
+                    onReset={reset}
+                    isOpen={openType === row.type_}
+                    onToggleOpen={() => toggleTypeOpen(row.type_)}
                   />
-                  Remplace les destinataires par défaut
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="radio"
-                    name={`mode-${row.type_}`}
-                    checked={mode === "add"}
-                    onChange={() => setMode(row.type_, "add")}
-                  />
-                  Vient en plus des destinataires par défaut
-                </label>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" disabled={savingType === row.type_} onClick={() => save(row.type_)}>
-                  Enregistrer
-                </Button>
-                {isConfigured && (
-                  <Button size="sm" variant="outline" disabled={savingType === row.type_} onClick={() => reset(row.type_)}>
-                    Réinitialiser (comportement par défaut)
-                  </Button>
-                )}
-              </div>
-            </CardContent>
+                ))}
+              </CardContent>
+            )}
           </Card>
         );
       })}

@@ -172,13 +172,14 @@ function NotificationRoutingPanel() {
       ]);
       setRouting(routingRes.data || []);
       setUsers(usersRes.data || []);
-    } catch (err) {
+    } catch {
       toast.error("Erreur lors du chargement du routage des notifications");
     } finally {
       setLoading(false);
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
 
   const updateLocal = (type_, patch) => {
@@ -212,7 +213,7 @@ function NotificationRoutingPanel() {
       await axios.put(`${API}/admin/notification-routing/${type_}`, override);
       toast.success("Routage mis à jour");
       await load();
-    } catch (err) {
+    } catch {
       toast.error("Erreur lors de l'enregistrement du routage");
     } finally {
       setSavingType(null);
@@ -225,7 +226,7 @@ function NotificationRoutingPanel() {
       await axios.delete(`${API}/admin/notification-routing/${type_}`);
       toast.success("Routage réinitialisé");
       await load();
-    } catch (err) {
+    } catch {
       toast.error("Erreur lors de la réinitialisation du routage");
     } finally {
       setSavingType(null);

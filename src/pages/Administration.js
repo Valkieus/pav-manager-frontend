@@ -3122,7 +3122,7 @@ même limite pour éviter un 403 après coup. */}
                                 </TableCell>
                                 {["Responsable", "Coordination", "Admin"].map(
                                   (role) => {
-                                    const cell = row.roles[role];
+                                    const cell = row.roles[role] || {};
                                     const busy =
                                       rightsBusyKey === `${row.key}:${role}`;
                                     return (

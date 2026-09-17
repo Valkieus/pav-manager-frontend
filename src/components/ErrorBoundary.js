@@ -3,12 +3,16 @@ import React from 'react';
 // Without this, any uncaught render error anywhere in the tree unmounts the
 // whole app and leaves a silent blank/white page — no error text, nothing
 // in the DOM, nothing actionable for the person looking at it. This catches
-// that and shows the actual error instead, so a screenshot of it is enough
+// that and shows a screenshot of it is enough
 // to diagnose the problem remotely.
+//
+// It also reports the crash to the backend (best-effort, fire-and-forget)
+// so every Super Admin gets a real push notification the moment it happens,
+// instead of waiting for someone to notice and send a screenshot.
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { error: null, info: null };
+    this.state = { error: null, info: null }
   }
 
   static getDerivedStateFromError(error) {
@@ -19,6 +23,31 @@ export default class ErrorBoundary extends React.Component {
     // eslint-disable-next-line no-console
     console.error('ErrorBoundary caught:', error, info);
     this.setState({ info });
+    this._reportCrash(error, info);
+  }
+
+  _reportCrash(error, info) {
+    try {
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      const token = localStorage.getItem('token');
+      if (!backendUrl || !token) return;
+      fetch(`${backendUrl}/api/client-crash`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          message: String((error && (error.message || error)) || 'Erreur inconnue'),
+          stack: error && error.stack ? String(error.stack) : null,
+          component_stack: info && info.componentStack ? String(info.componentStack) : null,
+          url: typeof window !== 'undefined' ? window.location.href : null,
+        }),
+      }).catch(() => {});
+    } catch (e) {
+      // Ne jamais faire échouer l'affichage de l'écran d'erreur à cause du
+      // rapport de crash lui-même.
+    }
   }
 
   render() {

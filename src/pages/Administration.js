@@ -61,6 +61,7 @@ import {
   UserCog,
   Lock,
   AlertTriangle,
+  CreditCard,
   Timer,
   FlaskConical,
   Activity,
@@ -716,6 +717,214 @@ function NotificationRoutingPanel() {
           </Card>
         );
       })}
+    </div>
+  );
+}
+
+const BRANCHES_FOR_FICHE = [
+  "Supervision",
+  "Coordination",
+  "Production",
+  "Live",
+  "Animation",
+  "R\u00e9gisseurs",
+  "Diffusion",
+];
+
+function FicheEffectifSection({ user, onLinked }) {
+  const [loading, setLoading] = useState(true);
+  const [linkedFiche, setLinkedFiche] = useState(null);
+  const [unclaimed, setUnclaimed] = useState([]);
+  const [search, setSearch] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createBranches, setCreateBranches] = useState([]);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [unclaimedRes, ficheRes] = await Promise.all([
+        axios.get(`${API}/techniciens/unclaimed`),
+        user.technicien_id
+          ? axios
+              .get(`${API}/techniciens/${user.technicien_id}`)
+              .catch(() => ({ data: null }))
+          : Promise.resolve({ data: null }),
+      ]);
+      setUnclaimed(unclaimedRes.data || []);
+      setLinkedFiche(ficheRes.data);
+    } catch {
+      // Section secondaire du popup — une erreur ici ne doit pas bloquer
+      // le reste des actions disponibles sur le compte.
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    load();
+  }, [user.id, user.technicien_id]);
+
+  const link = async (technicienId) => {
+    setBusy(true);
+    try {
+      await axios.put(`${API}/auth/users/${user.id}/technicien`, {
+        technicien_id: technicienId,
+      });
+      toast.success(technicienId ? "Fiche associ\u00e9e" : "Fiche dissoci\u00e9e");
+      onLinked();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Erreur lors de l'association");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createAndLink = async () => {
+    if (createBranches.length === 0) return;
+    setBusy(true);
+    try {
+      const createRes = await axios.post(`${API}/techniciens`, {
+        nom: user.full_name,
+        niveau_acces: user.niveau_acces,
+        branches: createBranches,
+      });
+      await axios.put(`${API}/auth/users/${user.id}/technicien`, {
+        technicien_id: createRes.data.id,
+      });
+      toast.success("Fiche cr\u00e9\u00e9e et associ\u00e9e");
+      setShowCreate(false);
+      setCreateBranches([]);
+      onLinked();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Erreur lors de la cr\u00e9ation");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const filtered = unclaimed.filter((t) =>
+    (t.nom || "").toLowerCase().includes(search.toLowerCase()),
+  );
+
+  return (
+    <div className="border-t pt-3 mt-1 space-y-2">
+      <p className="text-sm font-medium flex items-center gap-2">
+        <CreditCard className="w-4 h-4" /> Fiche Effectif
+      </p>
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Chargement...</p>
+      ) : linkedFiche ? (
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="flex items-center gap-2 flex-wrap">
+            {linkedFiche.nom}
+            <Badge variant="outline" className="text-xs">
+              {(linkedFiche.branches || []).join(", ") || "Sans branche"}
+            </Badge>
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => link(null)}
+          >
+            D\u00e9lier
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-xs text-amber-500 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Aucune fiche
+            associ\u00e9e \u2014 ce compte n'appara\u00eet pas dans Effectif.
+          </p>
+          {!showCreate ? (
+            <>
+              <Input
+                placeholder="Rechercher une fiche existante..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-8 text-sm"
+              />
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {filtered.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Aucune fiche disponible
+                  </p>
+                ) : (
+                  filtered.slice(0, 20).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => link(t.id)}
+                      className="w-full text-left text-sm px-2 py-1 rounded hover:bg-muted flex items-center justify-between"
+                    >
+                      {t.nom}
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  ))
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowCreate(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" /> Cr\u00e9er une nouvelle fiche
+              </Button>
+            </>
+          ) : (
+            <div className="space-y-2 border rounded-md p-2">
+              <p className="text-xs text-muted-foreground">
+                Nouvelle fiche \u00ab {user.full_name} \u00bb, niveau{" "}
+                {user.niveau_acces}. Choisir la ou les branches :
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {BRANCHES_FOR_FICHE.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() =>
+                      setCreateBranches((prev) =>
+                        prev.includes(b)
+                          ? prev.filter((x) => x !== b)
+                          : [...prev, b],
+                      )
+                    }
+                    className={`text-xs px-2 py-1 rounded-full border ${
+                      createBranches.includes(b)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border"
+                    }`}
+                  >
+                    {b}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={busy || createBranches.length === 0}
+                  onClick={createAndLink}
+                >
+                  Cr\u00e9er et associer
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCreate(false);
+                    setCreateBranches([]);
+                  }}
+                >
+                  Annuler
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -2745,6 +2954,13 @@ même limite pour éviter un 403 après coup. */}
                     )}
                   </span>
                 </div>
+                <FicheEffectifSection
+                  user={userDetailOpen}
+                  onLinked={() => {
+                    fetchData();
+                    setUserDetailOpen(null);
+                  }}
+                />
               </div>
               <DialogFooter className="flex-wrap gap-2 sm:justify-start">
                 {(() => {

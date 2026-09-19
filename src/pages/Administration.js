@@ -829,14 +829,14 @@ function FicheEffectifSection({ user, onLinked }) {
             disabled={busy}
             onClick={() => link(null)}
           >
-            D\u00e9lier
+            Délier
           </Button>
         </div>
       ) : (
         <div className="space-y-2">
           <p className="text-xs text-amber-500 flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Aucune fiche
-            associ\u00e9e \u2014 ce compte n'appara\u00eet pas dans Effectif.
+            associée — ce compte n'apparaît pas dans Effectif.
           </p>
           {!showCreate ? (
             <>
@@ -871,13 +871,13 @@ function FicheEffectifSection({ user, onLinked }) {
                 variant="outline"
                 onClick={() => setShowCreate(true)}
               >
-                <Plus className="w-4 h-4 mr-2" /> Cr\u00e9er une nouvelle fiche
+                <Plus className="w-4 h-4 mr-2" /> Créer une nouvelle fiche
               </Button>
             </>
           ) : (
             <div className="space-y-2 border rounded-md p-2">
               <p className="text-xs text-muted-foreground">
-                Nouvelle fiche \u00ab {user.full_name} \u00bb, niveau{" "}
+                Nouvelle fiche « {user.full_name} », niveau{" "}
                 {user.niveau_acces}. Choisir la ou les branches :
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -908,7 +908,7 @@ function FicheEffectifSection({ user, onLinked }) {
                   disabled={busy || createBranches.length === 0}
                   onClick={createAndLink}
                 >
-                  Cr\u00e9er et associer
+                  Créer et associer
                 </Button>
                 <Button
                   size="sm"

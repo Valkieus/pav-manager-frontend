@@ -72,6 +72,7 @@ import {
   Download,
   ChevronDown,
   ChevronUp,
+  Users,
 } from "lucide-react";
 import PlanningEvenementSection from "./PlanningEvenementSection";
 import {
@@ -1190,6 +1191,12 @@ export default function Planning() {
     const key = `${tableKey}::${sectionName}`;
     setCollapsedCategories((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+  // Panneau "Déjà affectés / Pas encore affectés" en tiroir coulissant
+  // depuis la droite — demande 21/09/2026 : sur PC il s'ouvre au survol
+  // et se referme quand la souris s'en va ; sur téléphone (pas de hover)
+  // on tape sur l'onglet pour ouvrir/fermer. Remplace l'ancien <aside>
+  // qui s'empilait tout en bas de la page sur mobile.
+  const [rosterPanelOpen, setRosterPanelOpen] = useState(false);
   const [editCategoryLabel, setEditCategoryLabel] = useState("");
 
   // Group/merge roles (e.g. "Caméra 1-6")
@@ -3505,55 +3512,83 @@ unfiltered "tech-list" as a safety-net fallback id. */}
 
         </div>
 
-        {canManage() && planningEditMode && (
-          <aside className="w-full lg:w-72 shrink-0 print:hidden lg:sticky lg:top-4">
-            <Card>
-              <CardContent className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                <div>
-                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-1.5">
-                    Déjà affectés ce mois-ci ({assignmentRoster.assigned.length}
-                    )
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {assignmentRoster.assigned.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        Personne pour l'instant.
-                      </p>
-                    ) : (
-                      assignmentRoster.assigned.map((n) => (
-                        <Badge
-                          key={n}
-                          className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
-                        >
-                          {n}
-                        </Badge>
-                      ))
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-1.5">
-                    Pas encore affectés ({assignmentRoster.notAssigned.length})
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {assignmentRoster.notAssigned.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        Tout le monde est affecté.
-                      </p>
-                    ) : (
-                      assignmentRoster.notAssigned.map((n) => (
-                        <Badge key={n} variant="outline">
-                          {n}
-                        </Badge>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </aside>
-        )}
       </div>
+
+      {/* Panneau "Déjà affectés / Pas encore affectés" — tiroir fixe
+collé au bord droit de l'écran (PC ET mobile). Onglet toujours visible ;
+le corps du panneau glisse par-dessus le contenu (position fixed, pas de
+place réservée dans la mise en page) donc il ne pousse plus rien vers
+le bas sur mobile. Survol = ouverture/fermeture automatique sur PC ;
+tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
+      {canManage() && planningEditMode && (
+        <div
+          className="print:hidden fixed top-24 right-0 z-30"
+          onMouseEnter={() => setRosterPanelOpen(true)}
+          onMouseLeave={() => setRosterPanelOpen(false)}
+        >
+          <div
+            className={`relative w-72 max-w-[80vw] bg-card border border-border rounded-l-lg shadow-xl transition-transform duration-200 ease-out ${
+              rosterPanelOpen ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => setRosterPanelOpen((o) => !o)}
+              title="Affectations du mois"
+              className="absolute -left-9 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 bg-primary text-primary-foreground rounded-l-lg px-1.5 py-3 shadow-lg"
+            >
+              <Users className="w-4 h-4" />
+              {assignmentRoster.notAssigned.length > 0 && (
+                <span className="text-[10px] font-bold leading-none bg-amber-400 text-amber-950 rounded-full w-4 h-4 flex items-center justify-center">
+                  {assignmentRoster.notAssigned.length}
+                </span>
+              )}
+            </button>
+            <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div>
+                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-1.5">
+                  Déjà affectés ce mois-ci ({assignmentRoster.assigned.length}
+                  )
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {assignmentRoster.assigned.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Personne pour l'instant.
+                    </p>
+                  ) : (
+                    assignmentRoster.assigned.map((n) => (
+                      <Badge
+                        key={n}
+                        className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                      >
+                        {n}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-1.5">
+                  Pas encore affectés ({assignmentRoster.notAssigned.length})
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {assignmentRoster.notAssigned.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Tout le monde est affecté.
+                    </p>
+                  ) : (
+                    assignmentRoster.notAssigned.map((n) => (
+                      <Badge key={n} variant="outline">
+                        {n}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Header (title/subtitle) Dialog */}
       <Dialog

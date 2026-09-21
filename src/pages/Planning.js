@@ -2464,7 +2464,7 @@ export default function Planning() {
             <col key={i} className="col-date" style={{ width: "115px" }} />
           ))}
           {canValidate() && planningEditMode && (
-            <col style={{ width: "104px" }} className="print:hidden-col" />
+            <col style={{ width: "144px" }} className="print:hidden-col" />
           )}
         </colgroup>
         <thead>
@@ -2730,7 +2730,7 @@ export default function Planning() {
                                 className="border border-black p-1 print:hidden"
                                 rowSpan={role.slots}
                               >
-                                <div className="flex items-center justify-center flex-wrap gap-0.5">
+                                <div className="flex items-center justify-center flex-nowrap gap-0.5">
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -3326,7 +3326,7 @@ exporté/imprimé) et se recalcule en direct pendant l'édition. */}
             <Card className="print:shadow-none print:border-0 bg-white text-black">
               <CardContent className="p-0">
                 {/* Sum of the fixed colgroup widths in renderTable (220px label
-+ 115px per date column + 104px actions column) — passed in
++ 115px per date column + 144px actions column) — passed in
 directly rather than measured, since measuring a `w-full`
 table's own wrapper creates a circular width reference. */}
                 <ScaleToFitMobile
@@ -3334,7 +3334,7 @@ table's own wrapper creates a circular width reference. */}
                   naturalWidth={
                     220 +
                     currentDates.length * 115 +
-                    (canValidate() && planningEditMode ? 104 : 0) +
+                    (canValidate() && planningEditMode ? 144 : 0) +
                     4
                   }
                 >
@@ -3359,7 +3359,7 @@ table's own wrapper creates a circular width reference. */}
                   naturalWidth={
                     220 +
                     currentDates.length * 115 +
-                    (canValidate() && planningEditMode ? 104 : 0) +
+                    (canValidate() && planningEditMode ? 144 : 0) +
                     4
                   }
                 >

@@ -121,7 +121,13 @@ export async function downloadOrShareFile(blob, filename, { title, preOpenedWind
     // Blob source — fall through to the non-share paths below.
   }
 
-  if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+  // The native Share Sheet is only worth using on iOS, where `<a download>`
+  // is unreliable (see file header). On every other platform — including
+  // Windows and Android, which also implement navigator.share/canShare —
+  // it would hijack a plain "Exporter" click into the OS share dialog
+  // instead of just downloading the file, which is not what desktop users
+  // expect or want.
+  if (isIOS() && file && navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: title || filename });
       return 'shared';

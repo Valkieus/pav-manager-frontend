@@ -3239,6 +3239,80 @@ as the affectations are edited. */}
         </div>
       )}
 
+        {/* Absences / Notes — moved up here (right after the conflict banner,
+before the big table) so it's not missed at the bottom of a long
+scroll on phones/desktop (feedback 21/09/2026). Still deliberately
+outside printRef so print/PNG export never need any hide-this-column
+logic. Coordination+ only, et seulement en mode édition. */}
+        {canManage() && planningEditMode && (
+          <Card className="print:hidden">
+            <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold">
+                  Absences de l'équipe
+                </label>
+                {declaredAbsencesForActiveDay.length > 0 && (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-2 space-y-1 text-xs">
+                    <p className="font-semibold text-amber-800 dark:text-amber-400">
+                      Absences déclarées (auto, toujours à jour) :
+                    </p>
+                    {declaredAbsencesForActiveDay.map((a) => (
+                      <p
+                        key={a.id}
+                        className="text-amber-900 dark:text-amber-300"
+                      >
+                        <span className="font-medium">{a.full_name}</span> du{" "}
+                        {new Date(
+                          a.date_debut + "T00:00:00",
+                        ).toLocaleDateString("fr-FR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                        })}{" "}
+                        au{" "}
+                        {new Date(
+                          a.date_fin + "T00:00:00",
+                        ).toLocaleDateString("fr-FR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                        })}
+                        {" — "}
+                        {a.raison}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                <textarea
+                  className="w-full min-h-[120px] text-sm border border-input rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-ring p-2 resize-y"
+                  value={absences[activeDay] || ""}
+                  onChange={(e) =>
+                    setAbsences((prev) => ({
+                      ...prev,
+                      [activeDay]: e.target.value,
+                    }))
+                  }
+                  placeholder="Absences de l'équipe..."
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold">
+                  Notes / informations pertinentes
+                </label>
+                <textarea
+                  className="w-full min-h-[120px] text-sm border border-input rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-ring p-2 resize-y"
+                  value={notes[activeDay] || ""}
+                  onChange={(e) =>
+                    setNotes((prev) => ({
+                      ...prev,
+                      [activeDay]: e.target.value,
+                    }))
+                  }
+                  placeholder="Notes / informations pertinentes..."
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
       {/* Printable / exportable planning area + panneau latéral d'affectation
 pour Coordination+. Le panneau est en dehors de printRef (jamais
 exporté/imprimé) et se recalcule en direct pendant l'édition. */}
@@ -3404,78 +3478,6 @@ unfiltered "tech-list" as a safety-net fallback id. */}
             </p>
           </div>
 
-          {/* Absences / Notes — deliberately kept outside printRef so the print
-and PNG export never need any hide-this-column logic at all: these
-fields simply aren't part of the exported area. Coordination+ only,
-et seulement en mode édition. */}
-          {canManage() && planningEditMode && (
-            <Card className="print:hidden">
-              <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-semibold">
-                    Absences de l'équipe
-                  </label>
-                  {declaredAbsencesForActiveDay.length > 0 && (
-                    <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-2 space-y-1 text-xs">
-                      <p className="font-semibold text-amber-800 dark:text-amber-400">
-                        Absences déclarées (auto, toujours à jour) :
-                      </p>
-                      {declaredAbsencesForActiveDay.map((a) => (
-                        <p
-                          key={a.id}
-                          className="text-amber-900 dark:text-amber-300"
-                        >
-                          <span className="font-medium">{a.full_name}</span> du{" "}
-                          {new Date(
-                            a.date_debut + "T00:00:00",
-                          ).toLocaleDateString("fr-FR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                          })}{" "}
-                          au{" "}
-                          {new Date(
-                            a.date_fin + "T00:00:00",
-                          ).toLocaleDateString("fr-FR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                          })}
-                          {" — "}
-                          {a.raison}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                  <textarea
-                    className="w-full min-h-[120px] text-sm border border-input rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-ring p-2 resize-y"
-                    value={absences[activeDay] || ""}
-                    onChange={(e) =>
-                      setAbsences((prev) => ({
-                        ...prev,
-                        [activeDay]: e.target.value,
-                      }))
-                    }
-                    placeholder="Absences de l'équipe..."
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-semibold">
-                    Notes / informations pertinentes
-                  </label>
-                  <textarea
-                    className="w-full min-h-[120px] text-sm border border-input rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-ring p-2 resize-y"
-                    value={notes[activeDay] || ""}
-                    onChange={(e) =>
-                      setNotes((prev) => ({
-                        ...prev,
-                        [activeDay]: e.target.value,
-                      }))
-                    }
-                    placeholder="Notes / informations pertinentes..."
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
 
         {canManage() && planningEditMode && (

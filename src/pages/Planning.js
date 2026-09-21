@@ -2480,7 +2480,7 @@ export default function Planning() {
             <col key={i} className="col-date" style={{ width: "115px" }} />
           ))}
           {canValidate() && planningEditMode && (
-            <col style={{ width: "144px" }} className="print:hidden-col" />
+            <col style={{ width: "120px" }} className="print:hidden-col" />
           )}
         </colgroup>
         <thead>
@@ -2762,100 +2762,113 @@ export default function Planning() {
                                 className="border border-black p-1 print:hidden"
                                 rowSpan={role.slots}
                               >
-                                <div className="flex items-center justify-center flex-nowrap gap-0.5">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-6 w-6 p-0 bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground disabled:opacity-25"
-                                    disabled={roleIdx === 0}
-                                    title="Monter le poste"
-                                    onClick={() =>
-                                      moveRole(
-                                        tableKey,
-                                        sectionIdx,
-                                        roleIdx,
-                                        "up",
-                                        activeDay,
-                                      )
-                                    }
-                                  >
-                                    <ChevronUp className="w-3.5 h-3.5" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-6 w-6 p-0 bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground disabled:opacity-25"
-                                    disabled={
-                                      roleIdx === section.roles.length - 1
-                                    }
-                                    title="Descendre le poste"
-                                    onClick={() =>
-                                      moveRole(
-                                        tableKey,
-                                        sectionIdx,
-                                        roleIdx,
-                                        "down",
-                                        activeDay,
-                                      )
-                                    }
-                                  >
-                                    <ChevronDown className="w-3.5 h-3.5" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className={`h-6 w-6 p-0 bg-background border-border hover:bg-muted ${role.blocked ? "text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/40" : "text-muted-foreground hover:text-amber-600"}`}
-                                    title={
-                                      role.blocked
-                                        ? "Rendre disponible"
-                                        : "Griser (marquer indisponible)"
-                                    }
-                                    onClick={() =>
-                                      toggleBlocked(
-                                        tableKey,
-                                        sectionIdx,
-                                        roleIdx,
-                                        activeDay,
-                                      )
-                                    }
-                                  >
-                                    <Ban className="w-3.5 h-3.5" />
-                                  </Button>
+                                {/* Two explicit, data-driven rows instead of
+                                    letting flex-wrap decide: row 1 always
+                                    holds the same 4 buttons (fits a 120px
+                                    column with no wasted space), row 2 only
+                                    exists in the DOM when mergedFrom is set.
+                                    That keeps the layout deterministic from
+                                    section.roles data alone — no
+                                    width-dependent wrap that could disagree
+                                    with what ScaleToFitMobile measured. */}
+                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                  <div className="flex items-center justify-center flex-nowrap gap-0.5">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 w-6 p-0 bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground disabled:opacity-25"
+                                      disabled={roleIdx === 0}
+                                      title="Monter le poste"
+                                      onClick={() =>
+                                        moveRole(
+                                          tableKey,
+                                          sectionIdx,
+                                          roleIdx,
+                                          "up",
+                                          activeDay,
+                                        )
+                                      }
+                                    >
+                                      <ChevronUp className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 w-6 p-0 bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground disabled:opacity-25"
+                                      disabled={
+                                        roleIdx === section.roles.length - 1
+                                      }
+                                      title="Descendre le poste"
+                                      onClick={() =>
+                                        moveRole(
+                                          tableKey,
+                                          sectionIdx,
+                                          roleIdx,
+                                          "down",
+                                          activeDay,
+                                        )
+                                      }
+                                    >
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className={`h-6 w-6 p-0 bg-background border-border hover:bg-muted ${role.blocked ? "text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/40" : "text-muted-foreground hover:text-amber-600"}`}
+                                      title={
+                                        role.blocked
+                                          ? "Rendre disponible"
+                                          : "Griser (marquer indisponible)"
+                                      }
+                                      onClick={() =>
+                                        toggleBlocked(
+                                          tableKey,
+                                          sectionIdx,
+                                          roleIdx,
+                                          activeDay,
+                                        )
+                                      }
+                                    >
+                                      <Ban className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 w-6 p-0 bg-background text-destructive border-destructive/30 hover:bg-destructive/10"
+                                      title="Supprimer le poste"
+                                      onClick={() =>
+                                        removeRole(
+                                          tableKey,
+                                          sectionIdx,
+                                          roleIdx,
+                                          activeDay,
+                                        )
+                                      }
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
                                   {role.mergedFrom &&
                                     role.mergedFrom.length > 0 && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-6 w-6 p-0 bg-background text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/40"
-                                        title="Défusionner ces postes"
-                                        onClick={() =>
-                                          splitMergedRole(
-                                            tableKey,
-                                            sectionIdx,
-                                            roleIdx,
-                                            activeDay,
-                                          )
-                                        }
-                                      >
-                                        <Split className="w-3.5 h-3.5" />
-                                      </Button>
+                                      <div className="flex items-center justify-center">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-6 w-6 p-0 bg-background text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                                          title="Défusionner ces postes"
+                                          onClick={() =>
+                                            splitMergedRole(
+                                              tableKey,
+                                              sectionIdx,
+                                              roleIdx,
+                                              activeDay,
+                                            )
+                                          }
+                                        >
+                                          <Split className="w-3.5 h-3.5" />
+                                        </Button>
+                                      </div>
                                     )}
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-6 w-6 p-0 bg-background text-destructive border-destructive/30 hover:bg-destructive/10"
-                                    title="Supprimer le poste"
-                                    onClick={() =>
-                                      removeRole(
-                                        tableKey,
-                                        sectionIdx,
-                                        roleIdx,
-                                        activeDay,
-                                      )
-                                    }
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </Button>
                                 </div>
                               </td>
                             )}
@@ -3432,15 +3445,17 @@ exporté/imprimé) et se recalcule en direct pendant l'édition. */}
             <Card className="print:shadow-none print:border-0 bg-white text-black">
               <CardContent className="p-0">
                 {/* Sum of the fixed colgroup widths in renderTable (220px label
-+ 115px per date column + 144px actions column) — passed in
-directly rather than measured, since measuring a `w-full`
-table's own wrapper creates a circular width reference. */}
++ 115px per date column + 120px actions column — sized for the
+common 4-button row; merged/split rows grow a 2nd row instead of
+widening) — passed in directly rather than measured, since
+measuring a `w-full` table's own wrapper creates a circular width
+reference. */}
                 <ScaleToFitMobile
                   key={`t1-${activeDay}-${currentDates.length}`}
                   naturalWidth={
                     220 +
                     currentDates.length * 115 +
-                    (canValidate() && planningEditMode ? 144 : 0) +
+                    (canValidate() && planningEditMode ? 120 : 0) +
                     4
                   }
                 >
@@ -3465,7 +3480,7 @@ table's own wrapper creates a circular width reference. */}
                   naturalWidth={
                     220 +
                     currentDates.length * 115 +
-                    (canValidate() && planningEditMode ? 144 : 0) +
+                    (canValidate() && planningEditMode ? 120 : 0) +
                     4
                   }
                 >
@@ -3526,6 +3541,20 @@ tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
           onMouseEnter={() => setRosterPanelOpen(true)}
           onMouseLeave={() => setRosterPanelOpen(false)}
         >
+          {/* max-height was a flat 70vh, leaving visible unused space below
+          the panel on both desktop and mobile (user feedback 21/09/2026)
+          since the panel starts at top-24 (6rem from the top) — there was
+          always more room below it than 70% of the FULL viewport. Use the
+          space actually available under the top offset instead; dvh (where
+          supported, notably mobile) accounts for the browser's address bar
+          so it doesn't overflow off-screen there either. */}
+          <style>{`
+.roster-panel-scroll {
+  max-height: 70vh;
+  max-height: calc(100vh - 7rem);
+  max-height: calc(100dvh - 7rem);
+}
+`}</style>
           <div
             className={`relative w-72 max-w-[80vw] bg-card border border-border rounded-l-lg shadow-xl transition-transform duration-200 ease-out ${
               rosterPanelOpen ? "translate-x-0" : "translate-x-full"
@@ -3544,7 +3573,7 @@ tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
                 </span>
               )}
             </button>
-            <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+            <div className="roster-panel-scroll p-4 space-y-4 overflow-y-auto">
               <div>
                 <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-1.5">
                   Déjà affectés ce mois-ci ({assignmentRoster.assigned.length}

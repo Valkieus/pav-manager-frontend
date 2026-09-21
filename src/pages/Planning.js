@@ -1181,6 +1181,15 @@ export default function Planning() {
   const [addCategoryDialog, setAddCategoryDialog] = useState(null); // tableKey or null
   const [newCategoryName, setNewCategoryName] = useState("");
   const [editCategoryDialog, setEditCategoryDialog] = useState(null); // { tableKey, sectionIdx, day }
+  // Repli/dépli des catégories (REGIE, CADREURS, etc.) — demande 21/09/2026,
+  // même logique que les catégories repliables de Groupes & Droits. Clé
+  // = tableKey + nom de catégorie (partagée entre Vendredi/Dimanche pour
+  // que la préférence de repli suive l'utilisateur d'un onglet à l'autre).
+  const [collapsedCategories, setCollapsedCategories] = useState({});
+  const toggleCategoryCollapse = (tableKey, sectionName) => {
+    const key = `${tableKey}::${sectionName}`;
+    setCollapsedCategories((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
   const [editCategoryLabel, setEditCategoryLabel] = useState("");
 
   // Group/merge roles (e.g. "Caméra 1-6")
@@ -2513,6 +2522,8 @@ export default function Planning() {
               groupModeSection.tableKey === tableKey &&
               groupModeSection.sectionIdx === sectionIdx &&
               groupModeSection.day === activeDay;
+            const isCollapsed =
+              !!collapsedCategories[`${tableKey}::${section.name}`];
             return (
               <React.Fragment key={section.name + sectionIdx}>
                 {!section.standalone && (
@@ -2529,26 +2540,39 @@ export default function Planning() {
                       className={`border border-black p-1 font-bold text-center ${theme.band}`}
                     >
                       <span
-                        className={
-                          canValidate() &&
-                          planningEditMode &&
-                          !planningScope.is_restricted
-                            ? "cursor-pointer hover:underline"
-                            : ""
-                        }
+                        className="cursor-pointer hover:underline inline-flex items-center gap-1"
                         onClick={() =>
-                          canValidate() &&
-                          planningEditMode &&
-                          !planningScope.is_restricted &&
-                          handleEditCategory(tableKey, sectionIdx, activeDay)
+                          toggleCategoryCollapse(tableKey, section.name)
                         }
+                        title={isCollapsed ? "Déplier" : "Replier"}
                       >
+                        {isCollapsed ? (
+                          <ChevronRight className="w-3.5 h-3.5 print:hidden" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 print:hidden" />
+                        )}
                         {section.name}
                       </span>
                       {canValidate() &&
                         planningEditMode &&
                         !planningScope.is_restricted && (
                           <span className="inline-flex items-center gap-1 ml-2 print:hidden align-middle">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              title="Renommer la catégorie"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditCategory(
+                                  tableKey,
+                                  sectionIdx,
+                                  activeDay,
+                                );
+                              }}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </Button>
                             <Button
                               size="sm"
                               variant="ghost"
@@ -2615,7 +2639,8 @@ export default function Planning() {
                     </td>
                   </tr>
                 )}
-                {section.roles.map((role, roleIdx) => {
+                {!isCollapsed &&
+                  section.roles.map((role, roleIdx) => {
                   const posteCategory = canonPoste(section.name, role.label);
                   const datalistId = `tech-list-${slugPoste(posteCategory)}`;
                   return (

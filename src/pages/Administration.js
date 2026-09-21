@@ -991,6 +991,13 @@ export default function Administration() {
   };
   const isCategoryExpanded = (cat) =>
     expandedCategories ? expandedCategories[cat] !== false : true;
+  // Demande 21/09/2026 : le bloc "Segmentation du planning" (planning_scope/
+  // planning_full_control) n'a de sens que pour les groupes de catégorie
+  // Planning (Planning_*) — un groupe Salles/Communication/etc. ne doit
+  // même pas le voir, pour éviter la confusion. Comparaison tolérante
+  // (espaces/casse) puisque la catégorie est un champ texte libre.
+  const isPlanningCategory = (category) =>
+    (category || "").trim().toLowerCase() === "planning";
   const [logs, setLogs] = useState([]);
   const [logSearch, setLogSearch] = useState("");
   const [logModuleFilter, setLogModuleFilter] = useState("all");
@@ -3432,6 +3439,7 @@ même limite pour éviter un 403 après coup. */}
                         })}
                       </div>
                     )}
+                    {isPlanningCategory(groupForm.category) && (
                     <div className="space-y-2 border-t pt-4">
                       <Label>Segmentation du planning</Label>
                       <p className="text-xs text-muted-foreground">
@@ -3584,6 +3592,7 @@ même limite pour éviter un 403 après coup. */}
                         </div>
                       )}
                     </div>
+                    )}
                     <DialogFooter>
                       <Button type="submit" disabled={submitting}>
                         {submitting && (

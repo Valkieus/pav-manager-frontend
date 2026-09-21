@@ -2464,7 +2464,7 @@ export default function Planning() {
             <col key={i} className="col-date" style={{ width: "115px" }} />
           ))}
           {canValidate() && planningEditMode && (
-            <col style={{ width: "150px" }} className="print:hidden-col" />
+            <col style={{ width: "104px" }} className="print:hidden-col" />
           )}
         </colgroup>
         <thead>
@@ -2730,11 +2730,11 @@ export default function Planning() {
                                 className="border border-black p-1 print:hidden"
                                 rowSpan={role.slots}
                               >
-                                <div className="flex items-center justify-center flex-wrap gap-1 p-1 rounded-md bg-muted/50 border border-border/60">
+                                <div className="flex items-center justify-center flex-wrap gap-0.5">
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-7 w-7 p-0 bg-background text-slate-700 dark:text-slate-200 border-border shadow-sm hover:bg-muted hover:text-foreground disabled:opacity-25"
+                                    className="h-6 w-6 p-0 bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground disabled:opacity-25"
                                     disabled={roleIdx === 0}
                                     title="Monter le poste"
                                     onClick={() =>
@@ -2747,12 +2747,12 @@ export default function Planning() {
                                       )
                                     }
                                   >
-                                    <ChevronUp className="w-4 h-4" />
+                                    <ChevronUp className="w-3.5 h-3.5" />
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-7 w-7 p-0 bg-background text-slate-700 dark:text-slate-200 border-border shadow-sm hover:bg-muted hover:text-foreground disabled:opacity-25"
+                                    className="h-6 w-6 p-0 bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground disabled:opacity-25"
                                     disabled={
                                       roleIdx === section.roles.length - 1
                                     }
@@ -2767,12 +2767,12 @@ export default function Planning() {
                                       )
                                     }
                                   >
-                                    <ChevronDown className="w-4 h-4" />
+                                    <ChevronDown className="w-3.5 h-3.5" />
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className={`h-7 w-7 p-0 bg-background border-border shadow-sm hover:bg-muted ${role.blocked ? "text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/40" : "text-slate-700 dark:text-slate-200 hover:text-amber-600"}`}
+                                    className={`h-6 w-6 p-0 bg-background border-border hover:bg-muted ${role.blocked ? "text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/40" : "text-muted-foreground hover:text-amber-600"}`}
                                     title={
                                       role.blocked
                                         ? "Rendre disponible"
@@ -2787,14 +2787,14 @@ export default function Planning() {
                                       )
                                     }
                                   >
-                                    <Ban className="w-4 h-4" />
+                                    <Ban className="w-3.5 h-3.5" />
                                   </Button>
                                   {role.mergedFrom &&
                                     role.mergedFrom.length > 0 && (
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        className="h-7 w-7 p-0 bg-background text-blue-600 border-blue-200 shadow-sm hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                                        className="h-6 w-6 p-0 bg-background text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/40"
                                         title="Défusionner ces postes"
                                         onClick={() =>
                                           splitMergedRole(
@@ -2805,13 +2805,13 @@ export default function Planning() {
                                           )
                                         }
                                       >
-                                        <Split className="w-4 h-4" />
+                                        <Split className="w-3.5 h-3.5" />
                                       </Button>
                                     )}
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-7 w-7 p-0 bg-background text-destructive border-destructive/30 shadow-sm hover:bg-destructive/10"
+                                    className="h-6 w-6 p-0 bg-background text-destructive border-destructive/30 hover:bg-destructive/10"
                                     title="Supprimer le poste"
                                     onClick={() =>
                                       removeRole(
@@ -2822,7 +2822,7 @@ export default function Planning() {
                                       )
                                     }
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </Button>
                                 </div>
                               </td>
@@ -3814,7 +3814,7 @@ et seulement en mode édition. */}
                       className="h-7 w-7 p-0 text-destructive"
                       onClick={() => removeDate(date)}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 ))

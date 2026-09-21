@@ -2470,8 +2470,18 @@ export default function Planning() {
 
   const renderTable = (tableKey, tableSections) => {
     return (
+      // No `w-full` here on purpose: with table-layout:fixed and every
+      // <col> below given an explicit px width, a width:100% table
+      // proportionally stretches ALL columns (including the actions one)
+      // to fill whatever container width is available — on a wide desktop
+      // screen that turned the 120px actions column into 200-250px of
+      // visible dead space next to the buttons (user feedback 21/09/2026,
+      // screenshot). Leaving width unset makes a fixed-layout table use
+      // the sum of its column widths as its own width instead, so it no
+      // longer stretches; the wrapper's overflow-x-auto still handles any
+      // narrower viewport.
       <table
-        className="w-full border-collapse text-sm mb-4 print:mb-2"
+        className="border-collapse text-sm mb-4 print:mb-2"
         style={{ tableLayout: "fixed" }}
       >
         <colgroup>

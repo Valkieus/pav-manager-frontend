@@ -3326,7 +3326,7 @@ exporté/imprimé) et se recalcule en direct pendant l'édition. */}
             <Card className="print:shadow-none print:border-0 bg-white text-black">
               <CardContent className="p-0">
                 {/* Sum of the fixed colgroup widths in renderTable (220px label
-+ 115px per date column + 28px validate column) — passed in
++ 115px per date column + 104px actions column) — passed in
 directly rather than measured, since measuring a `w-full`
 table's own wrapper creates a circular width reference. */}
                 <ScaleToFitMobile
@@ -3334,7 +3334,7 @@ table's own wrapper creates a circular width reference. */}
                   naturalWidth={
                     220 +
                     currentDates.length * 115 +
-                    (canValidate() && planningEditMode ? 28 : 0) +
+                    (canValidate() && planningEditMode ? 104 : 0) +
                     4
                   }
                 >
@@ -3359,7 +3359,7 @@ table's own wrapper creates a circular width reference. */}
                   naturalWidth={
                     220 +
                     currentDates.length * 115 +
-                    (canValidate() && planningEditMode ? 28 : 0) +
+                    (canValidate() && planningEditMode ? 104 : 0) +
                     4
                   }
                 >

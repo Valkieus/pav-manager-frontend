@@ -2470,24 +2470,22 @@ export default function Planning() {
 
   const renderTable = (tableKey, tableSections) => {
     return (
-      // No `w-full` here on purpose: with table-layout:fixed and every
-      // <col> below given an explicit px width, a width:100% table
-      // proportionally stretches ALL columns (including the actions one)
-      // to fill whatever container width is available — on a wide desktop
-      // screen that turned the 120px actions column into 200-250px of
-      // visible dead space next to the buttons (user feedback 21/09/2026,
-      // screenshot). Leaving width unset makes a fixed-layout table use
-      // the sum of its column widths as its own width instead, so it no
-      // longer stretches; the wrapper's overflow-x-auto still handles any
-      // narrower viewport.
+      // Table stays w-full (removing it left a huge dead gap after a
+      // narrow table when there's no actions column at all — e.g. outside
+      // edit mode — user feedback 21/09/2026 "OULA"). Instead, only the
+      // label (220px) and actions (120px) columns below get an explicit
+      // <col> width; the date columns are left auto so THEY absorb any
+      // extra width table-layout:fixed has to distribute on a wide
+      // desktop screen, instead of it going into the actions column next
+      // to the buttons (which is what made that column 200-250px wide).
       <table
-        className="border-collapse text-sm mb-4 print:mb-2"
+        className="w-full border-collapse text-sm mb-4 print:mb-2"
         style={{ tableLayout: "fixed" }}
       >
         <colgroup>
           <col className="col-label" style={{ width: "220px" }} />
           {currentDates.map((_, i) => (
-            <col key={i} className="col-date" style={{ width: "115px" }} />
+            <col key={i} className="col-date" />
           ))}
           {canValidate() && planningEditMode && (
             <col style={{ width: "120px" }} className="print:hidden-col" />

@@ -3537,7 +3537,18 @@ le bas sur mobile. Survol = ouverture/fermeture automatique sur PC ;
 tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
       {canManage() && planningEditMode && (
         <div
-          className="print:hidden fixed top-24 right-0 z-30"
+          // pointer-events-none here + pointer-events-auto on just the
+          // handle tab and the panel below: without this, this wrapper's
+          // own (invisible, untransformed) hit box always spans the full
+          // w-72 width at the right edge — even while "closed" — which was
+          // sitting on top of and swallowing hover/clicks meant for the
+          // Planning table's row-action buttons underneath it on desktop
+          // (user feedback 21/09/2026: "quand je hover juste un peu sur la
+          // zone il s'ouvre, je ne peux plus cliquer up/down/griser/
+          // supprimer"). Now only the actually-visible parts (tab, open
+          // panel) can receive/trigger events; everywhere else is
+          // click-through.
+          className="print:hidden fixed top-24 right-0 z-30 pointer-events-none"
           onMouseEnter={() => setRosterPanelOpen(true)}
           onMouseLeave={() => setRosterPanelOpen(false)}
         >
@@ -3556,7 +3567,7 @@ tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
 }
 `}</style>
           <div
-            className={`relative w-72 max-w-[80vw] bg-card border border-border rounded-l-lg shadow-xl transition-transform duration-200 ease-out ${
+            className={`relative w-72 max-w-[80vw] bg-card border border-border rounded-l-lg shadow-xl transition-transform duration-200 ease-out pointer-events-auto ${
               rosterPanelOpen ? "translate-x-0" : "translate-x-full"
             }`}
           >
@@ -3564,7 +3575,7 @@ tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
               type="button"
               onClick={() => setRosterPanelOpen((o) => !o)}
               title="Affectations du mois"
-              className="absolute -left-9 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 bg-primary text-primary-foreground rounded-l-lg px-1.5 py-3 shadow-lg"
+              className="absolute -left-9 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 bg-primary text-primary-foreground rounded-l-lg px-1.5 py-3 shadow-lg pointer-events-auto"
             >
               <Users className="w-4 h-4" />
               {assignmentRoster.notAssigned.length > 0 && (

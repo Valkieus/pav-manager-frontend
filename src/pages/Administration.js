@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -341,7 +341,7 @@ function HealthPill({ icon: Icon, label, status, detail }) {
   );
 }
 
-const NOTIFICATION_TYPE_ROLES = ["Technicien", "Responsable", "Gestionnaire", "Admin (lecture seule)", "Admin", "Super Admin"];
+const NOTIFICATION_TYPE_ROLES = ["Technicien", "Responsable", "Coordination", "Admin (lecture seule)", "Admin", "Super Admin"];
 
 const NOTIFICATION_CATEGORIES = [
   {
@@ -957,6 +957,40 @@ export default function Administration() {
   const [userLevelFilter, setUserLevelFilter] = useState("all");
   const [userDetailOpen, setUserDetailOpen] = useState(null);
   const [groups, setGroups] = useState([]);
+  // Catégories des groupes Groupes & Droits (ex. "Planning") — demande
+  // explicite du 21/09/2026 pour gérer les groupes par catégorie plutôt
+  // qu'en liste plate. Le backend renvoie toujours une catégorie effective
+  // par groupe (explicite ou déduite du nom), donc pas besoin de fallback
+  // ici. `expandedCategories` mémorise quelles catégories sont dépliées ;
+  // toutes ouvertes par défaut au premier chargement.
+  const [expandedCategories, setExpandedCategories] = useState(null);
+  const groupCategoryOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(groups.map((g) => g.category).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b)),
+    [groups],
+  );
+  const groupsByCategory = useMemo(() => {
+    const map = {};
+    for (const g of groups) {
+      const cat = g.category || "Général";
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(g);
+    }
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+  }, [groups]);
+  const toggleCategory = (cat) => {
+    setExpandedCategories((prev) => {
+      // Première interaction : construire l'état complet "tout ouvert" à
+      // partir des catégories actuelles avant de refermer celle cliquée.
+      const base =
+        prev || Object.fromEntries(groupsByCategory.map(([c]) => [c, true]));
+      return { ...base, [cat]: !base[cat] };
+    });
+  };
+  const isCategoryExpanded = (cat) =>
+    expandedCategories ? expandedCategories[cat] !== false : true;
   const [logs, setLogs] = useState([]);
   const [logSearch, setLogSearch] = useState("");
   const [logModuleFilter, setLogModuleFilter] = useState("all");
@@ -1562,6 +1596,7 @@ export default function Administration() {
   const [groupForm, setGroupForm] = useState({
     name: "",
     description: "",
+    category: "",
     permissions: [],
     planning_full_control: false,
     planning_scope: [],
@@ -2012,6 +2047,7 @@ export default function Administration() {
       setGroupForm({
         name: "",
         description: "",
+        category: "",
         permissions: [],
         planning_full_control: false,
         planning_scope: [],
@@ -2032,6 +2068,7 @@ export default function Administration() {
     setGroupForm({
       name: group.name,
       description: group.description || "",
+      category: group.category || "",
       permissions: group.permissions || [],
       planning_full_control: group.planning_full_control || false,
       planning_scope: group.planning_scope || [],
@@ -3077,6 +3114,7 @@ même limite pour éviter un 403 après coup. */}
                     setGroupForm({
                       name: "",
                       description: "",
+                      category: "",
                       permissions: [],
                       planning_full_control: false,
                       planning_scope: [],
@@ -3125,6 +3163,35 @@ même limite pour éviter un 403 après coup. */}
                         }
                         placeholder="Description du groupe"
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Catégorie</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Regroupe ce groupe avec les autres de la même
+                        catégorie dans la liste ci-dessous (ex. "Planning"
+                        pour tous les groupes Planning_*). Laissez vide pour
+                        garder la catégorie déduite automatiquement du nom.
+                      </p>
+                      <Input
+                        list="group-category-options"
+                        value={groupForm.category}
+                        onChange={(e) =>
+                          setGroupForm({
+                            ...groupForm,
+                            category: e.target.value,
+                          })
+                        }
+                        placeholder={
+                          groupCategoryOptions.length > 0
+                            ? `Ex: ${groupCategoryOptions[0]}`
+                            : "Ex: Planning"
+                        }
+                      />
+                      <datalist id="group-category-options">
+                        {groupCategoryOptions.map((cat) => (
+                          <option key={cat} value={cat} />
+                        ))}
+                      </datalist>
                     </div>
                     <div className="space-y-2">
                       <Label>Permissions par module</Label>
@@ -3541,12 +3608,49 @@ même limite pour éviter un 403 après coup. */}
                 </CardContent>
               </Card>
             ) : (
-              <div className="border rounded-lg divide-y overflow-hidden">
-                {groups.map((group) => (
-                  <div
-                    key={group.id}
-                    className="flex items-start gap-3 px-4 py-3 hover:bg-muted/30"
-                  >
+              <div className="space-y-3">
+                {groupsByCategory.map(([category, catGroups]) => {
+                  const expanded = isCategoryExpanded(category);
+                  const totalMembers = catGroups.reduce(
+                    (a, g) => a + (g.members_count || 0),
+                    0,
+                  );
+                  return (
+                    <div
+                      key={category}
+                      className="border rounded-lg overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleCategory(category)}
+                        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-muted/40 hover:bg-muted/60 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          {expanded ? (
+                            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronUp className="w-4 h-4 text-muted-foreground -rotate-90" />
+                          )}
+                          <span className="font-semibold text-sm">
+                            {category}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {catGroups.length} groupe
+                            {catGroups.length > 1 ? "s" : ""}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {totalMembers} membre{totalMembers > 1 ? "s" : ""}{" "}
+                          au total
+                        </span>
+                      </button>
+                      {expanded && (
+                        <div className="divide-y">
+                          {catGroups.map((group) => (
+                            <div
+                              key={group.id}
+                              className="flex items-start gap-3 px-4 py-3 hover:bg-muted/30"
+                            >
                     <Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -3645,8 +3749,13 @@ même limite pour éviter un 403 après coup. */}
                         </>
                       )}
                     </div>
-                  </div>
-                ))}
+                          </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </TabsContent>

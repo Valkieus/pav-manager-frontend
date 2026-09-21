@@ -155,7 +155,7 @@ const PERMISSION_CATEGORIES = {
   Administration: ["admin.users", "admin.groups", "admin.logs"],
 };
 
-const NOTIFICATION_TYPE_ROLES = ["Technicien", "Responsable", "Gestionnaire", "Admin (lecture seule)", "Admin", "Super Admin"];
+const NOTIFICATION_TYPE_ROLES = ["Technicien", "Responsable", "Coordination", "Admin (lecture seule)", "Admin", "Super Admin"];
 
 function NotificationRoutingPanel() {
   const [routing, setRouting] = useState([]);

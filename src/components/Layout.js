@@ -72,49 +72,49 @@ const ONBOARDING_CONTENT = {
   Technicien: {
     title: "Bienvenue sur PAV Manager !",
     points: [
-      "Ton tableau de bord affiche tes prochains services et les invités à venir.",
-      "Une absence à venir ? Déclare-la en un clic depuis « Mon espace ».",
-      "Découvre les formations disponibles et l'organigramme du département directement depuis le Dashboard.",
-      "La cloche en haut à droite te prévient dès qu'il y a du nouveau.",
+      "Votre tableau de bord affiche vos prochains services et les invités à venir.",
+      "Une absence à venir ? Déclarez-la en un clic depuis « Mon espace ».",
+      "Découvrez les formations disponibles et l'organigramme du département directement depuis le Dashboard.",
+      "La cloche en haut à droite vous prévient dès qu'il y a du nouveau.",
     ],
   },
   Coordination: {
     title: "Bienvenue à la Coordination PAV !",
     points: [
-      "Tu peux gérer le Planning, les Devis, les Salles et les Formations selon tes branches.",
-      "La cloche en haut à droite signale les demandes qui nécessitent ton attention.",
-      "Ton tableau de bord se limite aux branches qui te sont attribuées.",
+      "Vous pouvez gérer le Planning, les Devis, les Salles et les Formations selon vos branches.",
+      "La cloche en haut à droite signale les demandes qui nécessitent votre attention.",
+      "Votre tableau de bord se limite aux branches qui vous sont attribuées.",
     ],
   },
   Responsable: {
     title: "Bienvenue, Responsable !",
     points: [
-      "Tu interviens en validation finale sur les Formations et supervises tes branches.",
-      "Le tableau de bord te donne une vue d'ensemble : Devis, Formations, Effectif, Salles.",
-      "La cloche en haut à droite regroupe toutes les notifications qui te concernent.",
+      "Vous intervenez en validation finale sur les Formations et supervisez vos branches.",
+      "Le tableau de bord vous donne une vue d'ensemble : Devis, Formations, Effectif, Salles.",
+      "La cloche en haut à droite regroupe toutes les notifications qui vous concernent.",
     ],
   },
   Admin: {
     title: "Bienvenue, Administrateur !",
     points: [
-      "Tu as accès en écriture à l'ensemble du département : Effectif, Planning, Devis, Salles, Documents, Actualités, Formations.",
-      "L'onglet Administration te permet de gérer les utilisateurs, les groupes et les droits d'accès.",
+      "Vous avez accès en écriture à l'ensemble du département : Effectif, Planning, Devis, Salles, Documents, Actualités, Formations.",
+      "L'onglet Administration vous permet de gérer les utilisateurs, les groupes et les droits d'accès.",
       "Le redémarrage serveur, la purge des logs, la migration de données, le quota de stockage et le mode maintenance restent réservés au Super Admin.",
     ],
   },
   "Admin (lecture seule)": {
     title: "Bienvenue, Administrateur (lecture seule) !",
     points: [
-      "Tu as une vue d'ensemble complète du département, sans restriction de branche.",
-      "L'onglet Administration te permet de consulter les journaux d'activité et la supervision du système.",
-      "Ton accès est en lecture seule : les actions de création, modification et suppression ne sont pas disponibles.",
+      "Vous avez une vue d'ensemble complète du département, sans restriction de branche.",
+      "L'onglet Administration vous permet de consulter les journaux d'activité et la supervision du système.",
+      "Votre accès est en lecture seule : les actions de création, modification et suppression ne sont pas disponibles.",
     ],
   },
   "Super Admin": {
     title: "Bienvenue, Super Admin !",
     points: [
-      "Tu as un accès complet : gestion des utilisateurs, des groupes de permissions et du mode maintenance.",
-      "L'onglet Administration te permet de tout superviser, y compris les journaux d'activité.",
+      "Vous avez un accès complet : gestion des utilisateurs, des groupes de permissions et du mode maintenance.",
+      "L'onglet Administration vous permet de tout superviser, y compris les journaux d'activité.",
       "La cloche en haut à droite regroupe toutes les notifications importantes.",
     ],
   },

@@ -1694,22 +1694,36 @@ export default function Planning() {
     const fromSections = sections[fromDay] || DEFAULT_SECTIONS[fromDay];
     const toSections = sections[toDay] || DEFAULT_SECTIONS[toDay];
 
+    // toRolesByBase also carries the destination section's name so we can
+    // gate each write through the SAME canEditPlanningCell() check used for
+    // ordinary manual edits — a scoped Responsable (e.g. Laura, scoped to
+    // CADREURS) must only be able to copy INTO her own section's cells.
+    // Without this, this purely-frontend copy silently built a diff across
+    // every branch, and the backend's update_planning scope check (which
+    // rejects the WHOLE save if any changed key is out of scope) then
+    // either 403'd the entire autosave or, worse, gave a false "copié"
+    // success toast before that save even ran (user feedback 26/09/2026).
     const toRolesByBase = {};
     ["table1", "table2"].forEach((tableKey) => {
       (toSections[tableKey] || []).forEach((section) => {
         section.roles.forEach((role) => {
-          toRolesByBase[baseKey(role.key, toDay)] = role;
+          toRolesByBase[baseKey(role.key, toDay)] = {
+            role,
+            sectionName: section.name,
+          };
         });
       });
     });
 
     let copiedCount = 0;
+    let skippedOutOfScope = 0;
     const updated = { ...affectations };
     ["table1", "table2"].forEach((tableKey) => {
       (fromSections[tableKey] || []).forEach((section) => {
         section.roles.forEach((role) => {
-          const target = toRolesByBase[baseKey(role.key, fromDay)];
-          if (!target) return; // pas de rôle équivalent en face — on ignore silencieusement
+          const entry = toRolesByBase[baseKey(role.key, fromDay)];
+          if (!entry) return; // pas de rôle équivalent en face — on ignore silencieusement
+          const { role: target, sectionName } = entry;
           const maxSlots = Math.max(role.slots || 1, target.slots || 1);
           for (let slotIdx = 0; slotIdx < maxSlots; slotIdx++) {
             const rawVal = affectations[`${role.key}_${slotIdx}`];
@@ -1720,10 +1734,13 @@ export default function Planning() {
               ? rawVal.slice(0, toDatesCount)
               : rawVal;
             const hasContent = Array.isArray(val) ? val.some((v) => v) : !!val;
-            if (hasContent) {
-              updated[`${target.key}_${slotIdx}`] = val;
-              copiedCount++;
+            if (!hasContent) continue;
+            if (!canEditPlanningCell(sectionName, target.key)) {
+              skippedOutOfScope++;
+              continue;
             }
+            updated[`${target.key}_${slotIdx}`] = val;
+            copiedCount++;
           }
         });
       });
@@ -1733,11 +1750,18 @@ export default function Planning() {
     setCopyDaysDialog(false);
     if (copiedCount === 0) {
       toast.info(
-        `Rien à copier : aucune case remplie côté ${fromLabel}, ou aucun rôle équivalent côté ${toLabel}.`,
+        skippedOutOfScope > 0
+          ? "Rien à copier : les cases remplies côté "
+            .concat(fromLabel)
+            .concat(" sont hors de votre périmètre.")
+          : `Rien à copier : aucune case remplie côté ${fromLabel}, ou aucun rôle équivalent côté ${toLabel}.`,
       );
     } else {
       toast.success(
-        `${copiedCount} case(s) copiée(s) de ${fromLabel} vers ${toLabel} — enregistrement automatique en cours.`,
+        `${copiedCount} case(s) copiée(s) de ${fromLabel} vers ${toLabel} — enregistrement automatique en cours.` +
+          (skippedOutOfScope > 0
+            ? ` (${skippedOutOfScope} hors de votre périmètre, ignorée(s))`
+            : ""),
       );
     }
   };

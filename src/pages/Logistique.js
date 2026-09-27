@@ -886,7 +886,7 @@ export default function Logistique() {
                       </TableHeader>
                       <TableBody>
                         {filteredMateriel.map((m) => (
-                          <TableRow key={m.id}>
+                          <TableRow key={m.id} onClick={() => handleEdit(m)} className="cursor-pointer hover:bg-muted/50">
                             <TableCell className="font-medium">{m.nom}</TableCell>
                             <TableCell><Badge variant="outline">{m.categorie}</Badge></TableCell>
                             <TableCell className="text-center font-semibold">{m.quantite || 1}</TableCell>
@@ -897,13 +897,13 @@ export default function Logistique() {
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
                                 {canManage() && (
-                                  <Button size="sm" variant="ghost" onClick={() => handleEdit(m)}><Edit className="w-4 h-4" /></Button>
-                                )}
+                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEdit(m); }}><Edit className="w-4 h-4" /></Button>
+                ))}
                                 {isAdmin() && (
-                                  <Button size="sm" variant="ghost" onClick={() => handleArchive(m.id)}><Archive className="w-4 h-4" /></Button>
+                                              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleArchive(m.id); }}><Archive className="w-4 h-4" /></Button>
                                 )}
                                 {isSuperAdmin() && (
-                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(m.id)}><Trash2 className="w-4 h-4" /></Button>
+                                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(m.id); }}><Trash2 className="w-4 h-4" /></Button>
                                 )}
                               </div>
                             </TableCell>
@@ -1005,7 +1005,7 @@ export default function Logistique() {
                       </TableHeader>
                       <TableBody>
                         {filteredContacts.map((c) => (
-                          <TableRow key={c.id}>
+                                      <TableRow key={c.id} onClick={() => handleEditContact(c)} className="cursor-pointer hover:bg-muted/50">
                             <TableCell className="font-medium">{c.nom}</TableCell>
                             <TableCell><Badge variant="outline">{c.type_contact}</Badge></TableCell>
                             <TableCell className="text-muted-foreground">{c.contact || '-'}</TableCell>
@@ -1014,10 +1014,10 @@ export default function Logistique() {
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
                                 {canManage() && (
-                                  <Button size="sm" variant="ghost" onClick={() => handleEditContact(c)}><Edit className="w-4 h-4" /></Button>
+                                                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditContact(c); }}><Edit className="w-4 h-4" /></Button>
                                 )}
                                 {isSuperAdmin() && (
-                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDeleteContact(c.id)}><Trash2 className="w-4 h-4" /></Button>
+                                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteContact(c.id); }}><Trash2 className="w-4 h-4" /></Button>
                                 )}
                               </div>
                             </TableCell>
@@ -1140,7 +1140,7 @@ export default function Logistique() {
                       </TableHeader>
                       <TableBody>
                         {filteredIncidents.map((i) => (
-                          <TableRow key={i.id}>
+                                    <TableRow key={i.id} onClick={() => handleEditIncident(i)} className="cursor-pointer hover:bg-muted/50">
                             <TableCell><Badge variant="outline">{i.poste}</Badge></TableCell>
                             <TableCell className="text-muted-foreground">{i.date || '-'}</TableCell>
                             <TableCell className="text-muted-foreground">{i.cadreur_regisseur || '-'}</TableCell>
@@ -1157,13 +1157,13 @@ export default function Logistique() {
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
                                 {canManage() && (
-                                  <Button size="sm" variant="ghost" onClick={() => handleEditIncident(i)}><Edit className="w-4 h-4" /></Button>
+                                                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditIncident(i); }}><Edit className="w-4 h-4" /></Button>
                                 )}
                                 {isAdmin() && (
-                                  <Button size="sm" variant="ghost" onClick={() => handleArchiveIncident(i.id)}><Archive className="w-4 h-4" /></Button>
+                                              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleArchiveIncident(i.id); }}><Archive className="w-4 h-4" /></Button>
                                 )}
                                 {isSuperAdmin() && (
-                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDeleteIncident(i.id)}><Trash2 className="w-4 h-4" /></Button>
+                                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteIncident(i.id); }}><Trash2 className="w-4 h-4" /></Button>
                                 )}
                               </div>
                             </TableCell>

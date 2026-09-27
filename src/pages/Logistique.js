@@ -47,7 +47,8 @@ import {
   Contact2,
   ChevronDown,
   ChevronUp,
-  AlertTriangle
+  AlertTriangle,
+  ImagePlus
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -85,8 +86,11 @@ export default function Logistique() {
     groupe: '',
     date_achat: '',
     etat: '',
-    reference: ''
+    reference: '',
+    photo_url: ''
   });
+  const [uploadingMatPhoto, setUploadingMatPhoto] = useState(false);
+  const [uploadingContactPhoto, setUploadingContactPhoto] = useState(false);
 
   // ---------- Seances (Entrees / Sorties) state ----------
   const [seances, setSeances] = useState([]);
@@ -124,7 +128,8 @@ export default function Logistique() {
     site: '',
     n_siret: '',
     n_client: '',
-    notes: ''
+    notes: '',
+    photo_url: ''
   });
 
   // ---------- Incidents state ----------
@@ -178,9 +183,37 @@ export default function Logistique() {
   const resetForm = () => {
     setForm({
       nom: '', categorie: '', quantite: 1, numero_serie: '', marque: '', modele: '',
-      statut: 'Disponible', notes: '', salle: '', groupe: '', date_achat: '', etat: '', reference: ''
+      statut: 'Disponible', notes: '', salle: '', groupe: '', date_achat: '', etat: '', reference: '', photo_url: ''
     });
     setEditingId(null);
+  };
+
+  const handleMatPhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image trop volumineuse (max 10 MB)');
+      return;
+    }
+    if (!['image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type)) {
+      toast.error("Format d'image non supporté");
+      return;
+    }
+    setUploadingMatPhoto(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await axios.post(`${API}/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setForm((f) => ({ ...f, photo_url: res.data.url }));
+      toast.success('Photo uploadée');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Erreur lors de l'upload");
+    } finally {
+      setUploadingMatPhoto(false);
+      e.target.value = '';
+    }
   };
 
   const handleEdit = (mat) => {
@@ -197,7 +230,8 @@ export default function Logistique() {
       groupe: mat.groupe || '',
       date_achat: mat.date_achat || '',
       etat: mat.etat || '',
-      reference: mat.reference || ''
+      reference: mat.reference || '',
+      photo_url: mat.photo_url || ''
     });
     setEditingId(mat.id);
     setDialogOpen(true);
@@ -396,7 +430,7 @@ export default function Logistique() {
 
   // ================= CONTACTS =================
   const resetContactForm = () => {
-    setContactForm({ nom: '', type_contact: 'Fournisseur', contact: '', email: '', telephone: '', adresse: '', categorie: '', notation: '', site: '', n_siret: '', n_client: '', notes: '' });
+    setContactForm({ nom: '', type_contact: 'Fournisseur', contact: '', email: '', telephone: '', adresse: '', categorie: '', notation: '', site: '', n_siret: '', n_client: '', notes: '', photo_url: '' });
     setContactEditingId(null);
   };
 
@@ -413,10 +447,39 @@ export default function Logistique() {
       site: c.site || '',
       n_siret: c.n_siret || '',
       n_client: c.n_client || '',
-      notes: c.notes || ''
+      notes: c.notes || '',
+      photo_url: c.photo_url || ''
     });
     setContactEditingId(c.id);
     setContactDialogOpen(true);
+  };
+
+  const handleContactPhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image trop volumineuse (max 10 MB)');
+      return;
+    }
+    if (!['image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type)) {
+      toast.error("Format d'image non supporté");
+      return;
+    }
+    setUploadingContactPhoto(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await axios.post(`${API}/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setContactForm((f) => ({ ...f, photo_url: res.data.url }));
+      toast.success('Photo uploadée');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Erreur lors de l'upload");
+    } finally {
+      setUploadingContactPhoto(false);
+      e.target.value = '';
+    }
   };
 
   const handleContactSubmit = async (e) => {
@@ -888,6 +951,32 @@ export default function Logistique() {
                         <DialogDescription>Remplissez les informations</DialogDescription>
                       </DialogHeader>
                       <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Photo</Label>
+                          <div className="flex items-center gap-3">
+                            {form.photo_url ? (
+                              <img src={`${process.env.REACT_APP_BACKEND_URL}${form.photo_url}`} alt="aperçu" className="w-16 h-16 object-cover rounded border" />
+                            ) : (
+                              <div className="w-16 h-16 rounded border bg-muted flex items-center justify-center">
+                                <ImagePlus className="w-6 h-6 text-muted-foreground/40" />
+                              </div>
+                            )}
+                            <div className="flex flex-col gap-1">
+                              <label className="cursor-pointer">
+                                <span className="inline-flex items-center gap-2 text-sm border rounded-md px-3 py-1.5 hover:bg-muted">
+                                  {uploadingMatPhoto && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                  {form.photo_url ? 'Changer la photo' : 'Ajouter une photo'}
+                                </span>
+                                <input type="file" accept="image/*" className="hidden" onChange={handleMatPhotoUpload} disabled={uploadingMatPhoto} />
+                              </label>
+                              {form.photo_url && (
+                                <button type="button" className="text-xs text-muted-foreground hover:text-destructive text-left" onClick={() => setForm((f) => ({ ...f, photo_url: '' }))}>
+                                  Retirer la photo
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Nom *</Label>
@@ -1014,6 +1103,10 @@ export default function Logistique() {
                                 <img
                                   src={`${process.env.REACT_APP_BACKEND_URL}${m.photo_url}`}
                                   alt={m.nom}
+                                  width={48}
+                                  height={48}
+                                  loading="lazy"
+                                  decoding="async"
                                   className="w-12 h-12 object-cover rounded border"
                                 />
                               ) : (
@@ -1073,6 +1166,32 @@ export default function Logistique() {
                         <DialogDescription>Fournisseur, location ou réparation</DialogDescription>
                       </DialogHeader>
                       <form onSubmit={handleContactSubmit} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Logo / Photo</Label>
+                          <div className="flex items-center gap-3">
+                            {contactForm.photo_url ? (
+                              <img src={`${process.env.REACT_APP_BACKEND_URL}${contactForm.photo_url}`} alt="aperçu" className="w-16 h-16 object-contain rounded border bg-white" />
+                            ) : (
+                              <div className="w-16 h-16 rounded border bg-muted flex items-center justify-center">
+                                <ImagePlus className="w-6 h-6 text-muted-foreground/40" />
+                              </div>
+                            )}
+                            <div className="flex flex-col gap-1">
+                              <label className="cursor-pointer">
+                                <span className="inline-flex items-center gap-2 text-sm border rounded-md px-3 py-1.5 hover:bg-muted">
+                                  {uploadingContactPhoto && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                  {contactForm.photo_url ? 'Changer la photo' : 'Ajouter une photo'}
+                                </span>
+                                <input type="file" accept="image/*" className="hidden" onChange={handleContactPhotoUpload} disabled={uploadingContactPhoto} />
+                              </label>
+                              {contactForm.photo_url && (
+                                <button type="button" className="text-xs text-muted-foreground hover:text-destructive text-left" onClick={() => setContactForm((f) => ({ ...f, photo_url: '' }))}>
+                                  Retirer la photo
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Nom *</Label>
@@ -1173,6 +1292,10 @@ export default function Logistique() {
                                 <img
                                   src={`${process.env.REACT_APP_BACKEND_URL}${c.photo_url}`}
                                   alt={c.nom}
+                                  width={48}
+                                  height={48}
+                                  loading="lazy"
+                                  decoding="async"
                                   className="w-12 h-12 object-contain rounded border bg-white"
                                 />
                               ) : (

@@ -391,7 +391,8 @@ export default function Logistique() {
     total: materiel.length,
     disponible: materiel.filter(m => m.statut === 'Disponible').length,
     enUtilisation: materiel.filter(m => m.statut === 'En utilisation').length,
-    maintenance: materiel.filter(m => m.statut === 'En maintenance').length
+    maintenance: materiel.filter(m => m.statut === 'En maintenance').length,
+    incidentsOuverts: incidents.filter(i => !i.is_archived && !i.date_fin).length
   };
 
   // ================= SEANCES (Entrees / Sorties) =================
@@ -710,7 +711,7 @@ export default function Logistique() {
         <>
           {subTab === 'dashboard' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <Card>
                   <CardContent className="p-4 text-center">
                     <p className="text-2xl font-bold">{stats.total}</p>
@@ -733,6 +734,12 @@ export default function Logistique() {
                   <CardContent className="p-4 text-center">
                     <p className="text-2xl font-bold text-amber-600">{stats.maintenance}</p>
                     <p className="text-xs text-muted-foreground">Maintenance</p>
+                  </CardContent>
+                </Card>
+                <Card className="cursor-pointer" onClick={() => setSubTab('incidents')}>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold text-rose-600">{stats.incidentsOuverts}</p>
+                    <p className="text-xs text-muted-foreground">Incidents ouverts</p>
                   </CardContent>
                 </Card>
               </div>

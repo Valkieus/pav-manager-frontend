@@ -425,6 +425,7 @@ const DEFAULT_SECTIONS = {
           { key: "v_regisseur_poste_1", label: "Poste 1", slots: 1 },
           { key: "v_regisseur_poste_2", label: "Poste 2", slots: 1 },
           { key: "v_regisseur_poste_3", label: "Poste 3", slots: 1 },
+          { key: "v_regisseur_poste_4", label: "Poste 4", slots: 1 },
         ],
       },
       {

@@ -1373,13 +1373,31 @@ export default function Planning() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      // Chargée dans son propre try/catch : /techniciens renvoie 403 pour
+      // un Technicien (accès complet réservé à Responsable+, coordonnées
+      // personnelles incluses), ce qui plantait tout fetchData avant même
+      // d'atteindre le planning lui-même — d'où la Planning générale vide
+      // avec juste un toast d'erreur générique pour ce rôle. On retombe sur
+      // /techniciens/roster (nom + poste, sans données sensibles, ouvert à
+      // tout compte connecté) pour que l'affichage des noms assignés
+      // continue de fonctionner en lecture seule.
       const cached = getCachedTechniciens();
       if (cached) {
         setTechniciens(cached);
       } else {
-        const techRes = await axios.get(`${API}/techniciens`);
-        setCachedTechniciens(techRes.data);
-        setTechniciens(techRes.data);
+        try {
+          const techRes = await axios.get(`${API}/techniciens`);
+          setCachedTechniciens(techRes.data);
+          setTechniciens(techRes.data);
+        } catch (techErr) {
+          try {
+            const rosterRes = await axios.get(`${API}/techniciens/roster`);
+            setTechniciens(rosterRes.data);
+          } catch (rosterErr) {
+            // Aucune des deux routes n'a répondu (hors-ligne, backend down...) :
+            // on laisse la liste vide plutôt que de bloquer l'affichage du planning.
+          }
+        }
       }
 
       try {

@@ -2721,7 +2721,7 @@ export default function Planning() {
                       {Array.from({ length: role.slots }).map((_, slotIdx) => (
                         <tr
                           key={`${role.key}_${slotIdx}`}
-                          className={`hover:bg-muted/50 ${slotIdx === 0 && isGroupBoundary ? "border-t-4 border-t-black print:border-t-4 print:border-t-black" : ""}`}
+                          className={`hover:bg-muted/50 ${slotIdx === 0 && isGroupBoundary ? "border-t-2 border-t-black print:border-t-2 print:border-t-black" : ""}`}
                         >
                           {slotIdx === 0 ? (
                             <td

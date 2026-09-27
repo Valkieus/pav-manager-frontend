@@ -999,7 +999,7 @@ export default function Logistique() {
                             {categories.map((cat) => (
                               <div key={cat} className="flex items-center justify-between py-2 px-2 hover:bg-muted rounded">
                                 <span className="text-sm">{cat}</span>
-                                {isSuperAdmin() && !['Caméra', 'Trépied', 'Batterie', 'Câble', 'Micro', 'Lumière', 'Moniteur', 'Enregistreur', 'Accessoire', 'Autre'].includes(cat) && (
+                                {isSuperAdmin() && !['Caméra', 'Trépied', 'Batterie', 'Câble', 'Micro', 'Lumière', 'Moniteur', 'Enregistreur', 'Accessoire', 'Autres'].includes(cat) && (
                                   <Button size="sm" variant="ghost" onClick={() => handleDeleteCategory(cat)}>
                                     <Trash2 className="w-4 h-4 text-destructive" />
                                   </Button>

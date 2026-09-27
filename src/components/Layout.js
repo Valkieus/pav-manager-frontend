@@ -224,8 +224,6 @@ export const Layout = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const {
     user,
-    const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     logout,
     isSuperAdmin,
     mustChangePassword,
@@ -234,6 +232,8 @@ export const Layout = ({ children }) => {
     onboardingSeen,
     markOnboardingSeen,
   } = useAuth();
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();

@@ -1133,18 +1133,41 @@ export default function Logistique() {
                 )}
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
-                </div>
-                <Select value={filterCategorie} onValueChange={setFilterCategorie}>
-                  <SelectTrigger className="w-[180px]"><SelectValue placeholder="Toutes catégories" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toutes catégories</SelectItem>
-                    {categories.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
-                  </SelectContent>
-                </Select>
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+              </div>
+
+              {/* Onglets "feuilles" façon Excel : un onglet par catégorie (CAMÉRAS,
+                  CONNECTIQUES, CÂBLES, SON, ... comme dans le fichier INVENTAIRE
+                  d'origine), pour cliquer directement sur le titre plutôt que
+                  passer par un menu déroulant. */}
+              <div className="flex gap-1 overflow-x-auto pb-1 border-b -mb-px">
+                <button
+                  type="button"
+                  onClick={() => setFilterCategorie('all')}
+                  className={`shrink-0 px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                    filterCategorie === 'all'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                  }`}
+                >
+                  Toutes catégories
+                </button>
+                {categories.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setFilterCategorie(c)}
+                    className={`shrink-0 px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                      filterCategorie === c
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
               </div>
 
               <Card>
@@ -1438,14 +1461,36 @@ export default function Logistique() {
 
           {subTab === 'incidents' && (
             <div className="space-y-4">
+              {/* Onglets "feuilles" façon Excel : un onglet cliquable par caméra,
+                  comme les feuilles CAMERA 1 / CAMERA 2 / ... du classeur d'origine. */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <Select value={filterIncidentPoste} onValueChange={setFilterIncidentPoste}>
-                  <SelectTrigger className="w-[200px]"><SelectValue placeholder="Tous les postes" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous les postes</SelectItem>
-                    {POSTES_CAM.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-1 overflow-x-auto pb-1 border-b -mb-px flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setFilterIncidentPoste('all')}
+                    className={`shrink-0 px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                      filterIncidentPoste === 'all'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    Toutes les caméras
+                  </button>
+                  {POSTES_CAM.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setFilterIncidentPoste(p)}
+                      className={`shrink-0 px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                        filterIncidentPoste === p
+                          ? 'border-primary text-primary'
+                          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
                 {canManage() && (
                   <Dialog open={incidentDialogOpen} onOpenChange={(open) => { setIncidentDialogOpen(open); if (!open) resetIncidentForm(); }}>
                     <DialogTrigger asChild>

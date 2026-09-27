@@ -54,7 +54,7 @@ import {
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const CONTACT_TYPES = ['Fournisseur', 'Location', 'Réparation'];
-const POSTES_CAM = ['CAM 1', 'CAM 2', 'CAM 3', 'CAM 4', 'CAM 5', 'CAM 6 / 7'];
+const POSTES_CAM = ['Caméra 1', 'Caméra 2', 'Caméra 3', 'Caméra 4', 'Caméra 5', 'Caméra 6 et 7'];
 const FREQUENCE_OPTIONS = ['Ponctuel', 'Récurrent'];
 
 export default function Logistique() {
@@ -312,13 +312,53 @@ export default function Logistique() {
 
   const getStatutBadge = (statut) => {
     const colors = {
+      // Vocabulaire du fichier Excel INVENTAIRE original (valeurs réellement
+      // présentes dans les données importées), + le vocabulaire "propre"
+      // proposé par l'app pour la saisie manuelle.
+      'EN FONCTION': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
       'Disponible': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+      'EN STOCK': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+      'EN RESERVE': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      'EN SPARE': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
       'En utilisation': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      'EN PHASE DE TEST': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
       'En maintenance': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-      'Hors service': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+      'A ACHETTER': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+      'HORS SERVICE': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      'Hors service': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      'COLLECTOR': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+      'Archivé': 'bg-slate-100 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400'
     };
-    return <Badge className={colors[statut] || colors['Disponible']}>{statut}</Badge>;
+    const key = (statut || '').trim();
+    return <Badge className={colors[key] || 'bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300'}>{statut || '-'}</Badge>;
   };
+
+  const [materielSortKey, setMaterielSortKey] = useState(null);
+  const [materielSortDir, setMaterielSortDir] = useState('asc');
+  const toggleMaterielSort = (key) => {
+    if (materielSortKey === key) {
+      setMaterielSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setMaterielSortKey(key);
+      setMaterielSortDir('asc');
+    }
+  };
+  const SortableHead = ({ sortKey, className, children }) => (
+    <TableHead className={className}>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 hover:text-foreground select-none"
+        onClick={() => toggleMaterielSort(sortKey)}
+      >
+        {children}
+        {materielSortKey === sortKey ? (
+          materielSortDir === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+        ) : (
+          <ChevronUp className="w-3.5 h-3.5 opacity-20" />
+        )}
+      </button>
+    </TableHead>
+  );
 
   const filteredMateriel = materiel.filter(m => {
     const matchSearch = m.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -326,6 +366,25 @@ export default function Logistique() {
     const matchCategorie = filterCategorie === 'all' || m.categorie === filterCategorie;
     return matchSearch && matchCategorie;
   });
+
+  const materielSortAccessors = {
+    nom: (m) => (m.nom || '').toLowerCase(),
+    categorie: (m) => (m.categorie || '').toLowerCase(),
+    quantite: (m) => m.quantite || 0,
+    marque: (m) => `${m.marque || ''} ${m.modele || ''}`.trim().toLowerCase(),
+    salle: (m) => `${m.salle || ''} ${m.groupe || ''}`.trim().toLowerCase(),
+    etat: (m) => (m.etat || '').toLowerCase(),
+    statut: (m) => (m.statut || '').toLowerCase(),
+  };
+  const sortedMateriel = materielSortKey
+    ? [...filteredMateriel].sort((a, b) => {
+        const acc = materielSortAccessors[materielSortKey];
+        const va = acc(a), vb = acc(b);
+        if (va < vb) return materielSortDir === 'asc' ? -1 : 1;
+        if (va > vb) return materielSortDir === 'asc' ? 1 : -1;
+        return 0;
+      })
+    : filteredMateriel;
 
   const stats = {
     total: materiel.length,
@@ -1090,7 +1149,7 @@ export default function Logistique() {
 
               <Card>
                 <CardContent className="p-0">
-                  {filteredMateriel.length === 0 ? (
+                  {sortedMateriel.length === 0 ? (
                     <div className="p-8 text-center">
                       <Package className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
                       <p className="text-muted-foreground">Aucun matériel trouvé</p>
@@ -1100,18 +1159,18 @@ export default function Logistique() {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-16">Photo</TableHead>
-                          <TableHead>Nom</TableHead>
-                          <TableHead>Catégorie</TableHead>
-                          <TableHead className="text-center">Qté</TableHead>
-                          <TableHead>Marque / Modèle</TableHead>
-                          <TableHead>Salle / Groupe</TableHead>
-                          <TableHead>État</TableHead>
-                          <TableHead>Statut</TableHead>
+                          <SortableHead sortKey="nom">Nom</SortableHead>
+                          <SortableHead sortKey="categorie">Catégorie</SortableHead>
+                          <SortableHead sortKey="quantite" className="text-center">Qté</SortableHead>
+                          <SortableHead sortKey="marque">Marque / Modèle</SortableHead>
+                          <SortableHead sortKey="salle">Salle / Groupe</SortableHead>
+                          <SortableHead sortKey="etat">État</SortableHead>
+                          <SortableHead sortKey="statut">Statut</SortableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredMateriel.map((m) => (
+                        {sortedMateriel.map((m) => (
                           <TableRow key={m.id} onClick={() => handleEdit(m)} className="cursor-pointer hover:bg-muted/50">
                             <TableCell>
                               {m.photo_url ? (
@@ -1463,63 +1522,77 @@ export default function Logistique() {
                   </Dialog>
                 )}
               </div>
-              <Card>
-                <CardContent className="p-0">
-                  {filteredIncidents.length === 0 ? (
-                    <div className="p-8 text-center">
-                      <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-                      <p className="text-muted-foreground">Aucun incident signalé</p>
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Poste</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Cadreur / Régisseur</TableHead>
-                          <TableHead>Équipement</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead>Statut</TableHead>
-                          <TableHead>Responsable</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredIncidents.map((i) => (
-                                    <TableRow key={i.id} onClick={() => handleEditIncident(i)} className="cursor-pointer hover:bg-muted/50">
-                            <TableCell><Badge variant="outline">{i.poste}</Badge></TableCell>
-                            <TableCell className="text-muted-foreground">{i.date || '-'}</TableCell>
-                            <TableCell className="text-muted-foreground">{i.cadreur_regisseur || '-'}</TableCell>
-                            <TableCell className="text-muted-foreground">{i.equipement_concerne || '-'}</TableCell>
-                            <TableCell className="max-w-[280px] truncate" title={i.description_probleme}>{i.description_probleme}</TableCell>
-                            <TableCell>
-                              {i.date_fin ? (
-                                <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">Résolu</Badge>
-                              ) : (
-                                <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">En cours</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">{i.responsable_suivi || '-'}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                {canManage() && (
-                                                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditIncident(i); }}><Edit className="w-4 h-4" /></Button>
-                                )}
-                                {isAdmin() && (
-                                              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleArchiveIncident(i.id); }}><Archive className="w-4 h-4" /></Button>
-                                )}
-                                {isSuperAdmin() && (
-                                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteIncident(i.id); }}><Trash2 className="w-4 h-4" /></Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
+              {(() => {
+                const knownPostes = new Set(POSTES_CAM);
+                const groupsOrder = [...POSTES_CAM, ...Array.from(new Set(filteredIncidents.map(i => i.poste).filter(p => !knownPostes.has(p))))];
+                const visibleGroups = groupsOrder.filter((p) => filterIncidentPoste === 'all' || filterIncidentPoste === p);
+                return visibleGroups.map((poste) => {
+                  const group = filteredIncidents.filter((i) => i.poste === poste);
+                  if (group.length === 0 && filterIncidentPoste === 'all') return null;
+                  return (
+                    <Card key={poste}>
+                      <CardHeader className="py-3 border-b">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          {poste || 'Non classé'}
+                          <Badge variant="secondary" className="font-normal">{group.length}</Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        {group.length === 0 ? (
+                          <div className="p-6 text-center">
+                            <p className="text-sm text-muted-foreground">Aucun incident signalé sur ce poste</p>
+                          </div>
+                        ) : (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Cadreur / Régisseur</TableHead>
+                                <TableHead>Équipement</TableHead>
+                                <TableHead>Description</TableHead>
+                                <TableHead>Statut</TableHead>
+                                <TableHead>Responsable</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {group.map((i) => (
+                                <TableRow key={i.id} onClick={() => handleEditIncident(i)} className="cursor-pointer hover:bg-muted/50">
+                                  <TableCell className="text-muted-foreground">{i.date || '-'}</TableCell>
+                                  <TableCell className="text-muted-foreground">{i.cadreur_regisseur || '-'}</TableCell>
+                                  <TableCell className="text-muted-foreground">{i.equipement_concerne || '-'}</TableCell>
+                                  <TableCell className="max-w-[280px] truncate" title={i.description_probleme}>{i.description_probleme}</TableCell>
+                                  <TableCell>
+                                    {i.date_fin ? (
+                                      <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">Résolu</Badge>
+                                    ) : (
+                                      <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">En cours</Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground">{i.responsable_suivi || '-'}</TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-1">
+                                      {canManage() && (
+                                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditIncident(i); }}><Edit className="w-4 h-4" /></Button>
+                                      )}
+                                      {isAdmin() && (
+                                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleArchiveIncident(i.id); }}><Archive className="w-4 h-4" /></Button>
+                                      )}
+                                      {isSuperAdmin() && (
+                                        <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteIncident(i.id); }}><Trash2 className="w-4 h-4" /></Button>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                });
+              })()}
             </div>
           )}
         </>

@@ -53,7 +53,7 @@ import {
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const CONTACT_TYPES = ['Fournisseur', 'Location', 'Réparation'];
-const POSTES_CAM = ['CAM 1', 'CAM 2', 'CAM 3', 'CAM 4', 'CAM 5', 'CAM 67'];
+const POSTES_CAM = ['CAM 1', 'CAM 2', 'CAM 3', 'CAM 4', 'CAM 5', 'CAM 6 / 7'];
 const FREQUENCE_OPTIONS = ['Ponctuel', 'Récurrent'];
 
 export default function Logistique() {

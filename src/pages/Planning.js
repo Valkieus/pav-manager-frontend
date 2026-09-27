@@ -243,6 +243,33 @@ function canonPoste(sectionName, label) {
   return label.trim();
 }
 
+// Delimiter-group key — decides where a BOLD separator line is drawn
+// between consecutive postes in the table (user request 27/09/2026:
+// "delimitations en gras entre les lignes qui separent les postes").
+// Deliberately coarser than canonPoste in places (e.g. Réalisateur +
+// Assistant réalisateur share one group "réal/ass") and finer in others
+// (each Caméra N is its own group so cameras get separated too).
+function delimiterGroup(sectionName, label) {
+  if (!label) return null;
+  const lu = stripAccents(label).toUpperCase().trim();
+  if (lu.startsWith("CAMERA")) return `camera:${lu}`;
+  if (/^POSTE \d+$/.test(lu)) return "postes";
+  if (lu === "SUPERVISION") return `supervision:${sectionName}`;
+  if (lu.startsWith("OPERATEUR VDO")) return "op-vdo";
+  if (lu.startsWith("OPERATEUR INCRUSTATION")) return "op-incrustation";
+  if (lu === "SANCTUAIRE") return "sanctuaire";
+  if (lu.startsWith("SALLE") || lu === "GYMNASE" || lu === "POLY 3")
+    return "salles";
+  const compact = lu.replace(/[^A-Z]/g, "");
+  if (compact === "REALISATEUR" || compact === "ASSISTANTREALISATEURTRUQUISTE")
+    return "real-ass";
+  if (compact === "ETALONNEUR") return "etalonneur";
+  if (compact === "ANIMATEURVDOVFX" || compact === "APPRENTIANIMATEURVDO")
+    return "animateurs";
+  if (compact === "INTERCOMENREGISTREMENTFCP") return "intercom";
+  return `custom:${lu}`;
+}
+
 function slugPoste(poste) {
   return stripAccents(poste || "")
     .toLowerCase()
@@ -2683,12 +2710,18 @@ export default function Planning() {
                   section.roles.map((role, roleIdx) => {
                   const posteCategory = canonPoste(section.name, role.label);
                   const datalistId = `tech-list-${slugPoste(posteCategory)}`;
+                  const prevRole = section.roles[roleIdx - 1];
+                  const isGroupBoundary =
+                    roleIdx > 0 &&
+                    prevRole &&
+                    delimiterGroup(section.name, role.label) !==
+                      delimiterGroup(section.name, prevRole.label);
                   return (
                     <React.Fragment key={role.key}>
                       {Array.from({ length: role.slots }).map((_, slotIdx) => (
                         <tr
                           key={`${role.key}_${slotIdx}`}
-                          className="hover:bg-muted/50"
+                          className={`hover:bg-muted/50 ${slotIdx === 0 && isGroupBoundary ? "border-t-4 border-t-black print:border-t-4 print:border-t-black" : ""}`}
                         >
                           {slotIdx === 0 ? (
                             <td

@@ -2531,7 +2531,7 @@ export default function Planning() {
       // desktop screen, instead of it going into the actions column next
       // to the buttons (which is what made that column 200-250px wide).
       <table
-        className="w-full border-collapse text-sm mb-4 print:mb-2"
+        className="w-full border-collapse text-sm mb-4 print:mb-2 border-2 border-black print:border-2 print:border-black [&>tbody>tr:last-child>td]:border-b-2 [&>tbody>tr:last-child>td]:border-b-black print:[&>tbody>tr:last-child>td]:border-b-2 print:[&>tbody>tr:last-child>td]:border-b-black"
         style={{ tableLayout: "fixed" }}
       >
         <colgroup>
@@ -2721,7 +2721,7 @@ export default function Planning() {
                       {Array.from({ length: role.slots }).map((_, slotIdx) => (
                         <tr
                           key={`${role.key}_${slotIdx}`}
-                          className={`hover:bg-muted/50 ${slotIdx === 0 && isGroupBoundary ? "border-t-2 border-t-black print:border-t-2 print:border-t-black" : ""}`}
+                          className={`hover:bg-muted/50 ${slotIdx === 0 && isGroupBoundary ? "border-t border-t-black print:border-t print:border-t-black" : ""}`}
                         >
                           {slotIdx === 0 ? (
                             <td

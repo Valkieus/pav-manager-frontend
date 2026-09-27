@@ -55,6 +55,8 @@ import {
   BellOff,
   Copy,
   MessageSquare,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   isPushSupported,
@@ -222,6 +224,8 @@ export const Layout = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const {
     user,
+    const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     logout,
     isSuperAdmin,
     mustChangePassword,
@@ -944,23 +948,51 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
           <form onSubmit={handlePasswordChange} className="space-y-4">
             <div className="space-y-2">
               <Label>Nouveau mot de passe *</Label>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Minimum 6 caractères"
-                required
+<div className="relative">
+                <Input
+                type={showNewPassword ? "text" : "password"}
+value={newPassword}
+  onChange={(e) => setNewPassword(e.target.value)}
+    placeholder="Minimum 6 caractères"
+      required
+        className="pr-10"
+          />
+        {showNewPassword ? (
+          <EyeOff
+          onClick={() => setShowNewPassword(!showNewPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground hover:text-foreground cursor-pointer"
               />
+              ) : (
+                <Eye
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground hover:text-foreground cursor-pointer"
+              />
+              )}
+                </div>
             </div>
             <div className="space-y-2">
               <Label>Confirmer le mot de passe *</Label>
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Répétez le mot de passe"
-                required
+<div className="relative">
+                <Input
+                type={showConfirmPassword ? "text" : "password"}
+value={confirmPassword}
+  onChange={(e) => setConfirmPassword(e.target.value)}
+    placeholder="Répétez le mot de passe"
+      required
+        className="pr-10"
+          />
+        {showConfirmPassword ? (
+          <EyeOff
+          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground hover:text-foreground cursor-pointer"
               />
+              ) : (
+                <Eye
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground hover:text-foreground cursor-pointer"
+              />
+              )}
+                </div>
             </div>
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

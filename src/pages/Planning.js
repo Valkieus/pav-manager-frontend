@@ -2549,14 +2549,14 @@ export default function Planning() {
         <thead>
           <tr>
             <th
-              className={`border border-black p-2 text-left font-bold ${theme.band}`}
+              className={`border border-black border-b-2 border-b-black print:border-b-2 print:border-b-black p-2 text-left font-bold ${theme.band}`}
             >
               AFFECTATION
             </th>
             {currentDates.map((date, idx) => (
               <th
                 key={idx}
-                className={`border border-black p-1 font-bold text-center whitespace-nowrap text-xs sm:text-sm ${theme.band}`}
+                className={`border border-black border-b-2 border-b-black print:border-b-2 print:border-b-black p-1 font-bold text-center whitespace-nowrap text-xs sm:text-sm ${theme.band}`}
               >
                 <div className="flex items-center justify-center gap-1">
                   <span>{formatDate(date)}</span>
@@ -2580,7 +2580,7 @@ export default function Planning() {
             ))}
             {canValidate() && planningEditMode && (
               <th
-                className={`border border-black print:hidden ${theme.band}`}
+                className={`border border-black border-b-2 border-b-black print:border-b-2 print:border-b-black print:hidden ${theme.band}`}
               ></th>
             )}
           </tr>
@@ -2607,7 +2607,7 @@ export default function Planning() {
                           ? 2
                           : 1)
                       }
-                      className={`border border-black p-1 font-bold text-center ${theme.band}`}
+                      className={`border border-black border-b-2 border-b-black print:border-b-2 print:border-b-black p-1 font-bold text-center ${theme.band}`}
                     >
                       <span
                         className="cursor-pointer hover:underline inline-flex items-center gap-1"

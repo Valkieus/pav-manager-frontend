@@ -55,6 +55,7 @@ import {
   ChevronUp,
   Award,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -850,6 +851,12 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Résumé rapide + Calendrier — côte à côte sur desktop (au lieu
+d'empiler deux cartes pleine largeur) : ça évite au calendrier de
+s'étirer sur toute la largeur de page, ce qui rendait ses cases
+démesurément grandes sur PC. */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="lg:col-span-2">
       {/* Résumé rapide — personalized quick-info summary, shown to every
 role (Membre included): prochain service, invités à venir, accès
 rapide absence/formations, et un rappel des horaires de service. */}
@@ -1019,6 +1026,8 @@ rapide absence/formations, et un rappel des horaires de service. */}
         </CardContent>
       </Card>
 
+      </div>
+      <div className="lg:col-span-3">
       {/* Calendrier du mois — vue basique, non-navigable, des jours de
 service et des événements Actualités du mois en cours. Visible à
 tous les rôles comme le Résumé rapide. */}
@@ -1033,6 +1042,9 @@ tous les rôles comme le Résumé rapide. */}
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {/* max-w cap : même sur un col-span-3 large, on évite que les
+cases du calendrier deviennent démesurées sur grand écran. */}
+          <div className="max-w-md mx-auto">
           <MiniCalendar
             year={new Date().getFullYear()}
             month={new Date().getMonth() + 1}
@@ -1045,6 +1057,7 @@ tous les rôles comme le Résumé rapide. */}
               setDayPreview({ date: dateStr, ...serviceInfo })
             }
           />
+          </div>
           {brief?.retard_enabled && brief?.retard_is_scheduled_today && (
             <div className="mt-4 pt-3 border-t border-border">
               <Button
@@ -1063,6 +1076,9 @@ tous les rôles comme le Résumé rapide. */}
           )}
         </CardContent>
       </Card>
+
+      </div>
+      </div>
 
       {/* À traiter — Formations & Devis pipeline. Only surfaced to people who
 can actually act on one of these stages, so it reads as a worklist
@@ -1141,7 +1157,7 @@ rather than noise for everyone else. */}
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
             Vue d'ensemble
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card
               className="card-hover animate-fadeIn cursor-pointer"
               data-testid="stat-effectif"
@@ -1278,6 +1294,33 @@ rather than noise for everyone else. */}
                   </div>
                   <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
                     <Building2 className="w-6 h-6 text-blue-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="card-hover animate-fadeIn stagger-4 cursor-pointer"
+              data-testid="stat-incidents"
+              onClick={() => navigate("/logistique")}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Incidents</p>
+                    <p className="text-3xl font-bold mt-1">
+                      {stats?.incidents_ouverts || 0}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      ouverts sur{" "}
+                      <span className="font-medium">
+                        {stats?.incidents_total || 0}
+                      </span>{" "}
+                      au total
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl bg-rose-500/10 flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-rose-500" />
                   </div>
                 </div>
               </CardContent>

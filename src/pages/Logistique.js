@@ -84,20 +84,26 @@ export default function Logistique() {
     salle: '',
     groupe: '',
     date_achat: '',
-    etat: ''
+    etat: '',
+    reference: ''
   });
 
   // ---------- Seances (Entrees / Sorties) state ----------
   const [seances, setSeances] = useState([]);
   const [seanceDialogOpen, setSeanceDialogOpen] = useState(false);
+  const [seanceEditingId, setSeanceEditingId] = useState(null);
   const [seanceSubmitting, setSeanceSubmitting] = useState(false);
   const [expandedSeance, setExpandedSeance] = useState(null);
   const [seanceForm, setSeanceForm] = useState({
     date: '',
     poste: '',
     superviseur: '',
-    notes: '',
-    equipements: []
+    horaire_debut: '',
+    horaire_fin: '',
+    observations: '',
+    interventions: '',
+    equipements: [],
+    equipe: []
   });
 
   // ---------- Contacts state ----------
@@ -113,6 +119,11 @@ export default function Logistique() {
     email: '',
     telephone: '',
     adresse: '',
+    categorie: '',
+    notation: '',
+    site: '',
+    n_siret: '',
+    n_client: '',
     notes: ''
   });
 
@@ -167,7 +178,7 @@ export default function Logistique() {
   const resetForm = () => {
     setForm({
       nom: '', categorie: '', quantite: 1, numero_serie: '', marque: '', modele: '',
-      statut: 'Disponible', notes: '', salle: '', groupe: '', date_achat: '', etat: ''
+      statut: 'Disponible', notes: '', salle: '', groupe: '', date_achat: '', etat: '', reference: ''
     });
     setEditingId(null);
   };
@@ -185,7 +196,8 @@ export default function Logistique() {
       salle: mat.salle || '',
       groupe: mat.groupe || '',
       date_achat: mat.date_achat || '',
-      etat: mat.etat || ''
+      etat: mat.etat || '',
+      reference: mat.reference || ''
     });
     setEditingId(mat.id);
     setDialogOpen(true);
@@ -289,7 +301,40 @@ export default function Logistique() {
 
   // ================= SEANCES (Entrees / Sorties) =================
   const resetSeanceForm = () => {
-    setSeanceForm({ date: '', poste: '', superviseur: '', notes: '', equipements: [] });
+    setSeanceForm({ date: '', poste: '', superviseur: '', horaire_debut: '', horaire_fin: '', observations: '', interventions: '', equipements: [], equipe: [] });
+    setSeanceEditingId(null);
+  };
+
+  const handleEditSeance = (s) => {
+    setSeanceForm({
+      date: s.date || '',
+      poste: s.poste || '',
+      superviseur: s.superviseur || '',
+      horaire_debut: s.horaire_debut || '',
+      horaire_fin: s.horaire_fin || '',
+      observations: s.observations || '',
+      interventions: s.interventions || '',
+      equipements: s.equipements || [],
+      equipe: s.equipe || []
+    });
+    setSeanceEditingId(s.id);
+    setSeanceDialogOpen(true);
+  };
+
+  const addEquipeMembre = () => {
+    setSeanceForm({ ...seanceForm, equipe: [...seanceForm.equipe, { role: '', nom: '' }] });
+  };
+
+  const updateEquipeMembre = (idx, field, value) => {
+    const eq = [...seanceForm.equipe];
+    eq[idx] = { ...eq[idx], [field]: value };
+    setSeanceForm({ ...seanceForm, equipe: eq });
+  };
+
+  const removeEquipeMembre = (idx) => {
+    const eq = [...seanceForm.equipe];
+    eq.splice(idx, 1);
+    setSeanceForm({ ...seanceForm, equipe: eq });
   };
 
   const addEquipementLigne = () => {
@@ -319,8 +364,13 @@ export default function Logistique() {
     }
     setSeanceSubmitting(true);
     try {
-      await axios.post(`${API}/regisseur-seances`, seanceForm);
-      toast.success('Séance enregistrée');
+      if (seanceEditingId) {
+        await axios.put(`${API}/regisseur-seances/${seanceEditingId}`, seanceForm);
+        toast.success('Séance modifiée');
+      } else {
+        await axios.post(`${API}/regisseur-seances`, seanceForm);
+        toast.success('Séance enregistrée');
+      }
       setSeanceDialogOpen(false);
       resetSeanceForm();
       fetchAll();
@@ -346,7 +396,7 @@ export default function Logistique() {
 
   // ================= CONTACTS =================
   const resetContactForm = () => {
-    setContactForm({ nom: '', type_contact: 'Fournisseur', contact: '', email: '', telephone: '', adresse: '', notes: '' });
+    setContactForm({ nom: '', type_contact: 'Fournisseur', contact: '', email: '', telephone: '', adresse: '', categorie: '', notation: '', site: '', n_siret: '', n_client: '', notes: '' });
     setContactEditingId(null);
   };
 
@@ -358,6 +408,11 @@ export default function Logistique() {
       email: c.email || '',
       telephone: c.telephone || '',
       adresse: c.adresse || '',
+      categorie: c.categorie || '',
+      notation: c.notation || '',
+      site: c.site || '',
+      n_siret: c.n_siret || '',
+      n_client: c.n_client || '',
       notes: c.notes || ''
     });
     setContactEditingId(c.id);
@@ -581,7 +636,7 @@ export default function Logistique() {
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
                       <DialogHeader>
-                        <DialogTitle>Nouvelle séance</DialogTitle>
+                        <DialogTitle>{seanceEditingId ? 'Modifier la séance' : 'Nouvelle séance'}</DialogTitle>
                         <DialogDescription>Enregistrer les entrées/sorties d'équipement</DialogDescription>
                       </DialogHeader>
                       <form onSubmit={handleSeanceSubmit} className="space-y-4">
@@ -592,11 +647,53 @@ export default function Logistique() {
                           </div>
                           <div className="space-y-2">
                             <Label>Poste *</Label>
-                            <Input value={seanceForm.poste} onChange={(e) => setSeanceForm({ ...seanceForm, poste: e.target.value })} required />
+                            <Input value={seanceForm.poste} onChange={(e) => setSeanceForm({ ...seanceForm, poste: e.target.value })} required placeholder="ex: CAM 1" />
                           </div>
                           <div className="space-y-2">
                             <Label>Superviseur</Label>
                             <Input value={seanceForm.superviseur} onChange={(e) => setSeanceForm({ ...seanceForm, superviseur: e.target.value })} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Heure sortie</Label>
+                            <Input value={seanceForm.horaire_debut} onChange={(e) => setSeanceForm({ ...seanceForm, horaire_debut: e.target.value })} placeholder="ex: 8h30" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Heure entrée</Label>
+                            <Input value={seanceForm.horaire_fin} onChange={(e) => setSeanceForm({ ...seanceForm, horaire_fin: e.target.value })} placeholder="ex: 15h12" />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <Label>Équipe (Cadreur / Assistant / Régisseur...)</Label>
+                            <Button type="button" size="sm" variant="outline" onClick={addEquipeMembre}>
+                              <Plus className="w-3 h-3 mr-1" />Ajouter
+                            </Button>
+                          </div>
+                          <div className="space-y-2">
+                            {seanceForm.equipe.map((m, idx) => (
+                              <div key={idx} className="flex flex-wrap items-center gap-2 border rounded p-2">
+                                <Input
+                                  className="w-28"
+                                  placeholder="Rôle (C/A/R)"
+                                  value={m.role}
+                                  onChange={(e) => updateEquipeMembre(idx, 'role', e.target.value)}
+                                />
+                                <Input
+                                  className="flex-1 min-w-[140px]"
+                                  placeholder="Nom"
+                                  value={m.nom}
+                                  onChange={(e) => updateEquipeMembre(idx, 'nom', e.target.value)}
+                                />
+                                <Button type="button" size="sm" variant="ghost" onClick={() => removeEquipeMembre(idx)}>
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </div>
+                            ))}
+                            {seanceForm.equipe.length === 0 && (
+                              <p className="text-xs text-muted-foreground">Aucun membre d'équipe ajouté</p>
+                            )}
                           </div>
                         </div>
                         <div className="space-y-2">
@@ -640,12 +737,16 @@ export default function Logistique() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>Notes</Label>
-                          <Textarea value={seanceForm.notes} onChange={(e) => setSeanceForm({ ...seanceForm, notes: e.target.value })} rows={2} />
+                          <Label>Observations</Label>
+                          <Textarea value={seanceForm.observations} onChange={(e) => setSeanceForm({ ...seanceForm, observations: e.target.value })} rows={2} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Interventions</Label>
+                          <Textarea value={seanceForm.interventions} onChange={(e) => setSeanceForm({ ...seanceForm, interventions: e.target.value })} rows={2} />
                         </div>
                         <Button type="submit" className="w-full" disabled={seanceSubmitting}>
                           {seanceSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                          Enregistrer
+                          {seanceEditingId ? 'Modifier' : 'Enregistrer'}
                         </Button>
                       </form>
                     </DialogContent>
@@ -673,18 +774,23 @@ export default function Logistique() {
                       <TableBody>
                         {sortedSeances.map((s) => (
                           <>
-                            <TableRow key={s.id}>
+                            <TableRow key={s.id} onClick={() => canManage() && handleEditSeance(s)} className={canManage() ? "cursor-pointer hover:bg-muted/50" : ""}>
                               <TableCell className="font-medium">{s.date}</TableCell>
                               <TableCell>{s.poste}</TableCell>
                               <TableCell>{s.superviseur || '-'}</TableCell>
                               <TableCell className="text-center">{(s.equipements || []).length}</TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
-                                  <Button size="sm" variant="ghost" onClick={() => setExpandedSeance(expandedSeance === s.id ? null : s.id)}>
+                                  <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setExpandedSeance(expandedSeance === s.id ? null : s.id); }}>
                                     {expandedSeance === s.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                   </Button>
+                                  {canManage() && (
+                                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditSeance(s); }}>
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                  )}
                                   {isSuperAdmin() && (
-                                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDeleteSeance(s.id)}>
+                                    <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteSeance(s.id); }}>
                                       <Trash2 className="w-4 h-4" />
                                     </Button>
                                   )}
@@ -695,6 +801,16 @@ export default function Logistique() {
                               <TableRow key={`${s.id}-detail`}>
                                 <TableCell colSpan={5} className="bg-muted/30">
                                   <div className="space-y-1 py-2">
+                                    {(s.equipe || []).length > 0 && (
+                                      <div className="flex flex-wrap gap-3 mb-2">
+                                        {(s.equipe || []).map((m, i) => (
+                                          <span key={i} className="text-sm"><span className="font-medium">{m.role}:</span> {m.nom}</span>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {(s.horaire_debut || s.horaire_fin) && (
+                                      <p className="text-xs text-muted-foreground mb-2">Horaires: {s.horaire_debut || '-'} → {s.horaire_fin || '-'}</p>
+                                    )}
                                     {(s.equipements || []).map((eq, i) => (
                                       <div key={i} className="flex gap-4 text-sm">
                                         <span className="font-medium">{eq.nom}</span>
@@ -703,7 +819,8 @@ export default function Logistique() {
                                         {eq.entree && <Badge variant="outline">Entrée</Badge>}
                                       </div>
                                     ))}
-                                    {s.notes && <p className="text-xs text-muted-foreground italic mt-2">{s.notes}</p>}
+                                    {s.observations && <p className="text-xs text-muted-foreground italic mt-2">Obs: {s.observations}</p>}
+                                    {s.interventions && <p className="text-xs text-muted-foreground italic mt-2">Interventions: {s.interventions}</p>}
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -785,6 +902,10 @@ export default function Logistique() {
                               </SelectContent>
                             </Select>
                           </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Référence / sous-catégorie</Label>
+                          <Input value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} placeholder="ex: CAM 1, HDMI..." />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div className="space-y-2">
@@ -897,8 +1018,8 @@ export default function Logistique() {
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
                                 {canManage() && (
-                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEdit(m); }}><Edit className="w-4 h-4" /></Button>
-                ))}
+                                  <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEdit(m); }}><Edit className="w-4 h-4" /></Button>
+                                )}
                                 {isAdmin() && (
                                               <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleArchive(m.id); }}><Archive className="w-4 h-4" /></Button>
                                 )}
@@ -971,8 +1092,34 @@ export default function Logistique() {
                           <Label>Adresse</Label>
                           <Input value={contactForm.adresse} onChange={(e) => setContactForm({ ...contactForm, adresse: e.target.value })} />
                         </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Catégorie</Label>
+                            <Input value={contactForm.categorie} onChange={(e) => setContactForm({ ...contactForm, categorie: e.target.value })} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Site web</Label>
+                            <Input value={contactForm.site} onChange={(e) => setContactForm({ ...contactForm, site: e.target.value })} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>N° SIRET</Label>
+                            <Input value={contactForm.n_siret} onChange={(e) => setContactForm({ ...contactForm, n_siret: e.target.value })} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>N° Client</Label>
+                            <Input value={contactForm.n_client} onChange={(e) => setContactForm({ ...contactForm, n_client: e.target.value })} />
+                          </div>
+                        </div>
+                        {contactForm.type_contact === 'Réparation' && (
+                          <div className="space-y-2">
+                            <Label>Notation</Label>
+                            <Input value={contactForm.notation} onChange={(e) => setContactForm({ ...contactForm, notation: e.target.value })} />
+                          </div>
+                        )}
                         <div className="space-y-2">
-                          <Label>Notes</Label>
+                          <Label>Notes / Commentaire</Label>
                           <Textarea value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} rows={2} />
                         </div>
                         <Button type="submit" className="w-full" disabled={contactSubmitting}>

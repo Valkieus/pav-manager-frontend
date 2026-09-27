@@ -1205,6 +1205,7 @@ export default function Planning() {
   const [monthAbsences, setMonthAbsences] = useState([]);
   const [editSectionDialog, setEditSectionDialog] = useState(null);
   const [editRoleLabel, setEditRoleLabel] = useState("");
+  const [editRoleSeparateur, setEditRoleSeparateur] = useState(false);
 
   // Category (section) add/rename
   const [addCategoryDialog, setAddCategoryDialog] = useState(null); // tableKey or null
@@ -2029,6 +2030,7 @@ export default function Planning() {
   const handleEditRole = (tableKey, sectionIdx, roleIdx, day) => {
     const role = sections[day][tableKey][sectionIdx].roles[roleIdx];
     setEditRoleLabel(role.label);
+    setEditRoleSeparateur(!!role.separateurApres);
     setEditSectionDialog({ tableKey, sectionIdx, roleIdx, day });
   };
 
@@ -2047,11 +2049,12 @@ export default function Planning() {
       updated[day][tableKey][sectionIdx].roles[roleIdx] = {
         ...updated[day][tableKey][sectionIdx].roles[roleIdx],
         label: editRoleLabel,
+        separateurApres: editRoleSeparateur,
       };
       return updated;
     });
     setEditSectionDialog(null);
-    toast.success("Poste renommé");
+    toast.success("Poste enregistré");
   };
 
   // Date editing functions
@@ -2714,8 +2717,9 @@ export default function Planning() {
                   const isGroupBoundary =
                     roleIdx > 0 &&
                     prevRole &&
-                    delimiterGroup(section.name, role.label) !==
-                      delimiterGroup(section.name, prevRole.label);
+                    (delimiterGroup(section.name, role.label) !==
+                      delimiterGroup(section.name, prevRole.label) ||
+                      !!prevRole.separateurApres);
                   return (
                     <React.Fragment key={role.key}>
                       {Array.from({ length: role.slots }).map((_, slotIdx) => (
@@ -3800,7 +3804,7 @@ tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Renommer le poste</DialogTitle>
+            <DialogTitle>Options du poste</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <Input
@@ -3808,6 +3812,14 @@ tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
               onChange={(e) => setEditRoleLabel(e.target.value)}
               placeholder="Nom du poste"
             />
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={editRoleSeparateur}
+                onChange={(e) => setEditRoleSeparateur(e.target.checked)}
+              />
+              Ajouter un séparateur (ligne épaisse) juste après ce poste
+            </label>
             <Button onClick={saveRoleLabel} className="w-full">
               Enregistrer
             </Button>

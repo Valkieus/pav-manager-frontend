@@ -2720,16 +2720,29 @@ export default function Planning() {
                     (delimiterGroup(section.name, role.label) !==
                       delimiterGroup(section.name, prevRole.label) ||
                       !!prevRole.separateurApres);
+                  // Border-collapse gotcha: every <td> already carries its own
+                  // 1px `border border-black` on all sides. Under
+                  // border-collapse, adjacent cell borders resolve by WIDTH
+                  // first (widest wins) — a plain border-t on the <tr> loses
+                  // to the neighbouring cells' own 1px borders and is never
+                  // actually painted. So the boundary must be a wider (2px)
+                  // top border applied directly on each <td> of this row,
+                  // not on the <tr>.
+                  const boundaryTdClass =
+                    slotIdx0Boundary =>
+                      slotIdx0Boundary
+                        ? " border-t-2 border-t-black print:border-t-2 print:border-t-black"
+                        : "";
                   return (
                     <React.Fragment key={role.key}>
                       {Array.from({ length: role.slots }).map((_, slotIdx) => (
                         <tr
                           key={`${role.key}_${slotIdx}`}
-                          className={`hover:bg-muted/50 ${slotIdx === 0 && isGroupBoundary ? "border-t border-t-black print:border-t print:border-t-black" : ""}`}
+                          className="hover:bg-muted/50"
                         >
                           {slotIdx === 0 ? (
                             <td
-                              className="border border-black p-2 font-medium bg-white"
+                              className={`border border-black p-2 font-medium bg-white${boundaryTdClass(isGroupBoundary)}`}
                               rowSpan={role.slots}
                             >
                               <div className="flex items-center gap-2">
@@ -2785,7 +2798,7 @@ export default function Planning() {
                             return (
                               <td
                                 key={dateIdx}
-                                className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}`}
+                                className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}`}
                                 onClick={() =>
                                   cellModeActive &&
                                   toggleCellBlocked(role.key, slotIdx, dateIdx)

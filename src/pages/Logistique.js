@@ -995,6 +995,7 @@ export default function Logistique() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-16">Photo</TableHead>
                           <TableHead>Nom</TableHead>
                           <TableHead>Catégorie</TableHead>
                           <TableHead className="text-center">Qté</TableHead>
@@ -1008,6 +1009,19 @@ export default function Logistique() {
                       <TableBody>
                         {filteredMateriel.map((m) => (
                           <TableRow key={m.id} onClick={() => handleEdit(m)} className="cursor-pointer hover:bg-muted/50">
+                            <TableCell>
+                              {m.photo_url ? (
+                                <img
+                                  src={`${process.env.REACT_APP_BACKEND_URL}${m.photo_url}`}
+                                  alt={m.nom}
+                                  className="w-12 h-12 object-cover rounded border"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center">
+                                  <Package className="w-5 h-5 text-muted-foreground/40" />
+                                </div>
+                              )}
+                            </TableCell>
                             <TableCell className="font-medium">{m.nom}</TableCell>
                             <TableCell><Badge variant="outline">{m.categorie}</Badge></TableCell>
                             <TableCell className="text-center font-semibold">{m.quantite || 1}</TableCell>
@@ -1142,6 +1156,7 @@ export default function Logistique() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-16">Logo</TableHead>
                           <TableHead>Nom</TableHead>
                           <TableHead>Type</TableHead>
                           <TableHead>Contact</TableHead>
@@ -1153,6 +1168,19 @@ export default function Logistique() {
                       <TableBody>
                         {filteredContacts.map((c) => (
                                       <TableRow key={c.id} onClick={() => handleEditContact(c)} className="cursor-pointer hover:bg-muted/50">
+                            <TableCell>
+                              {c.photo_url ? (
+                                <img
+                                  src={`${process.env.REACT_APP_BACKEND_URL}${c.photo_url}`}
+                                  alt={c.nom}
+                                  className="w-12 h-12 object-contain rounded border bg-white"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center">
+                                  <Contact2 className="w-5 h-5 text-muted-foreground/40" />
+                                </div>
+                              )}
+                            </TableCell>
                             <TableCell className="font-medium">{c.nom}</TableCell>
                             <TableCell><Badge variant="outline">{c.type_contact}</Badge></TableCell>
                             <TableCell className="text-muted-foreground">{c.contact || '-'}</TableCell>

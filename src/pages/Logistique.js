@@ -139,6 +139,7 @@ export default function Logistique() {
   const [incidentEditingId, setIncidentEditingId] = useState(null);
   const [incidentSubmitting, setIncidentSubmitting] = useState(false);
   const [filterIncidentPoste, setFilterIncidentPoste] = useState('all');
+  const [filterSeancePoste, setFilterSeancePoste] = useState('all');
   const [incidentForm, setIncidentForm] = useState({
     poste: 'CAM 1',
     date: '',
@@ -765,7 +766,34 @@ export default function Logistique() {
 
           {subTab === 'entrees-sorties' && (
             <div className="space-y-4">
-              <div className="flex justify-end">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex overflow-x-auto border-b -mb-px">
+                  <button
+                    type="button"
+                    onClick={() => setFilterSeancePoste('all')}
+                    className={`shrink-0 px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                      filterSeancePoste === 'all'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    Toutes les caméras
+                  </button>
+                  {POSTES_CAM.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setFilterSeancePoste(p)}
+                      className={`shrink-0 px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                        filterSeancePoste === p
+                          ? 'border-primary text-primary'
+                          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
                 {canManage() && (
                   <Dialog open={seanceDialogOpen} onOpenChange={(open) => { setSeanceDialogOpen(open); if (!open) resetSeanceForm(); }}>
                     <DialogTrigger asChild>
@@ -890,85 +918,106 @@ export default function Logistique() {
                   </Dialog>
                 )}
               </div>
-              <Card>
-                <CardContent className="p-0">
-                  {sortedSeances.length === 0 ? (
-                    <div className="p-8 text-center">
-                      <ArrowRightLeft className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-                      <p className="text-muted-foreground">Aucune séance enregistrée</p>
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Poste</TableHead>
-                          <TableHead>Superviseur</TableHead>
-                          <TableHead className="text-center">Équipements</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sortedSeances.map((s) => (
-                          <>
-                            <TableRow key={s.id} onClick={() => canManage() && handleEditSeance(s)} className={canManage() ? "cursor-pointer hover:bg-muted/50" : ""}>
-                              <TableCell className="font-medium">{s.date}</TableCell>
-                              <TableCell>{s.poste}</TableCell>
-                              <TableCell>{s.superviseur || '-'}</TableCell>
-                              <TableCell className="text-center">{(s.equipements || []).length}</TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end gap-1">
-                                  <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setExpandedSeance(expandedSeance === s.id ? null : s.id); }}>
-                                    {expandedSeance === s.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                  </Button>
-                                  {canManage() && (
-                                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditSeance(s); }}>
-                                      <Edit className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                  {isSuperAdmin() && (
-                                    <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteSeance(s.id); }}>
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                            {expandedSeance === s.id && (
-                              <TableRow key={`${s.id}-detail`}>
-                                <TableCell colSpan={5} className="bg-muted/30">
-                                  <div className="space-y-1 py-2">
-                                    {(s.equipe || []).length > 0 && (
-                                      <div className="flex flex-wrap gap-3 mb-2">
-                                        {(s.equipe || []).map((m, i) => (
-                                          <span key={i} className="text-sm"><span className="font-medium">{m.role}:</span> {m.nom}</span>
-                                        ))}
-                                      </div>
-                                    )}
-                                    {(s.horaire_debut || s.horaire_fin) && (
-                                      <p className="text-xs text-muted-foreground mb-2">Horaires: {s.horaire_debut || '-'} → {s.horaire_fin || '-'}</p>
-                                    )}
-                                    {(s.equipements || []).map((eq, i) => (
-                                      <div key={i} className="flex gap-4 text-sm">
-                                        <span className="font-medium">{eq.nom}</span>
-                                        <span className="text-muted-foreground">{eq.personne}</span>
-                                        {eq.sortie && <Badge variant="outline">Sortie</Badge>}
-                                        {eq.entree && <Badge variant="outline">Entrée</Badge>}
-                                      </div>
-                                    ))}
-                                    {s.observations && <p className="text-xs text-muted-foreground italic mt-2">Obs: {s.observations}</p>}
-                                    {s.interventions && <p className="text-xs text-muted-foreground italic mt-2">Interventions: {s.interventions}</p>}
-                                  </div>
-                                </TableCell>
+              {sortedSeances.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <ArrowRightLeft className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                    <p className="text-muted-foreground">Aucune séance enregistrée</p>
+                  </CardContent>
+                </Card>
+              ) : (() => {
+                const knownPostes = new Set(POSTES_CAM);
+                const groupsOrder = [...POSTES_CAM, ...Array.from(new Set(sortedSeances.map(s => s.poste).filter(p => !knownPostes.has(p))))];
+                const visibleGroups = groupsOrder.filter((p) => filterSeancePoste === 'all' || filterSeancePoste === p);
+                return visibleGroups.map((poste) => {
+                  const group = sortedSeances.filter((s) => s.poste === poste);
+                  if (group.length === 0 && filterSeancePoste === 'all') return null;
+                  return (
+                    <Card key={poste}>
+                      <CardHeader className="py-3 border-b">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          {poste || 'Non classé'}
+                          <Badge variant="secondary" className="font-normal">{group.length}</Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        {group.length === 0 ? (
+                          <div className="p-6 text-center">
+                            <p className="text-sm text-muted-foreground">Aucune séance enregistrée sur ce poste</p>
+                          </div>
+                        ) : (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Superviseur</TableHead>
+                                <TableHead className="text-center">Équipements</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                               </TableRow>
-                            )}
-                          </>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
+                            </TableHeader>
+                            <TableBody>
+                              {group.map((s) => (
+                                <>
+                                  <TableRow key={s.id} onClick={() => canManage() && handleEditSeance(s)} className={canManage() ? "cursor-pointer hover:bg-muted/50" : ""}>
+                                    <TableCell className="font-medium">{s.date}</TableCell>
+                                    <TableCell>{s.superviseur || '-'}</TableCell>
+                                    <TableCell className="text-center">{(s.equipements || []).length}</TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex justify-end gap-1">
+                                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setExpandedSeance(expandedSeance === s.id ? null : s.id); }}>
+                                          {expandedSeance === s.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                        </Button>
+                                        {canManage() && (
+                                          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditSeance(s); }}>
+                                            <Edit className="w-4 h-4" />
+                                          </Button>
+                                        )}
+                                        {isSuperAdmin() && (
+                                          <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteSeance(s.id); }}>
+                                            <Trash2 className="w-4 h-4" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                  {expandedSeance === s.id && (
+                                    <TableRow key={`${s.id}-detail`}>
+                                      <TableCell colSpan={4} className="bg-muted/30">
+                                        <div className="space-y-1 py-2">
+                                          {(s.equipe || []).length > 0 && (
+                                            <div className="flex flex-wrap gap-3 mb-2">
+                                              {(s.equipe || []).map((m, i) => (
+                                                <span key={i} className="text-sm"><span className="font-medium">{m.role}:</span> {m.nom}</span>
+                                              ))}
+                                            </div>
+                                          )}
+                                          {(s.horaire_debut || s.horaire_fin) && (
+                                            <p className="text-xs text-muted-foreground mb-2">Horaires: {s.horaire_debut || '-'} → {s.horaire_fin || '-'}</p>
+                                          )}
+                                          {(s.equipements || []).map((eq, i) => (
+                                            <div key={i} className="flex gap-4 text-sm">
+                                              <span className="font-medium">{eq.nom}</span>
+                                              <span className="text-muted-foreground">{eq.personne}</span>
+                                              {eq.sortie && <Badge variant="outline">Sortie</Badge>}
+                                              {eq.entree && <Badge variant="outline">Entrée</Badge>}
+                                            </div>
+                                          ))}
+                                          {s.observations && <p className="text-xs text-muted-foreground italic mt-2">Obs: {s.observations}</p>}
+                                          {s.interventions && <p className="text-xs text-muted-foreground italic mt-2">Interventions: {s.interventions}</p>}
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                });
+              })()}
             </div>
           )}
 

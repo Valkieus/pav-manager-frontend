@@ -1004,13 +1004,8 @@ export default function Administration() {
   const [logSeverityFilter, setLogSeverityFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
-  // Maintenance Mode
-  const [maintenance, setMaintenance] = useState({
-    is_active: false,
-    message: "",
-    scope: "site",
-    page_path: null,
-  });
+  // Maintenance Mode (#542 : plusieurs activations simultanées possibles)
+  const [maintenanceEntries, setMaintenanceEntries] = useState([]);
   const [maintenanceMessage, setMaintenanceMessage] = useState("");
   const [maintenanceScope, setMaintenanceScope] = useState("site");
   const [maintenancePagePath, setMaintenancePagePath] = useState(
@@ -1761,7 +1756,7 @@ export default function Administration() {
         axios.get(`${API}/groups/enhanced`).catch(() => ({ data: [] })),
         axios
           .get(`${API}/maintenance`)
-          .catch(() => ({ data: { is_active: false, message: "" } })),
+          .catch(() => ({ data: { entries: [] } })),
         axios
           .get(`${API}/dashboard/retard-settings`)
           .catch(() => ({ data: { enabled: false } })),
@@ -1772,13 +1767,8 @@ export default function Administration() {
       setUsers(usersRes.data);
       setLogs(logsRes.data);
       setGroups(groupsRes.data);
-      setMaintenance(maintenanceRes.data);
-      setMaintenanceMessage(maintenanceRes.data.message || "");
-      setMaintenanceScope(maintenanceRes.data.scope || "site");
-      setMaintenancePagePath(
-        maintenanceRes.data.page_path || MAINTENANCE_PAGES[0].path,
-      );
-      setMaintenanceAffectedRoles(maintenanceRes.data.affected_roles || []);
+      setMaintenanceEntries(maintenanceRes.data.entries || []);
+      setMaintenancePagePath(MAINTENANCE_PAGES[0].path);
       setRetardEnabled(!!retardRes.data.enabled);
       setRetardNotifyUserIds(retardRes.data.notify_user_ids || []);
       setTestModeEnabled(!!testModeRes.data.enabled);
@@ -1797,19 +1787,18 @@ export default function Administration() {
     );
   };
 
-  const handleMaintenanceToggle = async (checked) => {
+  const handleAddMaintenanceEntry = async () => {
     if (!isSuperAdmin()) {
       toast.error("Seul le Super Admin peut modifier le mode maintenance");
       return;
     }
-    if (checked && maintenanceScope === "page" && !maintenancePagePath) {
+    if (maintenanceScope === "page" && !maintenancePagePath) {
       toast.error("Choisissez une page à mettre en maintenance");
       return;
     }
     setMaintenanceLoading(true);
     try {
-      const res = await axios.put(`${API}/maintenance`, {
-        is_active: checked,
+      const res = await axios.post(`${API}/maintenance/entries`, {
         message:
           maintenanceMessage ||
           "Maintenance en cours. Veuillez réessayer plus tard.",
@@ -1818,10 +1807,39 @@ export default function Administration() {
         affected_roles:
           maintenanceAffectedRoles.length > 0 ? maintenanceAffectedRoles : null,
       });
-      setMaintenance(res.data);
-      toast.success(
-        checked ? "Mode maintenance activé" : "Mode maintenance désactivé",
-      );
+      setMaintenanceEntries((prev) => {
+        // Une nouvelle activation "site" couvre déjà tout, et une nouvelle
+        // activation "page" remplace une éventuelle activation existante
+        // sur cette même page (cf. logique backend) — on retire donc les
+        // entrées équivalentes avant d'ajouter la nouvelle.
+        const filtered =
+          res.data.scope === "site"
+            ? []
+            : prev.filter(
+                (e) =>
+                  !(e.scope === "page" && e.page_path === res.data.page_path),
+              );
+        return [...filtered, res.data];
+      });
+      setMaintenanceMessage("");
+      toast.success("Maintenance activée");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Erreur");
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  };
+
+  const handleRemoveMaintenanceEntry = async (entryId) => {
+    if (!isSuperAdmin()) {
+      toast.error("Seul le Super Admin peut modifier le mode maintenance");
+      return;
+    }
+    setMaintenanceLoading(true);
+    try {
+      await axios.delete(`${API}/maintenance/entries/${entryId}`);
+      setMaintenanceEntries((prev) => prev.filter((e) => e.id !== entryId));
+      toast.success("Maintenance désactivée");
     } catch (err) {
       toast.error(err.response?.data?.detail || "Erreur");
     } finally {
@@ -1914,35 +1932,6 @@ export default function Administration() {
       toast.error(err.response?.data?.detail || "Erreur");
     } finally {
       setTestModeSaving(false);
-    }
-  };
-
-  const handleMaintenanceMessageUpdate = async () => {
-    if (!isSuperAdmin()) return;
-    if (
-      maintenance.is_active &&
-      maintenanceScope === "page" &&
-      !maintenancePagePath
-    ) {
-      toast.error("Choisissez une page à mettre en maintenance");
-      return;
-    }
-    setMaintenanceLoading(true);
-    try {
-      const res = await axios.put(`${API}/maintenance`, {
-        is_active: maintenance.is_active,
-        message: maintenanceMessage,
-        scope: maintenanceScope,
-        page_path: maintenanceScope === "page" ? maintenancePagePath : null,
-        affected_roles:
-          maintenanceAffectedRoles.length > 0 ? maintenanceAffectedRoles : null,
-      });
-      setMaintenance(res.data);
-      toast.success("Paramètres mis à jour");
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Erreur");
-    } finally {
-      setMaintenanceLoading(false);
     }
   };
 
@@ -2274,170 +2263,188 @@ inchangés pour ce rôle. */}
         {/* MAINTENANCE TAB */}
         {canViewReadOnlyTabs && (
           <TabsContent value="maintenance" className="space-y-4">
-            <Card>
+<Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5" />
                   Mode Maintenance
                 </CardTitle>
                 <CardDescription>
-                  Activez le mode maintenance pour bloquer l'accès aux membres
-                  pendant les travaux
+                  Activez une ou plusieurs maintenances en même temps (le site
+                  entier, ou des pages différentes en parallèle) pour bloquer
+                  l'accès pendant les travaux — chaque activation a son propre
+                  message et peut être retirée indépendamment des autres.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Liste des activations en cours */}
                 <div className="space-y-2">
-                  <Label>Portée de la maintenance</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setMaintenanceScope("site")}
-                      className={`text-left p-3 rounded-lg border-2 transition-colors ${
-                        maintenanceScope === "site"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <p className="font-medium text-sm">Site complet</p>
-                      <p className="text-xs text-muted-foreground">
-                        Bloque l'accès à toute l'application pour les
-                        Techniciens
-                      </p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMaintenanceScope("page")}
-                      className={`text-left p-3 rounded-lg border-2 transition-colors ${
-                        maintenanceScope === "page"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <p className="font-medium text-sm">Une seule page</p>
-                      <p className="text-xs text-muted-foreground">
-                        Bloque uniquement la page choisie ci-dessous
-                      </p>
-                    </button>
-                  </div>
-
-                  {maintenanceScope === "page" && (
-                    <Select
-                      value={maintenancePagePath}
-                      onValueChange={setMaintenancePagePath}
-                    >
-                      <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Choisir une page" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MAINTENANCE_PAGES.map((p) => (
-                          <SelectItem key={p.path} value={p.path}>
-                            {p.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <Label>Activations en cours ({maintenanceEntries.length})</Label>
+                  {maintenanceEntries.length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-3 border rounded-lg border-dashed">
+                      Aucune maintenance active en ce moment.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {maintenanceEntries.map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg flex items-start justify-between gap-3"
+                        >
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="font-medium text-yellow-800 dark:text-yellow-200">
+                                {entry.scope === "page"
+                                  ? `Page "${MAINTENANCE_PAGES.find((p) => p.path === entry.page_path)?.label || entry.page_path}"`
+                                  : "Site complet"}
+                              </p>
+                              {entry.message && (
+                                <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                                  {entry.message}
+                                </p>
+                              )}
+                              <p className="text-xs text-yellow-700/80 dark:text-yellow-300/80">
+                                Activé par {entry.activated_by} le{" "}
+                                {entry.activated_at
+                                  ? new Date(entry.activated_at).toLocaleString("fr-FR")
+                                  : "-"}
+                                {" — "}
+                                Rôles impactés :{" "}
+                                {entry.affected_roles && entry.affected_roles.length > 0
+                                  ? entry.affected_roles.join(", ")
+                                  : "tout le monde (sous Super Admin)"}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={!isSuperAdmin() || maintenanceLoading}
+                            onClick={() => handleRemoveMaintenanceEntry(entry.id)}
+                            className="text-destructive hover:text-destructive shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Qui est impacté par cette maintenance</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Par défaut, tout le monde en dessous de Super Admin est
-                    impacté. Cochez des rôles précis pour restreindre la
-                    maintenance à ces rôles uniquement — Super Admin n'est
-                    jamais impacté.
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {MAINTENANCE_ROLES.map((role) => (
+                <div className="border-t pt-4 space-y-4">
+                  <Label className="text-base">Ajouter une nouvelle activation</Label>
+
+                  <div className="space-y-2">
+                    <Label>Portée de la maintenance</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
-                        key={role}
                         type="button"
-                        disabled={!isSuperAdmin()}
-                        onClick={() => toggleMaintenanceRole(role)}
-                        className={`text-sm p-2 rounded-lg border-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                          maintenanceAffectedRoles.includes(role)
-                            ? "border-primary bg-primary/5 font-medium"
+                        onClick={() => setMaintenanceScope("site")}
+                        className={`text-left p-3 rounded-lg border-2 transition-colors ${
+                          maintenanceScope === "site"
+                            ? "border-primary bg-primary/5"
                             : "border-border hover:border-primary/50"
                         }`}
                       >
-                        {role}
+                        <p className="font-medium text-sm">Site complet</p>
+                        <p className="text-xs text-muted-foreground">
+                          Bloque l'accès à toute l'application pour les
+                          Techniciens
+                        </p>
                       </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {maintenanceAffectedRoles.length > 0
-                      ? `Maintenance restreinte à : ${maintenanceAffectedRoles.join(", ")}`
-                      : "Aucun rôle spécifique sélectionné — tout le monde en dessous de Super Admin sera impacté"}
-                  </p>
-                </div>
+                      <button
+                        type="button"
+                        onClick={() => setMaintenanceScope("page")}
+                        className={`text-left p-3 rounded-lg border-2 transition-colors ${
+                          maintenanceScope === "page"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <p className="font-medium text-sm">Une seule page</p>
+                        <p className="text-xs text-muted-foreground">
+                          Bloque uniquement la page choisie ci-dessous — vous
+                          pouvez répéter l'opération pour plusieurs pages
+                          différentes
+                        </p>
+                      </button>
+                    </div>
 
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="space-y-1">
-                    <p className="font-medium">Activer le mode maintenance</p>
-                    <p className="text-sm text-muted-foreground">
-                      {maintenanceScope === "page"
-                        ? `Les membres verront une page de maintenance sur "${MAINTENANCE_PAGES.find((p) => p.path === maintenancePagePath)?.label || maintenancePagePath}" uniquement`
-                        : "Les membres verront une page de maintenance sur tout le site"}
+                    {maintenanceScope === "page" && (
+                      <Select
+                        value={maintenancePagePath}
+                        onValueChange={setMaintenancePagePath}
+                      >
+                        <SelectTrigger className="mt-2">
+                          <SelectValue placeholder="Choisir une page" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MAINTENANCE_PAGES.map((p) => (
+                            <SelectItem key={p.path} value={p.path}>
+                              {p.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Qui est impacté par cette maintenance</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Par défaut, tout le monde en dessous de Super Admin est
+                      impacté. Cochez des rôles précis pour restreindre la
+                      maintenance à ces rôles uniquement — Super Admin n'est
+                      jamais impacté.
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {MAINTENANCE_ROLES.map((role) => (
+                        <button
+                          key={role}
+                          type="button"
+                          disabled={!isSuperAdmin()}
+                          onClick={() => toggleMaintenanceRole(role)}
+                          className={`text-sm p-2 rounded-lg border-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            maintenanceAffectedRoles.includes(role)
+                              ? "border-primary bg-primary/5 font-medium"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          {role}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {maintenanceAffectedRoles.length > 0
+                        ? `Maintenance restreinte à : ${maintenanceAffectedRoles.join(", ")}`
+                        : "Aucun rôle spécifique sélectionné — tout le monde en dessous de Super Admin sera impacté"}
                     </p>
                   </div>
-                  <Switch
-                    checked={maintenance.is_active}
-                    onCheckedChange={handleMaintenanceToggle}
-                    disabled={maintenanceLoading || !isSuperAdmin()}
-                  />
-                </div>
 
-                <div className="space-y-2">
-                  <Label>Message affiché aux membres</Label>
-                  <Textarea
-                    value={maintenanceMessage}
-                    onChange={(e) => setMaintenanceMessage(e.target.value)}
-                    placeholder="Ex: Maintenance en cours. Nous revenons bientôt !"
-                    rows={3}
-                  />
+                  <div className="space-y-2">
+                    <Label>Message affiché aux membres</Label>
+                    <Textarea
+                      value={maintenanceMessage}
+                      onChange={(e) => setMaintenanceMessage(e.target.value)}
+                      placeholder="Ex: Maintenance en cours. Nous revenons bientôt !"
+                      rows={3}
+                    />
+                  </div>
+
                   <Button
-                    variant="outline"
-                    onClick={handleMaintenanceMessageUpdate}
-                    disabled={maintenanceLoading}
+                    onClick={handleAddMaintenanceEntry}
+                    disabled={maintenanceLoading || !isSuperAdmin()}
                   >
                     {maintenanceLoading && (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     )}
-                    Mettre à jour les paramètres
+                    Activer cette maintenance
                   </Button>
                 </div>
 
-                {maintenance.is_active && (
-                  <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-yellow-800 dark:text-yellow-200">
-                          Mode maintenance actif —{" "}
-                          {maintenance.scope === "page"
-                            ? `page "${MAINTENANCE_PAGES.find((p) => p.path === maintenance.page_path)?.label || maintenance.page_path}"`
-                            : "site complet"}
-                        </p>
-                        <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                          Activé par {maintenance.activated_by} le{" "}
-                          {new Date(maintenance.activated_at).toLocaleString(
-                            "fr-FR",
-                          )}
-                        </p>
-                        <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                          Rôles impactés :{" "}
-                          {maintenance.affected_roles &&
-                          maintenance.affected_roles.length > 0
-                            ? maintenance.affected_roles.join(", ")
-                            : "tout le monde (sous Super Admin)"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Preview */}
-                <div className="space-y-2">
+                <div className="space-y-2 border-t pt-4">
                   <Label>Aperçu de la page maintenance</Label>
                   <div className="border rounded-lg p-8 text-center bg-muted/30">
                     <AlertTriangle className="w-16 h-16 mx-auto text-yellow-500 mb-4" />

@@ -468,25 +468,37 @@ export const Layout = ({ children }) => {
   // If no specific roles were chosen (legacy behavior), it impacts everyone
   // below Super Admin (Technicien, Coordination, Responsable, Admin) — Super
   // Admin can always get in to fix things, regardless of the selection.
-  const maintenanceAppliesToUser =
-    maintenance?.is_active &&
+  // #542 : GET /maintenance peut désormais renvoyer PLUSIEURS activations
+  // simultanées (entries) — ex: la page Salles ET la page Communication en
+  // maintenance en même temps, chacune avec son propre message/rôles visés.
+  // On vérifie donc TOUTES les entrées plutôt qu'un seul état.
+  const maintenanceEntries = maintenance?.entries || [];
+  const entryAppliesToUser = (entry) =>
     !isSuperAdmin() &&
-    (!maintenance.affected_roles ||
-      maintenance.affected_roles.length === 0 ||
-      maintenance.affected_roles.includes(user?.niveau_acces));
+    (!entry.affected_roles ||
+      entry.affected_roles.length === 0 ||
+      entry.affected_roles.includes(user?.niveau_acces));
 
   // Scope "site" : le site entier est remplacé par l'écran de maintenance
-  // (plus de nav, plus de sidebar).
-  const showMaintenancePage =
-    maintenanceAppliesToUser && maintenance.scope !== "page";
+  // (plus de nav, plus de sidebar). Si plusieurs entrées "site" existaient
+  // (ne devrait pas arriver, cf. backend), on prend la première applicable.
+  const activeSiteEntry = maintenanceEntries.find(
+    (e) => e.scope === "site" && entryAppliesToUser(e),
+  );
+  const showMaintenancePage = !!activeSiteEntry;
 
-  // Scope "page" : seule la page ciblée est concernée, et seul son contenu
-  // (pas la nav ni la sidebar) est remplacé par le bloc de maintenance —
-  // les autres pages restent utilisables normalement.
-  const showMaintenanceContentOnly =
-    maintenanceAppliesToUser &&
-    maintenance.scope === "page" &&
-    location.pathname === maintenance.page_path;
+  // Scope "page" : seule la page ciblée par CETTE entrée est concernée, et
+  // seul son contenu (pas la nav ni la sidebar) est remplacé par le bloc de
+  // maintenance — les autres pages (et les autres entrées) restent
+  // utilisables normalement, ce qui permet plusieurs pages en maintenance
+  // en même temps.
+  const activePageEntry = maintenanceEntries.find(
+    (e) =>
+      e.scope === "page" &&
+      e.page_path === location.pathname &&
+      entryAppliesToUser(e),
+  );
+  const showMaintenanceContentOnly = !activeSiteEntry && !!activePageEntry;
 
   // Show password change dialog if required
   useEffect(() => {
@@ -616,7 +628,7 @@ export const Layout = ({ children }) => {
           <AlertTriangle className="w-20 h-20 mx-auto text-yellow-500" />
           <h1 className="text-3xl font-bold">Maintenance en cours</h1>
           <p className="text-muted-foreground text-lg">
-            {maintenance?.message ||
+            {activeSiteEntry?.message ||
               "Nous effectuons une maintenance. Veuillez réessayer plus tard."}
           </p>
           <div className="pt-4">
@@ -683,10 +695,12 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
             {filteredNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
-              const isUnderMaintenance =
-                maintenanceAppliesToUser &&
-                maintenance.scope === "page" &&
-                maintenance.page_path === item.path;
+              const isUnderMaintenance = maintenanceEntries.some(
+                (e) =>
+                  e.scope === "page" &&
+                  e.page_path === item.path &&
+                  entryAppliesToUser(e),
+              );
               return (
                 <Link
                   key={item.path}
@@ -915,7 +929,7 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
                 <AlertTriangle className="w-16 h-16 mx-auto text-yellow-500" />
                 <h2 className="text-2xl font-bold">Page en maintenance</h2>
                 <p className="text-muted-foreground">
-                  {maintenance?.message ||
+                  {activePageEntry?.message ||
                     "Cette page est temporairement indisponible. Veuillez réessayer plus tard."}
                 </p>
               </div>

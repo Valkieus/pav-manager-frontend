@@ -122,6 +122,7 @@ export default function Logistique() {
     contact: '',
     email: '',
     telephone: '',
+    contacts_secondaires: [],
     adresse: '',
     categorie: '',
     notation: '',
@@ -430,7 +431,7 @@ export default function Logistique() {
 
   // ================= CONTACTS =================
   const resetContactForm = () => {
-    setContactForm({ nom: '', type_contact: 'Fournisseur', contact: '', email: '', telephone: '', adresse: '', categorie: '', notation: '', site: '', n_siret: '', n_client: '', notes: '', photo_url: '' });
+    setContactForm({ nom: '', type_contact: 'Fournisseur', contact: '', email: '', telephone: '', contacts_secondaires: [], adresse: '', categorie: '', notation: '', site: '', n_siret: '', n_client: '', notes: '', photo_url: '' });
     setContactEditingId(null);
   };
 
@@ -441,6 +442,7 @@ export default function Logistique() {
       contact: c.contact || '',
       email: c.email || '',
       telephone: c.telephone || '',
+      contacts_secondaires: (c.contacts_secondaires && c.contacts_secondaires.length > 0) ? c.contacts_secondaires : [],
       adresse: c.adresse || '',
       categorie: c.categorie || '',
       notation: c.notation || '',
@@ -452,6 +454,19 @@ export default function Logistique() {
     });
     setContactEditingId(c.id);
     setContactDialogOpen(true);
+  };
+
+  const addContactSecondaire = () => {
+    setContactForm((f) => ({ ...f, contacts_secondaires: [...f.contacts_secondaires, { contact: '', telephone: '' }] }));
+  };
+  const updateContactSecondaire = (idx, field, value) => {
+    setContactForm((f) => ({
+      ...f,
+      contacts_secondaires: f.contacts_secondaires.map((p, i) => (i === idx ? { ...p, [field]: value } : p))
+    }));
+  };
+  const removeContactSecondaire = (idx) => {
+    setContactForm((f) => ({ ...f, contacts_secondaires: f.contacts_secondaires.filter((_, i) => i !== idx) }));
   };
 
   const handleContactPhotoUpload = async (e) => {
@@ -1207,15 +1222,33 @@ export default function Logistique() {
                             </Select>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Contact (personne)</Label>
-                            <Input value={contactForm.contact} onChange={(e) => setContactForm({ ...contactForm, contact: e.target.value })} />
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Contact (personne)</Label>
+                              <Input value={contactForm.contact} onChange={(e) => setContactForm({ ...contactForm, contact: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Téléphone</Label>
+                              <Input value={contactForm.telephone} onChange={(e) => setContactForm({ ...contactForm, telephone: e.target.value })} />
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <Label>Téléphone</Label>
-                            <Input value={contactForm.telephone} onChange={(e) => setContactForm({ ...contactForm, telephone: e.target.value })} />
-                          </div>
+                          {contactForm.contacts_secondaires.map((p, idx) => (
+                            <div key={idx} className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                              <div className="space-y-2">
+                                <Input placeholder="Autre contact (personne)" value={p.contact} onChange={(e) => updateContactSecondaire(idx, 'contact', e.target.value)} />
+                              </div>
+                              <div className="flex gap-2 items-center">
+                                <Input placeholder="Téléphone" value={p.telephone} onChange={(e) => updateContactSecondaire(idx, 'telephone', e.target.value)} />
+                                <Button type="button" size="icon" variant="ghost" onClick={() => removeContactSecondaire(idx)}>
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                          <Button type="button" size="sm" variant="outline" onClick={addContactSecondaire}>
+                            <Plus className="w-3.5 h-3.5 mr-1" />Ajouter une autre personne à contacter
+                          </Button>
                         </div>
                         <div className="space-y-2">
                           <Label>Email</Label>
@@ -1264,68 +1297,83 @@ export default function Logistique() {
                   </Dialog>
                 )}
               </div>
-              <Card>
-                <CardContent className="p-0">
-                  {filteredContacts.length === 0 ? (
-                    <div className="p-8 text-center">
-                      <Contact2 className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-                      <p className="text-muted-foreground">Aucun contact trouvé</p>
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-16">Logo</TableHead>
-                          <TableHead>Nom</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Contact</TableHead>
-                          <TableHead>Téléphone</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredContacts.map((c) => (
-                                      <TableRow key={c.id} onClick={() => handleEditContact(c)} className="cursor-pointer hover:bg-muted/50">
-                            <TableCell>
-                              {c.photo_url ? (
-                                <img
-                                  src={`${process.env.REACT_APP_BACKEND_URL}${c.photo_url}`}
-                                  alt={c.nom}
-                                  width={48}
-                                  height={48}
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="w-12 h-12 object-contain rounded border bg-white"
-                                />
-                              ) : (
-                                <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center">
-                                  <Contact2 className="w-5 h-5 text-muted-foreground/40" />
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell className="font-medium">{c.nom}</TableCell>
-                            <TableCell><Badge variant="outline">{c.type_contact}</Badge></TableCell>
-                            <TableCell className="text-muted-foreground">{c.contact || '-'}</TableCell>
-                            <TableCell className="text-muted-foreground">{c.telephone || '-'}</TableCell>
-                            <TableCell className="text-muted-foreground">{c.email || '-'}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                {canManage() && (
-                                                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditContact(c); }}><Edit className="w-4 h-4" /></Button>
-                                )}
-                                {isSuperAdmin() && (
-                                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteContact(c.id); }}><Trash2 className="w-4 h-4" /></Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
+              {CONTACT_TYPES.filter((t) => filterContactType === 'all' || filterContactType === t).map((t) => {
+                const group = contacts.filter((c) => c.type_contact === t);
+                return (
+                  <Card key={t}>
+                    <CardHeader className="py-3 border-b">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        {t}
+                        <Badge variant="secondary" className="font-normal">{group.length}</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {group.length === 0 ? (
+                        <div className="p-6 text-center">
+                          <p className="text-sm text-muted-foreground">Aucun contact dans cette catégorie</p>
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-16">Logo</TableHead>
+                              <TableHead>Nom</TableHead>
+                              <TableHead>Contact</TableHead>
+                              <TableHead>Téléphone</TableHead>
+                              <TableHead>Email</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {group.map((c) => (
+                              <TableRow key={c.id} onClick={() => handleEditContact(c)} className="cursor-pointer hover:bg-muted/50">
+                                <TableCell>
+                                  {c.photo_url ? (
+                                    <img
+                                      src={`${process.env.REACT_APP_BACKEND_URL}${c.photo_url}`}
+                                      alt={c.nom}
+                                      width={48}
+                                      height={48}
+                                      loading="lazy"
+                                      decoding="async"
+                                      className="w-12 h-12 object-contain rounded border bg-white"
+                                    />
+                                  ) : (
+                                    <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center">
+                                      <Contact2 className="w-5 h-5 text-muted-foreground/40" />
+                                    </div>
+                                  )}
+                                </TableCell>
+                                <TableCell className="font-medium">{c.nom}</TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {c.contact ? (
+                                    <div>{c.contact}{c.telephone ? ` : ${c.telephone}` : ''}</div>
+                                  ) : (!c.contacts_secondaires || c.contacts_secondaires.length === 0) ? '-' : null}
+                                  {(c.contacts_secondaires || []).map((p, idx) => (
+                                    <div key={idx}>{p.contact || '-'}{p.telephone ? ` : ${p.telephone}` : ''}</div>
+                                  ))}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">{c.telephone || '-'}</TableCell>
+                                <TableCell className="text-muted-foreground">{c.email || '-'}</TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-1">
+                                    {canManage() && (
+                                      <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditContact(c); }}><Edit className="w-4 h-4" /></Button>
+                                    )}
+                                    {isSuperAdmin() && (
+                                      <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteContact(c.id); }}><Trash2 className="w-4 h-4" /></Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
 

@@ -476,10 +476,10 @@ export default function Logistique() {
     try {
       if (seanceEditingId) {
         await axios.put(`${API}/regisseur-seances/${seanceEditingId}`, seanceForm);
-        toast.success('Séance modifiée');
+        toast.success('Culte modifié');
       } else {
         await axios.post(`${API}/regisseur-seances`, seanceForm);
-        toast.success('Séance enregistrée');
+        toast.success('Culte enregistré');
       }
       setSeanceDialogOpen(false);
       resetSeanceForm();
@@ -492,10 +492,10 @@ export default function Logistique() {
   };
 
   const handleDeleteSeance = async (id) => {
-    if (!window.confirm('Supprimer cette séance ?')) return;
+    if (!window.confirm('Supprimer ce culte ?')) return;
     try {
       await axios.delete(`${API}/regisseur-seances/${id}`);
-      toast.success('Séance supprimée');
+      toast.success('Culte supprimé');
       fetchAll();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
@@ -759,9 +759,9 @@ export default function Logistique() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card>
-                  <CardHeader><CardTitle className="text-base">Dernières séances</CardTitle></CardHeader>
+                  <CardHeader><CardTitle className="text-base">Derniers cultes</CardTitle></CardHeader>
                   <CardContent className="space-y-2">
-                    {sortedSeances.length === 0 && <p className="text-sm text-muted-foreground">Aucune séance enregistrée</p>}
+                    {sortedSeances.length === 0 && <p className="text-sm text-muted-foreground">Aucun culte enregistré</p>}
                     {sortedSeances.slice(0, 5).map((s) => (
                       <div key={s.id} className="flex justify-between text-sm border-b pb-1">
                         <span>{s.date} — {s.poste}</span>
@@ -818,11 +818,11 @@ export default function Logistique() {
                 {canManage() && (
                   <Dialog open={seanceDialogOpen} onOpenChange={(open) => { setSeanceDialogOpen(open); if (!open) resetSeanceForm(); }}>
                     <DialogTrigger asChild>
-                      <Button data-testid="add-seance-btn"><Plus className="w-4 h-4 mr-2" />Nouvelle séance</Button>
+                      <Button data-testid="add-seance-btn"><Plus className="w-4 h-4 mr-2" />Nouveau culte</Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
                       <DialogHeader>
-                        <DialogTitle>{seanceEditingId ? 'Modifier la séance' : 'Nouvelle séance'}</DialogTitle>
+                        <DialogTitle>{seanceEditingId ? 'Modifier le culte' : 'Nouveau culte'}</DialogTitle>
                         <DialogDescription>Enregistrer les entrées/sorties d'équipement</DialogDescription>
                       </DialogHeader>
                       <form onSubmit={handleSeanceSubmit} className="space-y-4">
@@ -958,7 +958,7 @@ export default function Logistique() {
                 <Card>
                   <CardContent className="p-8 text-center">
                     <ArrowRightLeft className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-                    <p className="text-muted-foreground">Aucune séance enregistrée</p>
+                    <p className="text-muted-foreground">Aucun culte enregistré</p>
                   </CardContent>
                 </Card>
               ) : (() => {
@@ -979,7 +979,7 @@ export default function Logistique() {
                       <CardContent className="p-0">
                         {group.length === 0 ? (
                           <div className="p-6 text-center">
-                            <p className="text-sm text-muted-foreground">Aucune séance enregistrée sur ce poste</p>
+                            <p className="text-sm text-muted-foreground">Aucun culte enregistré sur ce poste</p>
                           </div>
                         ) : (
                           <Table>

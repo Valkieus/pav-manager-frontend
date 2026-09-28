@@ -132,8 +132,14 @@ export default function Logistique() {
       return next;
     });
   const CURRENT_MONTH_STR = String(new Date().getMonth() + 1).padStart(2, '0');
-  const isMonthOpen = (key, monthNum) =>
-    expandedMonths.has(key) ? monthNum !== CURRENT_MONTH_STR : monthNum === CURRENT_MONTH_STR;
+  // Fix 28/09/2026 (retour utilisateur : "bien remplis je ne vois pas") : un
+  // mois est ouvert par défaut soit parce que c'est le mois en cours, soit
+  // parce qu'il contient au moins une vraie fiche remplie (pas seulement
+  // des fiches auto-générées vides) — sinon les données réelles importées
+  // de l'Excel (ex: Août 2026) restaient repliées et invisibles au premier
+  // coup d'œil, plusieurs mois avant le mois en cours.
+  const isMonthOpen = (key, defaultOpen) =>
+    expandedMonths.has(key) ? !defaultOpen : defaultOpen;
   const isSeanceVide = (s) => {
     const hasEquipe = (s.equipe || []).some((m) => (m.nom || '').trim());
     const hasChecks = (s.equipements || []).some((e) => e.sortie || e.entree || (e.checks && Object.values(e.checks).some((c) => c.sortie || c.entree)));
@@ -1260,8 +1266,11 @@ pas encore de fiche. */}
                                   if (monthNum !== currentMonth) {
                                     currentMonth = monthNum;
                                     const monthKey = `${poste}__${currentYear}__${monthNum}`;
-                                    const monthCount = group.filter((g) => (g.date || '').slice(0, 4) === currentYear && (g.date || '').slice(5, 7) === monthNum).length;
-                                    const monthOpen = isMonthOpen(monthKey, monthNum);
+                                    const monthGroupItems = group.filter((g) => (g.date || '').slice(0, 4) === currentYear && (g.date || '').slice(5, 7) === monthNum);
+                                    const monthCount = monthGroupItems.length;
+                                    const monthHasReal = monthGroupItems.some((g) => !isSeanceVide(g));
+                                    const monthDefaultOpen = monthNum === CURRENT_MONTH_STR || monthHasReal;
+                                    const monthOpen = isMonthOpen(monthKey, monthDefaultOpen);
                                     const monthLabel = MOIS_NOMS_FR[parseInt(monthNum, 10) - 1] || monthNum;
                                     rows.push(
                                       <TableRow key={`month-${monthKey}`} className="bg-muted/25 hover:bg-muted/40 cursor-pointer" onClick={() => toggleMonth(monthKey)}>
@@ -1276,7 +1285,9 @@ pas encore de fiche. */}
                                     );
                                   }
                                   const monthKey = `${poste}__${currentYear}__${currentMonth}`;
-                                  if (!isMonthOpen(monthKey, currentMonth)) return;
+                                  const curMonthGroupItems = group.filter((g) => (g.date || '').slice(0, 4) === currentYear && (g.date || '').slice(5, 7) === currentMonth);
+                                  const curMonthDefaultOpen = currentMonth === CURRENT_MONTH_STR || curMonthGroupItems.some((g) => !isSeanceVide(g));
+                                  if (!isMonthOpen(monthKey, curMonthDefaultOpen)) return;
                                   const vide = isSeanceVide(s);
                                   rows.push(
                                 <Fragment key={s.id}>

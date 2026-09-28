@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
@@ -54,7 +54,7 @@ import {
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const CONTACT_TYPES = ['Fournisseur', 'Location', 'Réparation'];
-const POSTES_CAM = ['Caméra 1', 'Caméra 2', 'Caméra 3', 'Caméra 4', 'Caméra 5', 'Caméra 6 et 7'];
+const POSTES_CAM = ['Caméra 1', 'Caméra 2', 'Caméra 3', 'Caméra 4', 'Caméra 5', 'Caméra 6', 'Caméra 7'];
 const FREQUENCE_OPTIONS = ['Ponctuel', 'Récurrent'];
 
 export default function Logistique() {
@@ -98,6 +98,23 @@ export default function Logistique() {
   const [seanceEditingId, setSeanceEditingId] = useState(null);
   const [seanceSubmitting, setSeanceSubmitting] = useState(false);
   const [expandedSeance, setExpandedSeance] = useState(null);
+  // Recherche + regroupement par année (demande 28/09/2026) : avec des
+  // centaines de fiches pré-remplies par poste, une liste plate est
+  // illisible. On regroupe par année (repliable, année en cours ouverte
+  // par défaut) et on ajoute une recherche libre (date, superviseur, nom
+  // d'équipe, signature) qui traverse tous les postes/années d'un coup.
+  const [seanceSearch, setSeanceSearch] = useState('');
+  const [expandedYears, setExpandedYears] = useState(new Set());
+  const toggleYear = (key) =>
+    setExpandedYears((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const CURRENT_YEAR_STR = String(new Date().getFullYear());
+  const isYearOpen = (key, year) =>
+    expandedYears.has(key) ? year !== CURRENT_YEAR_STR : year === CURRENT_YEAR_STR;
   const ROLE_CODES = ['C', 'A', 'R'];
   const ROLE_LABELS_FULL = { C: 'Cadreur', A: 'Assistant', R: 'Régisseur' };
   const emptyChecks = () => ({ C: { sortie: false, entree: false }, A: { sortie: false, entree: false }, R: { sortie: false, entree: false } });
@@ -139,6 +156,10 @@ export default function Logistique() {
 
   // ---------- Incidents state ----------
   const [incidents, setIncidents] = useState([]);
+  // Roster Régisseurs (demande 28/09/2026) : liste des personnes de la
+  // branche Régisseurs, pour que la signature d'une fiche soit un choix
+  // dans une liste plutôt que des initiales tapées au clavier.
+  const [regisseursRoster, setRegisseursRoster] = useState([]);
   const [incidentDialogOpen, setIncidentDialogOpen] = useState(false);
   const [incidentEditingId, setIncidentEditingId] = useState(null);
   const [incidentSubmitting, setIncidentSubmitting] = useState(false);
@@ -164,13 +185,14 @@ export default function Logistique() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [matRes, enumsRes, catRes, seancesRes, contactsRes, incidentsRes] = await Promise.all([
+      const [matRes, enumsRes, catRes, seancesRes, contactsRes, incidentsRes, rosterRes] = await Promise.all([
         axios.get(`${API}/materiel`),
         axios.get(`${API}/enums`),
         axios.get(`${API}/materiel/categories`),
         axios.get(`${API}/regisseur-seances`).catch(() => ({ data: [] })),
         axios.get(`${API}/regisseur-contacts`).catch(() => ({ data: [] })),
-        axios.get(`${API}/regisseur-incidents`).catch(() => ({ data: [] }))
+        axios.get(`${API}/regisseur-incidents`).catch(() => ({ data: [] })),
+        axios.get(`${API}/techniciens/roster`).catch(() => ({ data: [] })),
       ]);
       setMateriel(matRes.data);
       setEnums(enumsRes.data);
@@ -178,6 +200,9 @@ export default function Logistique() {
       setSeances(seancesRes.data || []);
       setContacts(contactsRes.data || []);
       setIncidents(incidentsRes.data || []);
+      setRegisseursRoster(
+        (rosterRes.data || []).filter((t) => (t.branches || []).includes('Régisseurs')),
+      );
     } catch (err) {
       toast.error('Erreur lors du chargement');
     } finally {
@@ -502,7 +527,28 @@ export default function Logistique() {
     }
   };
 
-  const sortedSeances = [...seances].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const seanceMatchesSearch = (s, q) => {
+    if (!q) return true;
+    const needle = q.toLowerCase();
+    const haystack = [
+      s.date,
+      s.poste,
+      s.jour_label,
+      s.superviseur,
+      s.signature,
+      s.observations,
+      s.interventions,
+      ...(s.equipe || []).map((m) => m.nom),
+      ...(s.equipements || []).map((e) => e.nom),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(needle);
+  };
+  const sortedSeances = [...seances]
+    .filter((s) => seanceMatchesSearch(s, seanceSearch))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   // ================= CONTACTS =================
   const resetContactForm = () => {
@@ -676,8 +722,28 @@ export default function Logistique() {
     }
   };
 
+  const [incidentSearch, setIncidentSearch] = useState('');
+  const incidentMatchesSearch = (i, q) => {
+    if (!q) return true;
+    const needle = q.toLowerCase();
+    const haystack = [
+      i.date,
+      i.poste,
+      i.cadreur_regisseur,
+      i.equipement_concerne,
+      i.description_probleme,
+      i.resolution,
+      i.responsable_suivi,
+      i.commentaire,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(needle);
+  };
   const filteredIncidents = incidents
     .filter(i => filterIncidentPoste === 'all' || i.poste === filterIncidentPoste)
+    .filter(i => incidentMatchesSearch(i, incidentSearch))
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   const SUB_TABS = [
@@ -787,6 +853,87 @@ export default function Logistique() {
 
           {subTab === 'entrees-sorties' && (
             <div className="space-y-4">
+              {/* Fiche(s) du jour — accès direct sans fouiller le classeur
+(demande 28/09/2026) : la ou les fiches du jour de service en cours
+(aujourd'hui si Vendredi/Dimanche, sinon la prochaine), un clic pour
+l'ouvrir. Si aujourd'hui n'est pas un jour de service, propose de
+créer une fiche "événement" pour la date du jour. */}
+              {(() => {
+                const todayStr = new Date().toISOString().slice(0, 10);
+                const todayDow = new Date().getDay(); // 0=dim, 5=ven
+                const isServiceDay = todayDow === 0 || todayDow === 5;
+                const todaysFiches = sortedSeances.filter((s) => s.date === todayStr);
+                if (isServiceDay) {
+                  return (
+                    <Card className="border-primary/30 bg-primary/[0.03]">
+                      <CardHeader className="py-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-primary" />
+                          Fiches du jour — {todayStr}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0 pb-4 flex flex-wrap gap-2">
+                        {POSTES_CAM.map((poste) => {
+                          const fiche = todaysFiches.find((s) => s.poste === poste);
+                          return (
+                            <Button
+                              key={poste}
+                              size="sm"
+                              variant={fiche ? 'default' : 'outline'}
+                              onClick={() => {
+                                if (fiche) {
+                                  handleEditSeance(fiche);
+                                } else if (canManage()) {
+                                  resetSeanceForm();
+                                  setSeanceForm((f) => ({ ...f, date: todayStr, poste }));
+                                  setSeanceDialogOpen(true);
+                                }
+                              }}
+                            >
+                              {poste}
+                            </Button>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                if (canManage()) {
+                  return (
+                    <Card className="border-dashed">
+                      <CardContent className="py-3 flex items-center justify-between flex-wrap gap-2">
+                        <p className="text-sm text-muted-foreground">
+                          Aujourd'hui n'est pas un jour de culte (Vendredi/Dimanche) — pas de fiche pré-remplie.
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            resetSeanceForm();
+                            setSeanceForm((f) => ({ ...f, date: todayStr }));
+                            setSeanceDialogOpen(true);
+                          }}
+                        >
+                          <Plus className="w-4 h-4 mr-1.5" />
+                          Créer une fiche événement pour aujourd'hui
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                return null;
+              })()}
+
+              <div className="relative max-w-md">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={seanceSearch}
+                  onChange={(e) => setSeanceSearch(e.target.value)}
+                  placeholder="Rechercher (date, nom, superviseur, équipement...)"
+                  className="pl-8"
+                />
+              </div>
+
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex overflow-x-auto border-b -mb-px">
                   <button
@@ -942,8 +1089,43 @@ export default function Logistique() {
                           <Textarea value={seanceForm.interventions} onChange={(e) => setSeanceForm({ ...seanceForm, interventions: e.target.value })} rows={2} />
                         </div>
                         <div className="space-y-2">
-                          <Label>Signature (initiales)</Label>
-                          <Input value={seanceForm.signature} onChange={(e) => setSeanceForm({ ...seanceForm, signature: e.target.value })} placeholder="ex: RT" className="max-w-[160px]" />
+                          <Label>Signature</Label>
+                          {/* Choix du nom plutôt que des initiales tapées
+au clavier (demande 28/09/2026) : liste des régisseurs connus dans
+l'effectif, avec repli "Autre" en texte libre si la personne n'a
+pas encore de fiche. */}
+                          <Select
+                            value={
+                              seanceForm.signature &&
+                              !regisseursRoster.some((t) => t.nom === seanceForm.signature)
+                                ? '__autre__'
+                                : seanceForm.signature || ''
+                            }
+                            onValueChange={(v) => {
+                              if (v === '__autre__') {
+                                setSeanceForm({ ...seanceForm, signature: seanceForm.signature || '' });
+                              } else {
+                                setSeanceForm({ ...seanceForm, signature: v });
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="max-w-[260px]"><SelectValue placeholder="Choisir un régisseur" /></SelectTrigger>
+                            <SelectContent>
+                              {regisseursRoster.map((t) => (
+                                <SelectItem key={t.id} value={t.nom}>{t.nom}</SelectItem>
+                              ))}
+                              <SelectItem value="__autre__">Autre (saisie libre)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {(seanceForm.signature === '' ||
+                            !regisseursRoster.some((t) => t.nom === seanceForm.signature)) && (
+                            <Input
+                              value={seanceForm.signature}
+                              onChange={(e) => setSeanceForm({ ...seanceForm, signature: e.target.value })}
+                              placeholder="Nom (si pas dans la liste ci-dessus)"
+                              className="max-w-[260px] mt-1"
+                            />
+                          )}
                         </div>
                         <Button type="submit" className="w-full" disabled={seanceSubmitting}>
                           {seanceSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
@@ -992,9 +1174,33 @@ export default function Logistique() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {group.map((s) => (
-                                <>
-                                  <TableRow key={s.id} onClick={() => canManage() && handleEditSeance(s)} className={canManage() ? "cursor-pointer hover:bg-muted/50" : ""}>
+                              {(() => {
+                                const rows = [];
+                                let currentYear = null;
+                                group.forEach((s) => {
+                                  const year = (s.date || '').slice(0, 4) || 'Sans date';
+                                  if (year !== currentYear) {
+                                    currentYear = year;
+                                    const yearKey = `${poste}__${year}`;
+                                    const yearCount = group.filter((g) => (g.date || '').slice(0, 4) === year).length;
+                                    const open = isYearOpen(yearKey, year);
+                                    rows.push(
+                                      <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted cursor-pointer" onClick={() => toggleYear(yearKey)}>
+                                        <TableCell colSpan={4} className="py-2">
+                                          <div className="flex items-center gap-2 font-semibold text-sm">
+                                            {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                            {year}
+                                            <Badge variant="outline" className="font-normal">{yearCount}</Badge>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>,
+                                    );
+                                  }
+                                  const yearKey = `${poste}__${currentYear}`;
+                                  if (!isYearOpen(yearKey, currentYear)) return;
+                                  rows.push(
+                                <Fragment key={s.id}>
+                                  <TableRow onClick={() => canManage() && handleEditSeance(s)} className={canManage() ? "cursor-pointer hover:bg-muted/50" : ""}>
                                     <TableCell className="font-medium">{s.date}</TableCell>
                                     <TableCell>{s.superviseur || '-'}</TableCell>
                                     <TableCell className="text-center">{(s.equipements || []).length}</TableCell>
@@ -1082,8 +1288,11 @@ export default function Logistique() {
                                       </TableCell>
                                     </TableRow>
                                   )}
-                                </>
-                              ))}
+                                </Fragment>,
+                                  );
+                                });
+                                return rows;
+                              })()}
                             </TableBody>
                           </Table>
                         )}
@@ -1584,6 +1793,15 @@ export default function Logistique() {
 
           {subTab === 'incidents' && (
             <div className="space-y-4">
+              <div className="relative max-w-md">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={incidentSearch}
+                  onChange={(e) => setIncidentSearch(e.target.value)}
+                  placeholder="Rechercher (date, description, équipement, personne...)"
+                  className="pl-8"
+                />
+              </div>
               {/* Onglets "feuilles" façon Excel : un onglet cliquable par caméra,
                   comme les feuilles CAMERA 1 / CAMERA 2 / ... du classeur d'origine. */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

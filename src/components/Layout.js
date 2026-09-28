@@ -57,6 +57,9 @@ import {
   MessageSquare,
   Eye,
   EyeOff,
+  Download,
+  Share,
+  PlusSquare,
 } from "lucide-react";
 import {
   isPushSupported,
@@ -64,6 +67,13 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
 } from "../utils/push";
+import {
+  subscribeInstallAvailability,
+  triggerInstallPrompt,
+  isStandaloneDisplay,
+  isIOSDevice,
+  isSafariDesktop,
+} from "../utils/pwaInstall";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -301,6 +311,67 @@ export const Layout = ({ children }) => {
     refreshPushState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Notifications actives par défaut pour tout le monde (demande
+  // 28/09/2026) : plutôt que d'attendre que l'utilisateur aille chercher le
+  // bouton dans la cloche, on déclenche nous-mêmes une seule fois par
+  // navigateur/appareil la demande d'autorisation native dès que l'état
+  // d'abonnement est connu et qu'aucun choix n'a encore été fait
+  // (Notification.permission === "default"). Le navigateur affichera son
+  // propre prompt système — on ne peut pas forcer l'octroi sans geste
+  // utilisateur, mais on peut au moins déclencher la demande
+  // automatiquement au lieu de la cacher dans un menu. Un flag localStorage
+  // évite de re-solliciter à chaque connexion une fois qu'un choix (accordé
+  // OU refusé) a été fait.
+  useEffect(() => {
+    if (!user || !pushState.supported) return;
+    if (pushState.subscribed) return;
+    if (pushState.permission && pushState.permission !== "default") return;
+    if (localStorage.getItem("pav_push_auto_prompted")) return;
+    const t = setTimeout(async () => {
+      localStorage.setItem("pav_push_auto_prompted", "1");
+      await subscribeToPush(axios);
+      await refreshPushState();
+    }, 1800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, pushState.supported, pushState.subscribed, pushState.permission]);
+
+  // Installation de l'app (PWA) — bouton "Installer l'application" visible
+  // dans le header, disponible sur PC et téléphone (voir utils/pwaInstall).
+  const [installAvailable, setInstallAvailable] = useState(false);
+  const [installBusy, setInstallBusy] = useState(false);
+  const [iosInstallHelpOpen, setIosInstallHelpOpen] = useState(false);
+  const [alreadyInstalled, setAlreadyInstalled] = useState(false);
+  useEffect(() => {
+    setAlreadyInstalled(isStandaloneDisplay());
+    const unsub = subscribeInstallAvailability((prompt) => {
+      setInstallAvailable(!!prompt);
+    });
+    return unsub;
+  }, []);
+  const canShowManualInstallHelp = !alreadyInstalled && (isIOSDevice() || isSafariDesktop());
+  const showInstallButton = !alreadyInstalled && (installAvailable || canShowManualInstallHelp);
+  const handleInstallClick = async () => {
+    if (installAvailable) {
+      setInstallBusy(true);
+      try {
+        const outcome = await triggerInstallPrompt();
+        if (outcome === "accepted") {
+          toast.success("Application installée");
+          setAlreadyInstalled(true);
+        }
+      } finally {
+        setInstallBusy(false);
+      }
+      return;
+    }
+    // Chrome/Edge/Android sans prompt capturé (déjà refusé une fois cette
+    // session, ou navigateur qui ne l'expose pas) : pas d'API pour
+    // déclencher l'install par code, donc on affiche les étapes manuelles —
+    // mêmes qu'iOS/Safari.
+    setIosInstallHelpOpen(true);
+  };
 
   const [testPushBusy, setTestPushBusy] = useState(false);
   const handleTestPush = async () => {
@@ -861,6 +932,24 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {showInstallButton && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleInstallClick}
+                  disabled={installBusy}
+                  className="w-9 h-9 sm:w-10 sm:h-10"
+                  data-testid="install-app-btn"
+                  title="Installer l'application"
+                >
+                  {installBusy ? (
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 sm:w-5 sm:h-5" />
+                  )}
+                </Button>
+              )}
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -1100,6 +1189,67 @@ tailored per permission level. */}
               }}
             >
               Reessayer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={iosInstallHelpOpen} onOpenChange={setIosInstallHelpOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5 text-primary" />
+              Installer l'application
+            </DialogTitle>
+            <DialogDescription>
+              {isIOSDevice()
+                ? "Sur iPhone/iPad (Safari), l'installation se fait en 2 étapes :"
+                : isSafariDesktop()
+                  ? "Sur Mac (Safari), l'installation se fait en 2 étapes :"
+                  : "Ce navigateur ne propose pas d'installation en un clic — ajoute un raccourci manuellement :"}
+            </DialogDescription>
+          </DialogHeader>
+          {isIOSDevice() ? (
+            <ol className="space-y-2 text-sm text-muted-foreground list-decimal pl-4">
+              <li>
+                Appuie sur l'icône{" "}
+                <Share className="w-3.5 h-3.5 inline text-foreground" />{" "}
+                <strong className="text-foreground">Partager</strong> en bas
+                de Safari
+              </li>
+              <li>
+                Choisis{" "}
+                <strong className="text-foreground inline-flex items-center gap-1">
+                  <PlusSquare className="w-3.5 h-3.5" />
+                  Sur l'écran d'accueil
+                </strong>
+              </li>
+            </ol>
+          ) : isSafariDesktop() ? (
+            <ol className="space-y-2 text-sm text-muted-foreground list-decimal pl-4">
+              <li>
+                Menu <strong className="text-foreground">Fichier</strong> de
+                Safari
+              </li>
+              <li>
+                Choisis{" "}
+                <strong className="text-foreground">
+                  Ajouter au Dock…
+                </strong>{" "}
+                (macOS Sonoma et plus récent)
+              </li>
+            </ol>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Utilise le menu de ton navigateur et cherche « Installer
+              l'application » ou « Ajouter à l'écran d'accueil ». Sur
+              Chrome/Edge, l'icône d'installation apparaît normalement
+              directement dans la barre d'adresse.
+            </p>
+          )}
+          <DialogFooter>
+            <Button type="button" onClick={() => setIosInstallHelpOpen(false)}>
+              Compris
             </Button>
           </DialogFooter>
         </DialogContent>

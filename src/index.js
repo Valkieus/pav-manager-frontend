@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import "@/index.css";
 import App from "@/App";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import "@/utils/pwaInstall"; // enregistre le listener beforeinstallprompt le plus tot possible
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(

@@ -60,6 +60,7 @@ import {
   Download,
   Share,
   PlusSquare,
+  ArrowDown,
 } from "lucide-react";
 import {
   isPushSupported,
@@ -1210,21 +1211,36 @@ tailored per permission level. */}
             </DialogDescription>
           </DialogHeader>
           {isIOSDevice() ? (
-            <ol className="space-y-2 text-sm text-muted-foreground list-decimal pl-4">
-              <li>
-                Appuie sur l'icône{" "}
-                <Share className="w-3.5 h-3.5 inline text-foreground" />{" "}
-                <strong className="text-foreground">Partager</strong> en bas
-                de Safari
-              </li>
-              <li>
-                Choisis{" "}
-                <strong className="text-foreground inline-flex items-center gap-1">
-                  <PlusSquare className="w-3.5 h-3.5" />
-                  Sur l'écran d'accueil
-                </strong>
-              </li>
-            </ol>
+            <>
+              <ol className="space-y-2 text-sm text-muted-foreground list-decimal pl-4">
+                <li className="rounded-lg bg-primary/10 -mx-1 px-2 py-1.5">
+                  Appuie sur l'icône{" "}
+                  <Share className="w-3.5 h-3.5 inline text-foreground" />{" "}
+                  <strong className="text-foreground">Partager</strong> tout
+                  en bas de l'écran, dans la barre de Safari
+                </li>
+                <li>
+                  Fais défiler la liste et choisis{" "}
+                  <strong className="text-foreground inline-flex items-center gap-1">
+                    <PlusSquare className="w-3.5 h-3.5" />
+                    Sur l'écran d'accueil
+                  </strong>
+                </li>
+                <li>
+                  Confirme en appuyant sur{" "}
+                  <strong className="text-foreground">Ajouter</strong> en
+                  haut à droite
+                </li>
+              </ol>
+              {/* Demande 28/09/2026 ("facilite la tâche") : iOS ne permet
+              aucune installation déclenchée par le site (pas de prompt
+              automatique), donc on rend l'étape manuelle la plus évidente
+              possible avec une flèche animée qui pointe vers le bouton
+              Partager réel de Safari, en bas de l'écran. */}
+              <div className="fixed inset-x-0 bottom-3 flex justify-center pointer-events-none z-[60]">
+                <ArrowDown className="w-7 h-7 text-primary animate-bounce drop-shadow" />
+              </div>
+            </>
           ) : isSafariDesktop() ? (
             <ol className="space-y-2 text-sm text-muted-foreground list-decimal pl-4">
               <li>

@@ -603,8 +603,15 @@ function buildPlanningExportSVG({
   const FONT_CELL = 14;
   const LINE_H = 15.5;
 
-  let LABEL_W = 190;
-  let DATE_W = 102;
+  // Fix 28/09/2026 (retour utilisateur, capture octobre 5-vendredis) :
+  // en enlevant l'étirement forcé, DATE_W=102 était trop juste dès que le
+  // nombre de colonnes de dates augmente (5 vendredis en octobre) — les
+  // noms wrappaient sur 2 lignes en permanence, rendu cramé/moche. On
+  // élargit un peu la base (colonnes de dates plus larges, étiquette un
+  // peu moins large pour compenser) : assez de place pour un nom sur une
+  // ligne dans la majorité des cas, sans revenir au grand vide d'avant.
+  let LABEL_W = 165;
+  let DATE_W = 145;
   const PAD = 3;
   const MARGIN = 12;
 
@@ -1117,7 +1124,17 @@ function buildPlanningExportXLSX({
   });
 }
 
-async function svgToPngDataUrl(svgString, width, height, scale = 2) {
+// Fix 28/09/2026 (demande utilisateur) : format de sortie fixe
+// 1280×1024 px (ratio 5:4 = 1,25), quel que soit le contenu — au lieu
+// d'une taille qui varie avec le nombre de colonnes/lignes. Le contenu
+// (dimensionné à sa taille naturelle par buildPlanningExportSVG) est mis
+// à l'échelle pour tenir dans ce cadre sans déformation (on garde le
+// ratio du tableau), centré, avec un léger bandeau blanc si son ratio ne
+// tombe pas pile sur 1,25 — jamais de texte étiré/déformé.
+const EXPORT_TARGET_W = 1280;
+const EXPORT_TARGET_H = 1024;
+
+async function svgToPngDataUrl(svgString, width, height, scale = 2, target = null) {
   const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   try {
@@ -1128,12 +1145,29 @@ async function svgToPngDataUrl(svgString, width, height, scale = 2) {
       image.src = url;
     });
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(width * scale);
-    canvas.height = Math.round(height * scale);
+    let canvasW, canvasH, drawW, drawH, offsetX, offsetY;
+    if (target) {
+      canvasW = target.width;
+      canvasH = target.height;
+      const fitScale = Math.min(canvasW / width, canvasH / height);
+      drawW = width * fitScale;
+      drawH = height * fitScale;
+      offsetX = (canvasW - drawW) / 2;
+      offsetY = (canvasH - drawH) / 2;
+    } else {
+      canvasW = Math.round(width * scale);
+      canvasH = Math.round(height * scale);
+      drawW = canvasW;
+      drawH = canvasH;
+      offsetX = 0;
+      offsetY = 0;
+    }
+    canvas.width = Math.round(canvasW);
+    canvas.height = Math.round(canvasH);
     const ctx = canvas.getContext("2d");
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
     return {
       dataUrl: canvas.toDataURL("image/png"),
       width: canvas.width,
@@ -2050,7 +2084,10 @@ export default function Planning() {
         formatDate,
         nameCase: affichageNoms,
       });
-      const { dataUrl } = await svgToPngDataUrl(svg, width, height, 2);
+      const { dataUrl } = await svgToPngDataUrl(svg, width, height, 2, {
+        width: EXPORT_TARGET_W,
+        height: EXPORT_TARGET_H,
+      });
       const moisSlug = (MOIS_NOMS[currentMonth - 1] || "")
         .toLowerCase()
         .normalize("NFD")
@@ -2142,7 +2179,10 @@ export default function Planning() {
         formatDate,
         nameCase: affichageNoms,
       });
-      const { dataUrl } = await svgToPngDataUrl(svg, width, height, 2);
+      const { dataUrl } = await svgToPngDataUrl(svg, width, height, 2, {
+        width: EXPORT_TARGET_W,
+        height: EXPORT_TARGET_H,
+      });
       const pngBlob = await (await fetch(dataUrl)).blob();
       const pngFilename = `planning-${moisSlug}-${currentYear}-${activeDay}.png`;
       const pngStatus = await downloadOrShareFile(pngBlob, pngFilename, {

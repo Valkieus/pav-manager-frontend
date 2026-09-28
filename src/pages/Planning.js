@@ -923,6 +923,13 @@ function buildPlanningExportSVG({
   });
 
   svgParts.push("</svg>");
+  // Fix 28/09/2026 : log de diagnostic (ratio obtenu très différent de ce
+  // qui était attendu côté calcul manuel) — permet de vérifier en un
+  // export les dimensions naturelles réelles produites par le SVG, sans
+  // deviner. Voir la console navigateur (F12) après un export PNG.
+  console.log(
+    `[Export PNG] SVG naturel: ${totalWidth}x${totalHeight} (ratio=${(totalWidth / totalHeight).toFixed(3)}) | LABEL_W=${LABEL_W} DATE_W=${DATE_W} nDates=${nDates}`,
+  );
   return { svg: svgParts.join(""), width: totalWidth, height: totalHeight };
 }
 
@@ -2085,7 +2092,15 @@ export default function Planning() {
         formatDate,
         nameCase: affichageNoms,
       });
-      const { dataUrl } = await svgToPngDataUrl(svg, width, height, 2);
+      const { dataUrl, width: pngW, height: pngH } = await svgToPngDataUrl(
+        svg,
+        width,
+        height,
+        2,
+      );
+      console.log(
+        `[Export PNG] PNG final: ${pngW}x${pngH} (ratio=${(pngW / pngH).toFixed(3)})`,
+      );
       const moisSlug = (MOIS_NOMS[currentMonth - 1] || "")
         .toLowerCase()
         .normalize("NFD")

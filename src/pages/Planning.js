@@ -2026,9 +2026,10 @@ export default function Planning() {
   };
 
   // Dedicated export engine: builds a standalone SVG from the real planning
-  // data (never screenshots the interactive table), so the width is always
-  // derived from the computed height — a genuine landscape PNG, not a
-  // rotated/stretched/padded capture of the on-screen DOM. See
+  // data (never screenshots the interactive table), sized to the content's
+  // natural width/height (fix 28/09/2026 : plus de format A4/paysage forcé
+  // qui étirait les colonnes et laissait un grand vide autour des noms) —
+  // pas une capture pivotée/étirée/paddée du tableau à l'écran. See
   // buildPlanningExportSVG / svgToPngDataUrl above.
   const handleExportPng = async () => {
     // Must happen synchronously, before any `await` below, or Safari on iOS
@@ -2049,16 +2050,7 @@ export default function Planning() {
         formatDate,
         nameCase: affichageNoms,
       });
-      const {
-        dataUrl,
-        width: pngW,
-        height: pngH,
-      } = await svgToPngDataUrl(svg, width, height, 2);
-      if (pngW <= pngH) {
-        // Should never happen given the width-from-height calculation above,
-        // but log loudly rather than silently ship a portrait result.
-        console.warn("Export PNG: résultat non-paysage inattendu", pngW, pngH);
-      }
+      const { dataUrl } = await svgToPngDataUrl(svg, width, height, 2);
       const moisSlug = (MOIS_NOMS[currentMonth - 1] || "")
         .toLowerCase()
         .normalize("NFD")

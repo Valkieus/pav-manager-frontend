@@ -134,6 +134,24 @@ const MOIS_NOMS = [
   "Novembre",
   "Décembre",
 ];
+// Nomenclature courte des feuilles Excel (V-JANV-2026 / D-JANV-2026) — sans
+// accents pour rester compatible avec tous les tableurs (Excel/LibreOffice/
+// Google Sheets acceptent les accents dans un nom d'onglet, mais certains
+// outils tiers d'import bronchent dessus).
+const MOIS_ABBR = [
+  "JANV",
+  "FEVR",
+  "MARS",
+  "AVR",
+  "MAI",
+  "JUIN",
+  "JUIL",
+  "AOUT",
+  "SEPT",
+  "OCT",
+  "NOV",
+  "DEC",
+];
 const YEARS = [
   2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038,
   2039, 2040,
@@ -571,28 +589,31 @@ function buildPlanningExportSVG({
   const BORDER = "#000000";
   const WHITE = "#FFFFFF";
 
-  // Tailles augmentées + padding resserré (demande 28/09/2026 : "il faut
-  // zoomer pour lire" — on gagne l'espace en resserrant le vide entre les
-  // noms dans les cases, plutôt qu'en agrandissant le canvas).
-  const FONT_TITLE = 22;
-  const FONT_SUB = 13;
-  const FONT_HEADER = 13;
-  const FONT_BAND = 13;
-  const FONT_LABEL = 12.5;
-  const FONT_CELL = 13;
-  const LINE_H = 15;
+  // Tailles augmentées + padding encore resserré (retour 28/09/2026 :
+  // toujours besoin de zoomer). On repousse encore plus loin dans la même
+  // direction : marges/gouttières réduites au minimum lisible, police un
+  // cran plus grande, interligne resserré à la taille de police — c'est
+  // l'espace gagné ici qui permet à la police de monter sans agrandir le
+  // fichier.
+  const FONT_TITLE = 24;
+  const FONT_SUB = 14;
+  const FONT_HEADER = 14;
+  const FONT_BAND = 14;
+  const FONT_LABEL = 14;
+  const FONT_CELL = 14;
+  const LINE_H = 15.5;
 
-  let LABEL_W = 200;
-  let DATE_W = 110;
-  const PAD = 4;
-  const MARGIN = 18;
+  let LABEL_W = 190;
+  let DATE_W = 102;
+  const PAD = 3;
+  const MARGIN = 12;
 
   const nDates = currentDates.length || 1;
   const hasAnyDateLabel = currentDates.some(
     (d) => dateLabels?.[activeDay]?.[d],
   );
-  const HEADER_H = hasAnyDateLabel ? 44 : 30;
-  const BAND_H = 20;
+  const HEADER_H = hasAnyDateLabel ? 38 : 26;
+  const BAND_H = 18;
 
   // ---- Pass 1: compute row heights for both tables from the real data ----
   const buildTableLayout = (tableSections) => {
@@ -615,7 +636,7 @@ function buildPlanningExportSVG({
             !!prevRole.separateurApres);
         const slotHeights = [];
         for (let slotIdx = 0; slotIdx < role.slots; slotIdx++) {
-          let h = 18;
+          let h = 17;
           for (let dateIdx = 0; dateIdx < nDates; dateIdx++) {
             const key = `${role.key}_${slotIdx}`;
             const value = affectations[key]?.[dateIdx] || "";
@@ -667,11 +688,11 @@ function buildPlanningExportSVG({
 
   const tableHeight = (rows) =>
     HEADER_H + rows.reduce((a, r) => a + r.height, 0);
-  const TABLE_GAP = 14;
-  const TITLE_H = 30;
-  const SUB_H = 22;
-  const TOP_GAP = 6;
-  const FOOTER_GAP = 10;
+  const TABLE_GAP = 10;
+  const TITLE_H = 28;
+  const SUB_H = 20;
+  const TOP_GAP = 4;
+  const FOOTER_GAP = 6;
   const FOOTER_TEXT =
     "SOUS RÉSERVE DE CHANGEMENTS ÉVENTUELS FAITS PAR LE RESPONSABLE DU DÉPARTEMENT";
   const FONT_FOOTER = 10;
@@ -891,7 +912,13 @@ function buildPlanningExportSVG({
 // package silently drops cell style writes (fills/bold survive in memory
 // but never make it into the .xlsx file), so a colored/bold export needs
 // this fork instead — same API, styles actually persist.
-function buildPlanningExportXLSX({
+// Construit UNE feuille (worksheet) pour un jour donné (vendredi OU
+// dimanche) — extrait de l'ancien buildPlanningExportXLSX qui ne
+// produisait qu'un seul onglet à la fois. Réutilisé deux fois par
+// buildPlanningExportXLSX ci-dessous pour produire un classeur avec les
+// deux jours dans deux onglets nommés (demande 28/09/2026 : "exporte les
+// deux pages vendredi dimanche avec deux feuilles").
+function buildPlanningDayWorksheet({
   activeDay,
   currentMonth,
   currentYear,
@@ -1047,13 +1074,48 @@ function buildPlanningExportXLSX({
     if (!ws[ref]) ws[ref] = { t: "s", v: "" };
     ws[ref].s = { ...(ws[ref].s || {}), ...style };
   });
+  return ws;
+}
 
+// Classeur complet : un onglet par jour (Vendredi puis Dimanche), nommés
+// "V-JANV-2026" / "D-JANV-2026" (jour-mois-année, comme demandé) plutôt que
+// de ne jamais exporter qu'un seul des deux jours à la fois.
+function buildPlanningExportXLSX({
+  currentMonth,
+  currentYear,
+  dates,
+  sections,
+  affectations,
+  blockedCells,
+  titreOverrides,
+  dateLabels,
+  formatDate,
+  nameCase,
+}) {
+  const moisAbbr = MOIS_ABBR[currentMonth - 1] || "";
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(
-    wb,
-    ws,
-    activeDay === "dimanche" ? "Dimanche" : "Vendredi",
-  );
+  [
+    { day: "vendredi", prefix: "V" },
+    { day: "dimanche", prefix: "D" },
+  ].forEach(({ day, prefix }) => {
+    const daySections = sections[day] || DEFAULT_SECTIONS[day];
+    const currentDates = dates[day] || [];
+    const ws = buildPlanningDayWorksheet({
+      activeDay: day,
+      currentMonth,
+      currentYear,
+      currentDates,
+      daySections,
+      affectations,
+      blockedCells,
+      titreOverrides,
+      dateLabels,
+      formatDate,
+      nameCase,
+    });
+    const sheetName = `${prefix}-${moisAbbr}-${currentYear}`;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
   const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   return new Blob([wbout], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -2031,11 +2093,10 @@ export default function Planning() {
     setExportingXlsx(true);
     try {
       const blob = buildPlanningExportXLSX({
-        activeDay,
         currentMonth,
         currentYear,
-        currentDates,
-        daySections,
+        dates,
+        sections,
         affectations,
         blockedCells,
         titreOverrides,
@@ -2047,7 +2108,9 @@ export default function Planning() {
         .toLowerCase()
         .normalize("NFD")
         .replace(/[̀-ͯ]/g, "");
-      const filename = `planning-${moisSlug}-${currentYear}-${activeDay}.xlsx`;
+      // Le classeur contient désormais les deux jours (Vendredi + Dimanche)
+      // dans deux onglets séparés — plus de suffixe -vendredi/-dimanche.
+      const filename = `planning-${moisSlug}-${currentYear}.xlsx`;
       const status = await downloadOrShareFile(blob, filename, {
         title: filename,
       });
@@ -2101,11 +2164,10 @@ export default function Planning() {
       });
 
       const xlsxBlob = buildPlanningExportXLSX({
-        activeDay,
         currentMonth,
         currentYear,
-        currentDates,
-        daySections,
+        dates,
+        sections,
         affectations,
         blockedCells,
         titreOverrides,
@@ -2113,7 +2175,7 @@ export default function Planning() {
         formatDate,
         nameCase: affichageNoms,
       });
-      const xlsxFilename = `planning-${moisSlug}-${currentYear}-${activeDay}.xlsx`;
+      const xlsxFilename = `planning-${moisSlug}-${currentYear}.xlsx`;
       const xlsxStatus = await downloadOrShareFile(xlsxBlob, xlsxFilename, {
         title: xlsxFilename,
       });

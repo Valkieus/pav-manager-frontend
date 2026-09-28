@@ -98,6 +98,9 @@ export default function Logistique() {
   const [seanceEditingId, setSeanceEditingId] = useState(null);
   const [seanceSubmitting, setSeanceSubmitting] = useState(false);
   const [expandedSeance, setExpandedSeance] = useState(null);
+  const ROLE_CODES = ['C', 'A', 'R'];
+  const ROLE_LABELS_FULL = { C: 'Cadreur', A: 'Assistant', R: 'Régisseur' };
+  const emptyChecks = () => ({ C: { sortie: false, entree: false }, A: { sortie: false, entree: false }, R: { sortie: false, entree: false } });
   const [seanceForm, setSeanceForm] = useState({
     date: '',
     poste: '',
@@ -106,6 +109,7 @@ export default function Logistique() {
     horaire_fin: '',
     observations: '',
     interventions: '',
+    signature: '',
     equipements: [],
     equipe: []
   });
@@ -397,7 +401,7 @@ export default function Logistique() {
 
   // ================= SEANCES (Entrees / Sorties) =================
   const resetSeanceForm = () => {
-    setSeanceForm({ date: '', poste: '', superviseur: '', horaire_debut: '', horaire_fin: '', observations: '', interventions: '', equipements: [], equipe: [] });
+    setSeanceForm({ date: '', poste: '', superviseur: '', horaire_debut: '', horaire_fin: '', observations: '', interventions: '', signature: '', equipements: [], equipe: [] });
     setSeanceEditingId(null);
   };
 
@@ -410,7 +414,8 @@ export default function Logistique() {
       horaire_fin: s.horaire_fin || '',
       observations: s.observations || '',
       interventions: s.interventions || '',
-      equipements: s.equipements || [],
+      signature: s.signature || '',
+      equipements: (s.equipements || []).map((eq) => ({ nom: eq.nom || '', checks: { ...emptyChecks(), ...(eq.checks || {}) } })),
       equipe: s.equipe || []
     });
     setSeanceEditingId(s.id);
@@ -436,13 +441,22 @@ export default function Logistique() {
   const addEquipementLigne = () => {
     setSeanceForm({
       ...seanceForm,
-      equipements: [...seanceForm.equipements, { nom: '', personne: '', sortie: true, entree: false }]
+      equipements: [...seanceForm.equipements, { nom: '', checks: emptyChecks() }]
     });
   };
 
-  const updateEquipementLigne = (idx, field, value) => {
+  const updateEquipementNom = (idx, value) => {
     const eqs = [...seanceForm.equipements];
-    eqs[idx] = { ...eqs[idx], [field]: value };
+    eqs[idx] = { ...eqs[idx], nom: value };
+    setSeanceForm({ ...seanceForm, equipements: eqs });
+  };
+
+  const updateEquipementCheck = (idx, roleCode, field, value) => {
+    const eqs = [...seanceForm.equipements];
+    const current = eqs[idx] || { nom: '', checks: emptyChecks() };
+    const checks = { ...emptyChecks(), ...current.checks };
+    checks[roleCode] = { ...checks[roleCode], [field]: value };
+    eqs[idx] = { ...current, checks };
     setSeanceForm({ ...seanceForm, equipements: eqs });
   };
 
@@ -870,37 +884,48 @@ export default function Logistique() {
                         </div>
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
-                            <Label>Équipements</Label>
+                            <Label>Équipements — case Sortie/Entrée par membre (comme la fiche papier)</Label>
                             <Button type="button" size="sm" variant="outline" onClick={addEquipementLigne}>
                               <Plus className="w-3 h-3 mr-1" />Ajouter une ligne
                             </Button>
                           </div>
-                          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                          <div className="space-y-2 max-h-[360px] overflow-y-auto">
                             {seanceForm.equipements.map((eq, idx) => (
-                              <div key={idx} className="flex flex-wrap items-center gap-2 border rounded p-2">
-                                <Input
-                                  className="flex-1 min-w-[140px]"
-                                  placeholder="Équipement"
-                                  value={eq.nom}
-                                  onChange={(e) => updateEquipementLigne(idx, 'nom', e.target.value)}
-                                />
-                                <Input
-                                  className="flex-1 min-w-[140px]"
-                                  placeholder="Personne"
-                                  value={eq.personne}
-                                  onChange={(e) => updateEquipementLigne(idx, 'personne', e.target.value)}
-                                />
-                                <label className="flex items-center gap-1 text-xs">
-                                  <input type="checkbox" checked={!!eq.sortie} onChange={(e) => updateEquipementLigne(idx, 'sortie', e.target.checked)} />
-                                  Sortie
-                                </label>
-                                <label className="flex items-center gap-1 text-xs">
-                                  <input type="checkbox" checked={!!eq.entree} onChange={(e) => updateEquipementLigne(idx, 'entree', e.target.checked)} />
-                                  Entrée
-                                </label>
-                                <Button type="button" size="sm" variant="ghost" onClick={() => removeEquipementLigne(idx)}>
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
+                              <div key={idx} className="border rounded p-2 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    className="flex-1"
+                                    placeholder="Équipement (ex: JVC GY HM 750)"
+                                    value={eq.nom}
+                                    onChange={(e) => updateEquipementNom(idx, e.target.value)}
+                                  />
+                                  <Button type="button" size="sm" variant="ghost" onClick={() => removeEquipementLigne(idx)}>
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {ROLE_CODES.map((rc) => (
+                                    <div key={rc} className="border rounded p-1.5 text-xs">
+                                      <p className="font-medium mb-1">{rc} — {ROLE_LABELS_FULL[rc]}</p>
+                                      <label className="flex items-center gap-1">
+                                        <input
+                                          type="checkbox"
+                                          checked={!!(eq.checks?.[rc]?.sortie)}
+                                          onChange={(e) => updateEquipementCheck(idx, rc, 'sortie', e.target.checked)}
+                                        />
+                                        Sortie
+                                      </label>
+                                      <label className="flex items-center gap-1">
+                                        <input
+                                          type="checkbox"
+                                          checked={!!(eq.checks?.[rc]?.entree)}
+                                          onChange={(e) => updateEquipementCheck(idx, rc, 'entree', e.target.checked)}
+                                        />
+                                        Entrée
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             ))}
                             {seanceForm.equipements.length === 0 && (
@@ -915,6 +940,10 @@ export default function Logistique() {
                         <div className="space-y-2">
                           <Label>Interventions</Label>
                           <Textarea value={seanceForm.interventions} onChange={(e) => setSeanceForm({ ...seanceForm, interventions: e.target.value })} rows={2} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Signature (initiales)</Label>
+                          <Input value={seanceForm.signature} onChange={(e) => setSeanceForm({ ...seanceForm, signature: e.target.value })} placeholder="ex: RT" className="max-w-[160px]" />
                         </div>
                         <Button type="submit" className="w-full" disabled={seanceSubmitting}>
                           {seanceSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
@@ -1001,16 +1030,54 @@ export default function Logistique() {
                                           {(s.horaire_debut || s.horaire_fin) && (
                                             <p className="text-xs text-muted-foreground mb-2">Horaires: {s.horaire_debut || '-'} → {s.horaire_fin || '-'}</p>
                                           )}
-                                          {(s.equipements || []).map((eq, i) => (
-                                            <div key={i} className="flex gap-4 text-sm">
-                                              <span className="font-medium">{eq.nom}</span>
-                                              <span className="text-muted-foreground">{eq.personne}</span>
-                                              {eq.sortie && <Badge variant="outline">Sortie</Badge>}
-                                              {eq.entree && <Badge variant="outline">Entrée</Badge>}
+                                          {(s.equipements || []).length > 0 && (s.equipements[0].checks) ? (
+                                            <div className="overflow-x-auto">
+                                              <table className="text-xs border-collapse">
+                                                <thead>
+                                                  <tr>
+                                                    <th className="text-left pr-3 pb-1">Équipement</th>
+                                                    {['C', 'A', 'R'].map((rc) => (
+                                                      <th key={rc} className="px-2 pb-1 text-center" colSpan={2}>{rc}</th>
+                                                    ))}
+                                                  </tr>
+                                                  <tr className="text-muted-foreground">
+                                                    <th></th>
+                                                    {['C', 'A', 'R'].map((rc) => (
+                                                      <>
+                                                        <th key={rc + '-s'} className="px-1 font-normal">Sortie</th>
+                                                        <th key={rc + '-e'} className="px-1 font-normal">Entrée</th>
+                                                      </>
+                                                    ))}
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  {(s.equipements || []).map((eq, i) => (
+                                                    <tr key={i} className="border-t">
+                                                      <td className="pr-3 py-1 font-medium">{eq.nom}</td>
+                                                      {['C', 'A', 'R'].map((rc) => (
+                                                        <>
+                                                          <td key={rc + '-s'} className="px-1 text-center">{eq.checks?.[rc]?.sortie ? '✓' : '—'}</td>
+                                                          <td key={rc + '-e'} className="px-1 text-center">{eq.checks?.[rc]?.entree ? '✓' : '—'}</td>
+                                                        </>
+                                                      ))}
+                                                    </tr>
+                                                  ))}
+                                                </tbody>
+                                              </table>
                                             </div>
-                                          ))}
+                                          ) : (
+                                            (s.equipements || []).map((eq, i) => (
+                                              <div key={i} className="flex gap-4 text-sm">
+                                                <span className="font-medium">{eq.nom}</span>
+                                                <span className="text-muted-foreground">{eq.personne}</span>
+                                                {eq.sortie && <Badge variant="outline">Sortie</Badge>}
+                                                {eq.entree && <Badge variant="outline">Entrée</Badge>}
+                                              </div>
+                                            ))
+                                          )}
                                           {s.observations && <p className="text-xs text-muted-foreground italic mt-2">Obs: {s.observations}</p>}
                                           {s.interventions && <p className="text-xs text-muted-foreground italic mt-2">Interventions: {s.interventions}</p>}
+                                          {s.signature && <p className="text-xs text-muted-foreground mt-2">Signature: <span className="font-medium">{s.signature}</span></p>}
                                         </div>
                                       </TableCell>
                                     </TableRow>

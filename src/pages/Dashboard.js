@@ -855,7 +855,7 @@ export default function Dashboard() {
 d'empiler deux cartes pleine largeur) : ça évite au calendrier de
 s'étirer sur toute la largeur de page, ce qui rendait ses cases
 démesurément grandes sur PC. */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div className="lg:col-span-2">
       {/* Résumé rapide — personalized quick-info summary, shown to every
 role (Membre included): prochain service, invités à venir, accès
@@ -1027,10 +1027,12 @@ rapide absence/formations, et un rappel des horaires de service. */}
       </Card>
 
       </div>
-      <div className="lg:col-span-3">
+      <div className="lg:col-span-2">
       {/* Calendrier du mois — vue basique, non-navigable, des jours de
 service et des événements Actualités du mois en cours. Visible à
-tous les rôles comme le Résumé rapide. */}
+tous les rôles comme le Résumé rapide. Col-span réduit à 2 (comme le
+Résumé rapide) pour équilibrer la largeur — sinon le calendrier
+paraît disproportionné sur desktop. */}
       <Card className="animate-fadeIn">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-lg capitalize">

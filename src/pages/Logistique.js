@@ -1789,14 +1789,40 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                   className="pl-8"
                 />
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <Select value={filterContactType} onValueChange={setFilterContactType}>
-                  <SelectTrigger className="w-[200px]"><SelectValue placeholder="Tous les types" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous les types</SelectItem>
-                    {CONTACT_TYPES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
-                  </SelectContent>
-                </Select>
+              {/* Demande 28/09/2026 ("sous forme de classeur") : barre
+d'onglets façon intercalaires de classeur (même style que les onglets
+caméra ailleurs dans l'app) au lieu d'un menu déroulant — on feuillette
+les catégories Fournisseur/Location/Réparation comme des sections d'un
+classeur plutôt que de choisir dans une liste. */}
+              <div className="flex overflow-x-auto border-b -mb-px">
+                <button
+                  type="button"
+                  onClick={() => setFilterContactType('all')}
+                  className={`shrink-0 px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                    filterContactType === 'all'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                  }`}
+                >
+                  Tous les types
+                </button>
+                {CONTACT_TYPES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setFilterContactType(t)}
+                    className={`shrink-0 px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                      filterContactType === t
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    {t}
+                    <Badge variant="secondary" className="ml-1.5 font-normal">{contacts.filter((c) => c.type_contact === t).length}</Badge>
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
                 {canManage() && (
                   <Dialog open={contactDialogOpen} onOpenChange={(open) => { setContactDialogOpen(open); if (!open) resetContactForm(); }}>
                     <DialogTrigger asChild>

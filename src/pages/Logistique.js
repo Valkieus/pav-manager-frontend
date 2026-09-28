@@ -115,6 +115,30 @@ export default function Logistique() {
   const CURRENT_YEAR_STR = String(new Date().getFullYear());
   const isYearOpen = (key, year) =>
     expandedYears.has(key) ? year !== CURRENT_YEAR_STR : year === CURRENT_YEAR_STR;
+  // Fix 28/09/2026 (retour utilisateur : "pas user friendly", "je ne vois
+  // plus le contenu") : un 2e niveau de regroupement par MOIS sous chaque
+  // année (mois en cours ouvert par défaut, comme l'année), pour retrouver
+  // une fiche en 3 clics (année → mois → jour) au lieu de scroller une
+  // longue liste. + un repère visuel "Vide"/"Rempli" par fiche pour que les
+  // dizaines de fiches auto-générées encore vides ne donnent plus
+  // l'impression que les vraies données (import Excel) ont disparu.
+  const MOIS_NOMS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const [expandedMonths, setExpandedMonths] = useState(new Set());
+  const toggleMonth = (key) =>
+    setExpandedMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const CURRENT_MONTH_STR = String(new Date().getMonth() + 1).padStart(2, '0');
+  const isMonthOpen = (key, monthNum) =>
+    expandedMonths.has(key) ? monthNum !== CURRENT_MONTH_STR : monthNum === CURRENT_MONTH_STR;
+  const isSeanceVide = (s) => {
+    const hasEquipe = (s.equipe || []).some((m) => (m.nom || '').trim());
+    const hasChecks = (s.equipements || []).some((e) => e.sortie || e.entree || (e.checks && Object.values(e.checks).some((c) => c.sortie || c.entree)));
+    return !s.superviseur && !s.signature && !hasEquipe && !hasChecks && !s.observations && !s.interventions;
+  };
   const ROLE_CODES = ['C', 'A', 'R'];
   const ROLE_LABELS_FULL = { C: 'Cadreur', A: 'Assistant', R: 'Régisseur' };
   const emptyChecks = () => ({ C: { sortie: false, entree: false }, A: { sortie: false, entree: false }, R: { sortie: false, entree: false } });
@@ -1206,10 +1230,13 @@ pas encore de fiche. */}
                               {(() => {
                                 const rows = [];
                                 let currentYear = null;
+                                let currentMonth = null;
                                 group.forEach((s) => {
                                   const year = (s.date || '').slice(0, 4) || 'Sans date';
+                                  const monthNum = (s.date || '').slice(5, 7) || '00';
                                   if (year !== currentYear) {
                                     currentYear = year;
+                                    currentMonth = null;
                                     const yearKey = `${poste}__${year}`;
                                     const yearCount = group.filter((g) => (g.date || '').slice(0, 4) === year).length;
                                     const open = isYearOpen(yearKey, year);
@@ -1227,10 +1254,43 @@ pas encore de fiche. */}
                                   }
                                   const yearKey = `${poste}__${currentYear}`;
                                   if (!isYearOpen(yearKey, currentYear)) return;
+                                  // Fix 28/09/2026 : 2e niveau de regroupement par mois sous
+                                  // l'année (mois en cours ouvert par défaut) pour retrouver
+                                  // une fiche en année → mois → jour au lieu d'une longue liste.
+                                  if (monthNum !== currentMonth) {
+                                    currentMonth = monthNum;
+                                    const monthKey = `${poste}__${currentYear}__${monthNum}`;
+                                    const monthCount = group.filter((g) => (g.date || '').slice(0, 4) === currentYear && (g.date || '').slice(5, 7) === monthNum).length;
+                                    const monthOpen = isMonthOpen(monthKey, monthNum);
+                                    const monthLabel = MOIS_NOMS_FR[parseInt(monthNum, 10) - 1] || monthNum;
+                                    rows.push(
+                                      <TableRow key={`month-${monthKey}`} className="bg-muted/25 hover:bg-muted/40 cursor-pointer" onClick={() => toggleMonth(monthKey)}>
+                                        <TableCell colSpan={4} className="py-1.5 pl-6">
+                                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            {monthOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                            {monthLabel}
+                                            <Badge variant="outline" className="font-normal">{monthCount}</Badge>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>,
+                                    );
+                                  }
+                                  const monthKey = `${poste}__${currentYear}__${currentMonth}`;
+                                  if (!isMonthOpen(monthKey, currentMonth)) return;
+                                  const vide = isSeanceVide(s);
                                   rows.push(
                                 <Fragment key={s.id}>
                                   <TableRow onClick={() => canManage() && handleEditSeance(s)} className={canManage() ? "cursor-pointer hover:bg-muted/50" : ""}>
-                                    <TableCell className="font-medium">{s.date}</TableCell>
+                                    <TableCell className="font-medium">
+                                      <div className="flex items-center gap-2">
+                                        {s.date}
+                                        {vide ? (
+                                          <Badge variant="outline" className="font-normal text-muted-foreground">Vide</Badge>
+                                        ) : (
+                                          <Badge className="font-normal bg-emerald-100 text-emerald-800 hover:bg-emerald-100">Rempli</Badge>
+                                        )}
+                                      </div>
+                                    </TableCell>
                                     <TableCell>{s.superviseur || '-'}</TableCell>
                                     <TableCell className="text-center">{(s.equipements || []).length}</TableCell>
                                     <TableCell className="text-right">

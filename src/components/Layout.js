@@ -621,16 +621,32 @@ export const Layout = ({ children }) => {
   }, []);
 
   // Swipe left-to-right (starting near the screen's left edge) opens the
-  // mobile menu — a common drawer gesture. Kept edge-only (touch must start
-  // within EDGE_ZONE px of the left border) so it never intercepts normal
-  // horizontal scrolling elsewhere on the page (e.g. the Planning table).
+  // mobile menu — a common drawer gesture.
+  //
+  // Fix 28/09/2026 (retour utilisateur : "des fois ils renvoie vers la page
+  // precedent[e]") : la zone de départ était 0-24px du bord gauche, qui est
+  // EXACTEMENT la zone que iOS Safari / Chrome Android réservent au geste
+  // système "swipe depuis le bord = retour page précédente". Ce geste
+  // système est intercepté au niveau OS/navigateur, avant nos écouteurs
+  // JS — impossible à bloquer avec preventDefault une fois démarré dans
+  // cette zone. Résultat : selon la précision du doigt, le swipe ouvrait
+  // le menu OU déclenchait le retour navigateur, au hasard.
+  // Fix : on démarre la détection un peu plus loin du bord (au-delà de la
+  // zone système), et on appelle preventDefault dès qu'on reconnaît notre
+  // geste horizontal pour empêcher toute interférence (scroll, swipe-back
+  // Chrome Android, rubber-banding iOS) — plus JAMAIS "autre chose" que
+  // l'ouverture du menu.
   useEffect(() => {
     let startX = null;
     let startY = null;
-    const EDGE_ZONE = 24;
+    let committed = false; // true une fois qu'on a décidé "c'est notre swipe"
+    const SYSTEM_EDGE_ZONE = 18; // zone réservée au geste retour du navigateur, on l'ignore complètement
+    const OUTER_ZONE = 70; // au-delà, ce n'est plus un swipe "depuis le bord"
     const SWIPE_THRESHOLD = 60;
+    const COMMIT_DEADZONE = 10; // px de mouvement avant de trancher horizontal vs vertical
 
     const onTouchStart = (e) => {
+      committed = false;
       if (window.innerWidth >= 1024) {
         startX = null;
         return;
@@ -640,7 +656,7 @@ export const Layout = ({ children }) => {
         return;
       }
       const t = e.touches[0];
-      if (!t || t.clientX > EDGE_ZONE) {
+      if (!t || t.clientX <= SYSTEM_EDGE_ZONE || t.clientX > OUTER_ZONE) {
         startX = null;
         return;
       }
@@ -654,24 +670,44 @@ export const Layout = ({ children }) => {
       if (!t) return;
       const dx = t.clientX - startX;
       const dy = Math.abs(t.clientY - startY);
-      if (dx > SWIPE_THRESHOLD && dx > dy * 1.5) {
+
+      if (!committed) {
+        if (Math.max(Math.abs(dx), dy) < COMMIT_DEADZONE) return;
+        if (dx <= 0 || dy > dx) {
+          // Pas un swipe horizontal vers la droite : on abandonne cette
+          // séquence tactile (laisse le scroll vertical normal se faire).
+          startX = null;
+          return;
+        }
+        committed = true;
+      }
+
+      // À partir d'ici c'est reconnu comme NOTRE geste : on empêche tout
+      // autre comportement (scroll, navigation navigateur) de s'y mêler.
+      if (e.cancelable) e.preventDefault();
+
+      if (dx > SWIPE_THRESHOLD) {
         setSidebarOpen(true);
         startX = null;
+        committed = false;
       }
     };
 
     const onTouchEnd = () => {
       startX = null;
       startY = null;
+      committed = false;
     };
 
     document.addEventListener("touchstart", onTouchStart, { passive: true });
-    document.addEventListener("touchmove", onTouchMove, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
+    document.addEventListener("touchcancel", onTouchEnd, { passive: true });
     return () => {
       document.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("touchend", onTouchEnd);
+      document.removeEventListener("touchcancel", onTouchEnd);
     };
   }, [sidebarOpen]);
 

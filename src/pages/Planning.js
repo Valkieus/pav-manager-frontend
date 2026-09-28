@@ -713,19 +713,14 @@ function buildPlanningExportSVG({
     FOOTER_GAP +
     FOOTER_H;
 
-  // ---- Pass 2: derive a true-landscape width from the computed height ----
-  // (rather than picking an arbitrary canvas size and hoping the content
-  // fits it, or rotating/stretching the result afterwards).
-  const TARGET_RATIO = 1.5;
-  const desiredWidth = Math.max(
-    contentWidth + MARGIN * 2,
-    Math.ceil(totalHeight * TARGET_RATIO),
-  );
-  if (desiredWidth > contentWidth + MARGIN * 2) {
-    const extra = desiredWidth - (contentWidth + MARGIN * 2);
-    DATE_W += extra / nDates;
-    contentWidth = LABEL_W + DATE_W * nDates;
-  }
+  // ---- Pass 2: largeur du canvas ----
+  // Fix 28/09/2026 (retour utilisateur) : le forçage précédent d'un ratio
+  // paysage 1.5 étirait DATE_W (largeur des colonnes de noms) bien au-delà
+  // du texte réel dès que le tableau était haut (beaucoup de lignes), ce
+  // qui laissait un grand vide à gauche/droite de chaque nom centré — donc
+  // illisible malgré une police plus grande. On garde simplement la largeur
+  // naturelle du contenu (étiquette + colonnes de dates dimensionnées pour
+  // le texte), sans l'étirer pour atteindre un ratio arbitraire.
   const totalWidth = contentWidth + MARGIN * 2;
 
   // ---- Pass 3: draw ----

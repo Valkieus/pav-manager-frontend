@@ -622,8 +622,12 @@ function buildPlanningExportSVG({
   const FONT_CELL = 11;
   const LINE_H = 13;
 
-  let LABEL_W = 150;
-  let DATE_W = 150;
+  // Fix 28/09/2026 (retour utilisateur : le ratio naturel ~0,93 était trop
+  // vertical vs la référence ~1,24) : colonnes élargies de 150 à 200 pour
+  // rapprocher le ratio naturel largeur/hauteur du SVG de la référence,
+  // sans jamais réintroduire de resize/canvas forcé (voir svgToPngDataUrl).
+  let LABEL_W = 200;
+  let DATE_W = 200;
   const PAD = 3;
   const MARGIN = 8;
 

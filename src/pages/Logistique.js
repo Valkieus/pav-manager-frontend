@@ -105,16 +105,32 @@ export default function Logistique() {
   // d'équipe, signature) qui traverse tous les postes/années d'un coup.
   const [seanceSearch, setSeanceSearch] = useState('');
   const [expandedYears, setExpandedYears] = useState(new Set());
-  const toggleYear = (key) =>
+  const CURRENT_YEAR_STR = String(new Date().getFullYear());
+  const isYearOpen = (key, year) =>
+    expandedYears.has(key) ? year !== CURRENT_YEAR_STR : year === CURRENT_YEAR_STR;
+  // Fix 28/09/2026 (demande : "si je clique sur un mois ou une année, le
+  // collapse s'applique sur les autres qui étaient ouverts") : cliquer sur
+  // une année referme les autres années ouvertes du même poste (tableau),
+  // comme un accordéon. yearsByPoste/monthsByPosteYear (calculés plus bas,
+  // juste après sortedSeances) donnent la liste des frères/soeurs à fermer.
+  const toggleYear = (poste, year) => {
+    const key = `${poste}__${year}`;
+    const siblings = (yearsByPoste.get(poste) || []).filter((y) => y !== year);
     setExpandedYears((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      siblings.forEach((y) => {
+        const k = `${poste}__${y}`;
+        // Pour forcer une année fermée : si elle est ouverte par défaut
+        // (l'année en cours), il faut que la clé soit présente dans le Set
+        // (isYearOpen l'inverse) ; sinon il faut qu'elle soit absente.
+        if (y === CURRENT_YEAR_STR) next.add(k);
+        else next.delete(k);
+      });
       return next;
     });
-  const CURRENT_YEAR_STR = String(new Date().getFullYear());
-  const isYearOpen = (key, year) =>
-    expandedYears.has(key) ? year !== CURRENT_YEAR_STR : year === CURRENT_YEAR_STR;
+  };
   // Fix 28/09/2026 (retour utilisateur : "pas user friendly", "je ne vois
   // plus le contenu") : un 2e niveau de regroupement par MOIS sous chaque
   // année (mois en cours ouvert par défaut, comme l'année), pour retrouver
@@ -124,14 +140,25 @@ export default function Logistique() {
   // l'impression que les vraies données (import Excel) ont disparu.
   const MOIS_NOMS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
   const [expandedMonths, setExpandedMonths] = useState(new Set());
-  const toggleMonth = (key) =>
+  const CURRENT_MONTH_STR = String(new Date().getMonth() + 1).padStart(2, '0');
+  // Même logique d'accordéon que toggleYear, mais au niveau mois, limitée
+  // aux mois de la même année/poste.
+  const toggleMonth = (poste, year, month) => {
+    const key = `${poste}__${year}__${month}`;
+    const posteYearKey = `${poste}__${year}`;
+    const siblings = (monthsByPosteYear.get(posteYearKey) || []).filter((m) => m.month !== month);
     setExpandedMonths((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      siblings.forEach(({ month: m2, defaultOpen }) => {
+        const k = `${poste}__${year}__${m2}`;
+        if (defaultOpen) next.add(k);
+        else next.delete(k);
+      });
       return next;
     });
-  const CURRENT_MONTH_STR = String(new Date().getMonth() + 1).padStart(2, '0');
+  };
   // Fix 28/09/2026 (retour utilisateur : "bien remplis je ne vois pas") : un
   // mois est ouvert par défaut soit parce que c'est le mois en cours, soit
   // parce qu'il contient au moins une vraie fiche remplie (pas seulement
@@ -599,6 +626,64 @@ export default function Logistique() {
     .filter((s) => seanceMatchesSearch(s, seanceSearch))
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
+  // Index poste -> années présentes, et poste+année -> mois présents (avec
+  // leur "ouvert par défaut"), utilisé pour l'accordéon (toggleYear/
+  // toggleMonth) et les boutons Tout ouvrir/Tout fermer ci-dessous.
+  const yearsByPoste = new Map();
+  const monthsByPosteYear = new Map();
+  Array.from(new Set(sortedSeances.map((s) => s.poste))).forEach((poste) => {
+    const g = sortedSeances.filter((s) => s.poste === poste);
+    const years = Array.from(new Set(g.map((s) => (s.date || '').slice(0, 4) || 'Sans date')));
+    yearsByPoste.set(poste, years);
+    years.forEach((year) => {
+      const gy = g.filter((s) => (s.date || '').slice(0, 4) === year);
+      const months = Array.from(new Set(gy.map((s) => (s.date || '').slice(5, 7) || '00')));
+      const monthDefs = months.map((month) => {
+        const gm = gy.filter((s) => (s.date || '').slice(5, 7) === month);
+        const defaultOpen = month === CURRENT_MONTH_STR || gm.some((s) => !isSeanceVide(s));
+        return { month, defaultOpen };
+      });
+      monthsByPosteYear.set(`${poste}__${year}`, monthDefs);
+    });
+  });
+  const setAllSeanceYearsOpen = (open) => {
+    setExpandedYears((prev) => {
+      const next = new Set(prev);
+      yearsByPoste.forEach((years, poste) => {
+        years.forEach((year) => {
+          const k = `${poste}__${year}`;
+          const defaultOpen = year === CURRENT_YEAR_STR;
+          const shouldBeInSet = open ? !defaultOpen : defaultOpen;
+          if (shouldBeInSet) next.add(k);
+          else next.delete(k);
+        });
+      });
+      return next;
+    });
+  };
+  const setAllSeanceMonthsOpen = (open) => {
+    setExpandedMonths((prev) => {
+      const next = new Set(prev);
+      monthsByPosteYear.forEach((months, posteYearKey) => {
+        months.forEach(({ month, defaultOpen }) => {
+          const k = `${posteYearKey}__${month}`;
+          const shouldBeInSet = open ? !defaultOpen : defaultOpen;
+          if (shouldBeInSet) next.add(k);
+          else next.delete(k);
+        });
+      });
+      return next;
+    });
+  };
+  const expandAllSeances = () => {
+    setAllSeanceYearsOpen(true);
+    setAllSeanceMonthsOpen(true);
+  };
+  const collapseAllSeances = () => {
+    setAllSeanceYearsOpen(false);
+    setAllSeanceMonthsOpen(false);
+  };
+
   // ================= CONTACTS =================
   const resetContactForm = () => {
     setContactForm({ nom: '', type_contact: 'Fournisseur', contact: '', email: '', telephone: '', contacts_secondaires: [], adresse: '', categorie: '', notation: '', site: '', n_siret: '', n_client: '', notes: '', photo_url: '' });
@@ -1002,14 +1087,24 @@ créer une fiche "événement" pour la date du jour. */}
                 return null;
               })()}
 
-              <div className="relative max-w-md">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  value={seanceSearch}
-                  onChange={(e) => setSeanceSearch(e.target.value)}
-                  placeholder="Rechercher (date, nom, superviseur, équipement...)"
-                  className="pl-8"
-                />
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative max-w-md flex-1 min-w-[220px]">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    value={seanceSearch}
+                    onChange={(e) => setSeanceSearch(e.target.value)}
+                    placeholder="Rechercher (date, nom, superviseur, équipement...)"
+                    className="pl-8"
+                  />
+                </div>
+                {/* Demande 28/09/2026 : possibilité de tout ouvrir/fermer en
+un clic, en plus de l'accordéon année/mois ci-dessous. */}
+                <Button type="button" variant="outline" size="sm" onClick={expandAllSeances}>
+                  Tout ouvrir
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={collapseAllSeances}>
+                  Tout fermer
+                </Button>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1256,7 +1351,7 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                                     const yearCount = group.filter((g) => (g.date || '').slice(0, 4) === year).length;
                                     const open = isYearOpen(yearKey, year);
                                     rows.push(
-                                      <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted cursor-pointer" onClick={() => toggleYear(yearKey)}>
+                                      <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted cursor-pointer" onClick={() => toggleYear(poste, year)}>
                                         <TableCell colSpan={4} className="py-2">
                                           <div className="flex items-center gap-2 font-semibold text-sm">
                                             {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -1282,7 +1377,7 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                                     const monthOpen = isMonthOpen(monthKey, monthDefaultOpen);
                                     const monthLabel = MOIS_NOMS_FR[parseInt(monthNum, 10) - 1] || monthNum;
                                     rows.push(
-                                      <TableRow key={`month-${monthKey}`} className="bg-muted/25 hover:bg-muted/40 cursor-pointer" onClick={() => toggleMonth(monthKey)}>
+                                      <TableRow key={`month-${monthKey}`} className="bg-muted/25 hover:bg-muted/40 cursor-pointer" onClick={() => toggleMonth(poste, currentYear, monthNum)}>
                                         <TableCell colSpan={4} className="py-1.5 pl-6">
                                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                             {monthOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}

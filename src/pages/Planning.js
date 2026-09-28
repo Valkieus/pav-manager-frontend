@@ -583,9 +583,12 @@ function buildPlanningExportSVG({
 }) {
   const measure = createTextMeasurer();
 
-  const BAND_COLOR = activeDay === "dimanche" ? "#FCE4D6" : "#BDD7EE";
+  // Couleurs alignées sur l'analyse pixel par pixel du PNG de référence
+  // fourni par l'utilisateur (28/09/2026) : bleu #A6C8EB (bandes/en-têtes),
+  // gris #AEAEAE (cases grisées/bloquées), fond blanc, traits noirs.
+  const BAND_COLOR = activeDay === "dimanche" ? "#FCE4D6" : "#A6C8EB";
   const TITLE_COLOR = activeDay === "dimanche" ? "#C55A11" : "#1F4E78";
-  const GREY = "#D1D5DB";
+  const GREY = "#AEAEAE";
   const BORDER = "#000000";
   const WHITE = "#FFFFFF";
 
@@ -595,23 +598,23 @@ function buildPlanningExportSVG({
   // cran plus grande, interligne resserré à la taille de police — c'est
   // l'espace gagné ici qui permet à la police de monter sans agrandir le
   // fichier.
+  // Fix 28/09/2026 (analyse pixel par pixel du PNG de référence fournie par
+  // l'utilisateur) : reproduction fidèle de sa grille — 5 colonnes de
+  // largeur STRICTEMENT ÉGALE (étiquette = colonnes de dates, ~252px sur
+  // l'image de référence en 1280 large), bandes de section nettement plus
+  // grandes/hautes (REGIE/CADREURS/RÉGISSEURS/DIFFUSION ~31-32px avec police
+  // ~20-22px), lignes standard ~18px, en-tête affectation/dates ~35px,
+  // titre/sous-titre/espace ~30/32/17px.
   const FONT_TITLE = 24;
   const FONT_SUB = 14;
   const FONT_HEADER = 14;
-  const FONT_BAND = 14;
+  const FONT_BAND = 20;
   const FONT_LABEL = 14;
   const FONT_CELL = 14;
   const LINE_H = 15.5;
 
-  // Fix 28/09/2026 (retour utilisateur, capture octobre 5-vendredis) :
-  // en enlevant l'étirement forcé, DATE_W=102 était trop juste dès que le
-  // nombre de colonnes de dates augmente (5 vendredis en octobre) — les
-  // noms wrappaient sur 2 lignes en permanence, rendu cramé/moche. On
-  // élargit un peu la base (colonnes de dates plus larges, étiquette un
-  // peu moins large pour compenser) : assez de place pour un nom sur une
-  // ligne dans la majorité des cas, sans revenir au grand vide d'avant.
-  let LABEL_W = 165;
-  let DATE_W = 145;
+  let LABEL_W = 150;
+  let DATE_W = 150;
   const PAD = 3;
   const MARGIN = 12;
 
@@ -619,8 +622,8 @@ function buildPlanningExportSVG({
   const hasAnyDateLabel = currentDates.some(
     (d) => dateLabels?.[activeDay]?.[d],
   );
-  const HEADER_H = hasAnyDateLabel ? 38 : 26;
-  const BAND_H = 18;
+  const HEADER_H = hasAnyDateLabel ? 44 : 34;
+  const BAND_H = 30;
 
   // ---- Pass 1: compute row heights for both tables from the real data ----
   const buildTableLayout = (tableSections) => {
@@ -643,7 +646,7 @@ function buildPlanningExportSVG({
             !!prevRole.separateurApres);
         const slotHeights = [];
         for (let slotIdx = 0; slotIdx < role.slots; slotIdx++) {
-          let h = 17;
+          let h = 18;
           for (let dateIdx = 0; dateIdx < nDates; dateIdx++) {
             const key = `${role.key}_${slotIdx}`;
             const value = affectations[key]?.[dateIdx] || "";
@@ -695,10 +698,10 @@ function buildPlanningExportSVG({
 
   const tableHeight = (rows) =>
     HEADER_H + rows.reduce((a, r) => a + r.height, 0);
-  const TABLE_GAP = 10;
-  const TITLE_H = 28;
-  const SUB_H = 20;
-  const TOP_GAP = 4;
+  const TABLE_GAP = 30;
+  const TITLE_H = 30;
+  const SUB_H = 26;
+  const TOP_GAP = 14;
   const FOOTER_GAP = 6;
   const FOOTER_TEXT =
     "SOUS RÉSERVE DE CHANGEMENTS ÉVENTUELS FAITS PAR LE RESPONSABLE DU DÉPARTEMENT";
@@ -769,7 +772,7 @@ function buildPlanningExportSVG({
       `<rect x="${x}" y="${y}" width="${LABEL_W}" height="${HEADER_H}" fill="${BAND_COLOR}" stroke="${BORDER}"/>`,
     );
     svgParts.push(
-      `<text x="${x + PAD}" y="${y + HEADER_H / 2 + FONT_HEADER * 0.35}" font-family="${EXPORT_FONT}" font-size="${FONT_HEADER}" font-weight="700" fill="${TITLE_COLOR}">AFFECTATION</text>`,
+      `<text x="${x + LABEL_W / 2}" y="${y + HEADER_H / 2 + FONT_HEADER * 0.35}" text-anchor="middle" font-family="${EXPORT_FONT}" font-size="${FONT_HEADER}" font-weight="700" fill="${TITLE_COLOR}">AFFECTATION</text>`,
     );
     let hx = x + LABEL_W;
     currentDates.forEach((date) => {
@@ -835,9 +838,12 @@ function buildPlanningExportSVG({
       const lLines = slotRows[0].labelLines || [role.label];
       const lBlockH = lLines.length * LINE_H;
       const lStartY = rowTopY + mergedH / 2 - lBlockH / 2 + LINE_H * 0.75;
+      // Fix 28/09/2026 (référence utilisateur) : étiquettes de poste
+      // centrées horizontalement (pas alignées à gauche comme un tableau
+      // Excel classique) — c'est le rendu observé sur le PNG de référence.
       lLines.forEach((line, li) => {
         svgParts.push(
-          `<text x="${MARGIN + PAD}" y="${lStartY + li * LINE_H}" font-family="${EXPORT_FONT}" font-size="${FONT_LABEL}" font-weight="600" fill="#111111">${escapeXml(line)}</text>`,
+          `<text x="${MARGIN + LABEL_W / 2}" y="${lStartY + li * LINE_H}" text-anchor="middle" font-family="${EXPORT_FONT}" font-size="${FONT_LABEL}" font-weight="600" fill="#111111">${escapeXml(line)}</text>`,
         );
       });
       let sy = rowTopY;
@@ -1131,8 +1137,11 @@ function buildPlanningExportXLSX({
 // à l'échelle pour tenir dans ce cadre sans déformation (on garde le
 // ratio du tableau), centré, avec un léger bandeau blanc si son ratio ne
 // tombe pas pile sur 1,25 — jamais de texte étiré/déformé.
+// 1280 x 1032 px (ratio 1,2403:1) — mesuré directement sur le PNG de
+// référence fourni par l'utilisateur (28/09/2026), pas un format standard
+// (ni A4, ni 16:9, ni 5:4 exact).
 const EXPORT_TARGET_W = 1280;
-const EXPORT_TARGET_H = 1024;
+const EXPORT_TARGET_H = 1032;
 
 async function svgToPngDataUrl(svgString, width, height, scale = 2, target = null) {
   const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
@@ -1296,7 +1305,6 @@ export default function Planning() {
   const skipNextAutoSaveRef = useRef(true);
   const [exportingPng, setExportingPng] = useState(false);
   const [exportingXlsx, setExportingXlsx] = useState(false);
-  const [exportingBoth, setExportingBoth] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(2026);
@@ -2151,73 +2159,6 @@ export default function Planning() {
       toast.error("Erreur lors de l'export Excel");
     } finally {
       setExportingXlsx(false);
-    }
-  };
-
-  // Sous-catégorie "les deux d'un coup" (demande 28/09/2026) : produit le
-  // PNG puis le XLSX à la suite, mêmes données, un seul clic — au lieu de
-  // devoir relancer l'export deux fois pour avoir les deux formats.
-  const handleExportBoth = async () => {
-    const preOpenedWindow = reserveTabForIOSFallback();
-    setExportingBoth(true);
-    try {
-      const moisSlug = (MOIS_NOMS[currentMonth - 1] || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[̀-ͯ]/g, "");
-
-      const { svg, width, height } = buildPlanningExportSVG({
-        activeDay,
-        currentMonth,
-        currentYear,
-        currentDates,
-        daySections,
-        affectations,
-        blockedCells,
-        titreOverrides,
-        dateLabels,
-        formatDate,
-        nameCase: affichageNoms,
-      });
-      const { dataUrl } = await svgToPngDataUrl(svg, width, height, 2, {
-        width: EXPORT_TARGET_W,
-        height: EXPORT_TARGET_H,
-      });
-      const pngBlob = await (await fetch(dataUrl)).blob();
-      const pngFilename = `planning-${moisSlug}-${currentYear}-${activeDay}.png`;
-      const pngStatus = await downloadOrShareFile(pngBlob, pngFilename, {
-        title: pngFilename,
-        preOpenedWindow,
-      });
-
-      const xlsxBlob = buildPlanningExportXLSX({
-        currentMonth,
-        currentYear,
-        dates,
-        sections,
-        affectations,
-        blockedCells,
-        titreOverrides,
-        dateLabels,
-        formatDate,
-        nameCase: affichageNoms,
-      });
-      const xlsxFilename = `planning-${moisSlug}-${currentYear}.xlsx`;
-      const xlsxStatus = await downloadOrShareFile(xlsxBlob, xlsxFilename, {
-        title: xlsxFilename,
-      });
-
-      if (pngStatus === "blocked" || xlsxStatus === "blocked") {
-        toast.error("Impossible d'enregistrer un des deux fichiers — réessaie");
-      } else {
-        toast.success("PNG et Excel téléchargés");
-      }
-    } catch (err) {
-      console.error(err);
-      if (preOpenedWindow && !preOpenedWindow.closed) preOpenedWindow.close();
-      toast.error("Erreur lors de l'export PNG + Excel");
-    } finally {
-      setExportingBoth(false);
     }
   };
 
@@ -3231,18 +3172,6 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                   <FileSpreadsheet className="w-4 h-4 mr-2" />
                 )}
                 Enregistrer en Excel
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleExportBoth}
-                disabled={exportingBoth}
-                data-testid="export-both-btn"
-              >
-                {exportingBoth ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4 mr-2" />
-                )}
-                Enregistrer PNG + Excel (les deux)
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

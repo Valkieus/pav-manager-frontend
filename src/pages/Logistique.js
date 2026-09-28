@@ -650,7 +650,36 @@ export default function Logistique() {
     }
   };
 
-  const filteredContacts = contacts.filter(c => filterContactType === 'all' || c.type_contact === filterContactType);
+  // "Classeur" (demande 28/09/2026) : recherche libre + sections repliables
+  // par type (Fournisseur/Location/Réparation), comme Entrées/Sorties.
+  const [contactSearch, setContactSearch] = useState('');
+  const [collapsedContactTypes, setCollapsedContactTypes] = useState(new Set());
+  const toggleContactType = (t) =>
+    setCollapsedContactTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+  const contactMatchesSearch = (c, q) => {
+    if (!q) return true;
+    const needle = q.toLowerCase();
+    const haystack = [
+      c.nom,
+      c.contact,
+      c.telephone,
+      c.email,
+      c.notes,
+      ...(c.contacts_secondaires || []).flatMap((p) => [p.contact, p.telephone]),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(needle);
+  };
+  const filteredContacts = contacts
+    .filter(c => filterContactType === 'all' || c.type_contact === filterContactType)
+    .filter(c => contactMatchesSearch(c, contactSearch));
 
   // ================= INCIDENTS =================
   const resetIncidentForm = () => {
@@ -1576,6 +1605,15 @@ pas encore de fiche. */}
 
           {subTab === 'contact' && (
             <div className="space-y-4">
+              <div className="relative max-w-md">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
+                  placeholder="Rechercher (nom, contact, téléphone, email...)"
+                  className="pl-8"
+                />
+              </div>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <Select value={filterContactType} onValueChange={setFilterContactType}>
                   <SelectTrigger className="w-[200px]"><SelectValue placeholder="Tous les types" /></SelectTrigger>
@@ -1712,15 +1750,21 @@ pas encore de fiche. */}
                 )}
               </div>
               {CONTACT_TYPES.filter((t) => filterContactType === 'all' || filterContactType === t).map((t) => {
-                const group = contacts.filter((c) => c.type_contact === t);
+                const group = filteredContacts.filter((c) => c.type_contact === t);
+                const isCollapsed = collapsedContactTypes.has(t);
                 return (
                   <Card key={t}>
-                    <CardHeader className="py-3 border-b">
+                    <CardHeader
+                      className="py-3 border-b cursor-pointer select-none"
+                      onClick={() => toggleContactType(t)}
+                    >
                       <CardTitle className="text-base flex items-center gap-2">
+                        {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                         {t}
                         <Badge variant="secondary" className="font-normal">{group.length}</Badge>
                       </CardTitle>
                     </CardHeader>
+                    {!isCollapsed && (
                     <CardContent className="p-0">
                       {group.length === 0 ? (
                         <div className="p-6 text-center">
@@ -1785,6 +1829,7 @@ pas encore de fiche. */}
                         </Table>
                       )}
                     </CardContent>
+                    )}
                   </Card>
                 );
               })}

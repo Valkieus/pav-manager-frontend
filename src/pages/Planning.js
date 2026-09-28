@@ -167,13 +167,16 @@ const THEME = {
   vendredi: {
     band: "bg-[#BDD7EE] text-[#1F4E78]",
     title: "text-[#1F4E78]",
-    subtitle: "bg-[#BDD7EE] text-[#1F4E78]",
+    // Fix 28/09/2026 (retour utilisateur) : le texte "RDV à partir de..."
+    // passe en noir, comme les prénoms, au lieu de la couleur du thème —
+    // seul le fond du bandeau garde la couleur.
+    subtitle: "bg-[#BDD7EE] text-black",
     tab: "data-[state=active]:bg-blue-500 data-[state=active]:text-white",
   },
   dimanche: {
     band: "bg-[#FCE4D6] text-[#C55A11]",
     title: "text-[#C55A11]",
-    subtitle: "bg-[#FCE4D6] text-[#C55A11]",
+    subtitle: "bg-[#FCE4D6] text-black",
     tab: "data-[state=active]:bg-orange-500 data-[state=active]:text-white",
   },
 };
@@ -1398,7 +1401,11 @@ export default function Planning() {
   // Affichage des noms sur la grille : normal / upper / lower / capitalize.
   // Réglable uniquement par Coordination+ en mode édition ; pur CSS
   // text-transform côté affichage, la donnée stockée reste inchangée.
-  const [affichageNoms, setAffichageNoms] = useState("normal");
+  // Fix 28/09/2026 (retour utilisateur) : les prénoms s'affichent en
+  // MAJUSCULE par défaut (écran, export PNG et export Excel partagent
+  // tous le même état `affichageNoms` / `nameCase`) — l'utilisateur garde
+  // la possibilité de changer via le sélecteur "Affichage des noms".
+  const [affichageNoms, setAffichageNoms] = useState("upper");
   const [editDateLabelDialog, setEditDateLabelDialog] = useState(null); // ISO date string or null
   const [dateLabelDraft, setDateLabelDraft] = useState("");
 
@@ -1544,7 +1551,7 @@ export default function Planning() {
         setDateLabels(
           planningRes.data.date_labels || { dimanche: {}, vendredi: {} },
         );
-        setAffichageNoms(planningRes.data.affichage_noms || "normal");
+        setAffichageNoms(planningRes.data.affichage_noms || "upper");
       } catch (e) {
         // "not_published" : le planning existe mais reste un brouillon —
         // distingué de "aucun planning" pour afficher le bon message.
@@ -1562,7 +1569,7 @@ export default function Planning() {
           vendredi: { titre: "", sous_titre: "" },
         });
         setDateLabels({ dimanche: {}, vendredi: {} });
-        setAffichageNoms("normal");
+        setAffichageNoms("upper");
         setPlanning(null);
       }
       // Un changement de mois recharge des données fraîches — la prochaine

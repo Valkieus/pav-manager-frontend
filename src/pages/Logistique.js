@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
@@ -186,10 +186,29 @@ export default function Logistique() {
 
   // ---------- Incidents state ----------
   const [incidents, setIncidents] = useState([]);
-  // Roster Régisseurs (demande 28/09/2026) : liste des personnes de la
-  // branche Régisseurs, pour que la signature d'une fiche soit un choix
-  // dans une liste plutôt que des initiales tapées au clavier.
+  // Roster (utilisé pour les suggestions de signature ci-dessous).
   const [regisseursRoster, setRegisseursRoster] = useState([]);
+  // Sous-liste des cadreurs (ceux qui signent réellement les fiches
+  // Entrées/Sorties, demande 28/09/2026) pour les boutons "1 clic".
+  const cadreursRoster = useMemo(
+    () =>
+      regisseursRoster.filter((t) => {
+        const hay = [t.poste_principal, t.organigramme_label, ...(t.sous_branches || [])]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return hay.includes('cadreur');
+      }),
+    [regisseursRoster]
+  );
+  const initialesFromNom = (nom) =>
+    (nom || '')
+      .split(/[\s-]+/)
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 3);
   const [incidentDialogOpen, setIncidentDialogOpen] = useState(false);
   const [incidentEditingId, setIncidentEditingId] = useState(null);
   const [incidentSubmitting, setIncidentSubmitting] = useState(false);
@@ -1149,42 +1168,32 @@ créer une fiche "événement" pour la date du jour. */}
                         </div>
                         <div className="space-y-2">
                           <Label>Signature</Label>
-                          {/* Choix du nom plutôt que des initiales tapées
-au clavier (demande 28/09/2026) : liste des régisseurs connus dans
-l'effectif, avec repli "Autre" en texte libre si la personne n'a
-pas encore de fiche. */}
-                          <Select
-                            value={
-                              seanceForm.signature &&
-                              !regisseursRoster.some((t) => t.nom === seanceForm.signature)
-                                ? '__autre__'
-                                : seanceForm.signature || ''
-                            }
-                            onValueChange={(v) => {
-                              if (v === '__autre__') {
-                                setSeanceForm({ ...seanceForm, signature: seanceForm.signature || '' });
-                              } else {
-                                setSeanceForm({ ...seanceForm, signature: v });
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="max-w-[260px]"><SelectValue placeholder="Choisir un régisseur" /></SelectTrigger>
-                            <SelectContent>
-                              {regisseursRoster.map((t) => (
-                                <SelectItem key={t.id} value={t.nom}>{t.nom}</SelectItem>
+                          {/* Champ libre pour les initiales (demande
+28/09/2026, correction : ce sont les cadreurs qui signent, pas les
+régisseurs — ils écrivent leurs initiales). Rangée de boutons
+"1 clic" au-dessus : appuyer sur un nom pré-remplit ses initiales
+dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
+                          {cadreursRoster.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-1">
+                              {cadreursRoster.map((t) => (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => setSeanceForm({ ...seanceForm, signature: initialesFromNom(t.nom) })}
+                                  className="px-2 py-1 rounded-md border border-border bg-muted/40 hover:bg-primary/10 hover:border-primary/50 text-xs font-medium transition-colors"
+                                  title={t.nom}
+                                >
+                                  {initialesFromNom(t.nom)}
+                                </button>
                               ))}
-                              <SelectItem value="__autre__">Autre (saisie libre)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          {(seanceForm.signature === '' ||
-                            !regisseursRoster.some((t) => t.nom === seanceForm.signature)) && (
-                            <Input
-                              value={seanceForm.signature}
-                              onChange={(e) => setSeanceForm({ ...seanceForm, signature: e.target.value })}
-                              placeholder="Nom (si pas dans la liste ci-dessus)"
-                              className="max-w-[260px] mt-1"
-                            />
+                            </div>
                           )}
+                          <Input
+                            value={seanceForm.signature}
+                            onChange={(e) => setSeanceForm({ ...seanceForm, signature: e.target.value })}
+                            placeholder="Initiales (ex: J.D.)"
+                            className="max-w-[260px]"
+                          />
                         </div>
                         <Button type="submit" className="w-full" disabled={seanceSubmitting}>
                           {seanceSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

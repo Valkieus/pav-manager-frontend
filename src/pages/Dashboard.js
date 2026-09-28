@@ -1581,12 +1581,11 @@ Louange ci-dessus. */}
                 <ExternalLink className="w-3.5 h-3.5 text-muted-foreground ml-1 shrink-0" />
               </a>
             </div>
-          </CardContent>
-        </div>
-      </Card>
 
             {/* Mobile : un seul bouton, ouvre le Dialog ci-dessous avec
-tous les liens en liste verticale — fini le défilement latéral. */}
+tous les liens en liste verticale — fini le défilement latéral. Reste
+DANS la même Card bleue que le bandeau desktop (demande 28/09/2026 :
+ne plus dupliquer le bloc "Portail Charisma" en dehors). */}
             <button
               type="button"
               onClick={() => setCharismaOpen(true)}
@@ -1598,6 +1597,9 @@ tous les liens en liste verticale — fini le défilement latéral. */}
               </span>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </button>
+          </CardContent>
+        </div>
+      </Card>
 
             <Dialog open={charismaOpen} onOpenChange={setCharismaOpen}>
               <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">

@@ -1156,13 +1156,18 @@ async function svgToPngDataUrl(svgString, width, height, scale = 2, target = nul
     const canvas = document.createElement("canvas");
     let canvasW, canvasH, drawW, drawH, offsetX, offsetY;
     if (target) {
+      // Fix 28/09/2026 (retour utilisateur : "fait en sorte que le contenu
+      // prenne toute la feuille") : le contenu remplit tout le canvas fixe
+      // (mise à l'échelle indépendante en largeur/hauteur), au lieu d'un
+      // fit-contain qui laissait des bandes blanches quand le ratio du
+      // tableau ne tombait pas pile sur 1280x1032 — même principe qu'un
+      // "ajuster à la page" Excel.
       canvasW = target.width;
       canvasH = target.height;
-      const fitScale = Math.min(canvasW / width, canvasH / height);
-      drawW = width * fitScale;
-      drawH = height * fitScale;
-      offsetX = (canvasW - drawW) / 2;
-      offsetY = (canvasH - drawH) / 2;
+      drawW = canvasW;
+      drawH = canvasH;
+      offsetX = 0;
+      offsetY = 0;
     } else {
       canvasW = Math.round(width * scale);
       canvasH = Math.round(height * scale);

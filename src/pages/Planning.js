@@ -571,17 +571,20 @@ function buildPlanningExportSVG({
   const BORDER = "#000000";
   const WHITE = "#FFFFFF";
 
-  const FONT_TITLE = 20;
-  const FONT_SUB = 12;
-  const FONT_HEADER = 11.5;
-  const FONT_BAND = 11.5;
-  const FONT_LABEL = 10.5;
-  const FONT_CELL = 10.5;
-  const LINE_H = 12;
+  // Tailles augmentées + padding resserré (demande 28/09/2026 : "il faut
+  // zoomer pour lire" — on gagne l'espace en resserrant le vide entre les
+  // noms dans les cases, plutôt qu'en agrandissant le canvas).
+  const FONT_TITLE = 22;
+  const FONT_SUB = 13;
+  const FONT_HEADER = 13;
+  const FONT_BAND = 13;
+  const FONT_LABEL = 12.5;
+  const FONT_CELL = 13;
+  const LINE_H = 15;
 
-  let LABEL_W = 208;
-  let DATE_W = 118;
-  const PAD = 5;
+  let LABEL_W = 200;
+  let DATE_W = 110;
+  const PAD = 4;
   const MARGIN = 18;
 
   const nDates = currentDates.length || 1;
@@ -598,7 +601,18 @@ function buildPlanningExportSVG({
       if (!section.standalone) {
         rows.push({ kind: "band", text: section.name, height: BAND_H });
       }
-      section.roles.forEach((role) => {
+      section.roles.forEach((role, roleIdx) => {
+        const prevRole = section.roles[roleIdx - 1];
+        // Même règle que le rendu à l'écran/impression (voir isGroupBoundary
+        // dans le tableau live) : une ligne séparatrice en gras entre deux
+        // postes différents, ou quand le poste précédent a
+        // separateurApres=true — manquait dans l'export PNG jusqu'ici.
+        const groupBoundary =
+          roleIdx > 0 &&
+          prevRole &&
+          (delimiterGroup(section.name, role.label) !==
+            delimiterGroup(section.name, prevRole.label) ||
+            !!prevRole.separateurApres);
         const slotHeights = [];
         for (let slotIdx = 0; slotIdx < role.slots; slotIdx++) {
           let h = 18;
@@ -640,6 +654,7 @@ function buildPlanningExportSVG({
             slotIdx,
             height: slotHeights[slotIdx],
             labelLines: slotIdx === 0 ? labelLines : null,
+            groupBoundary: slotIdx === 0 ? groupBoundary : false,
           });
         }
       });
@@ -834,6 +849,12 @@ function buildPlanningExportSVG({
         });
         sy += sr.height;
       });
+      if (row.groupBoundary) {
+        const THICK = 3;
+        svgParts.push(
+          `<rect x="${MARGIN}" y="${rowTopY - THICK / 2}" width="${contentWidth}" height="${THICK}" fill="${BORDER}"/>`,
+        );
+      }
       y += mergedH;
       i = j;
     }
@@ -1184,6 +1205,7 @@ export default function Planning() {
   const skipNextAutoSaveRef = useRef(true);
   const [exportingPng, setExportingPng] = useState(false);
   const [exportingXlsx, setExportingXlsx] = useState(false);
+  const [exportingBoth, setExportingBoth] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(2026);
@@ -2042,6 +2064,71 @@ export default function Planning() {
       toast.error("Erreur lors de l'export Excel");
     } finally {
       setExportingXlsx(false);
+    }
+  };
+
+  // Sous-catégorie "les deux d'un coup" (demande 28/09/2026) : produit le
+  // PNG puis le XLSX à la suite, mêmes données, un seul clic — au lieu de
+  // devoir relancer l'export deux fois pour avoir les deux formats.
+  const handleExportBoth = async () => {
+    const preOpenedWindow = reserveTabForIOSFallback();
+    setExportingBoth(true);
+    try {
+      const moisSlug = (MOIS_NOMS[currentMonth - 1] || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "");
+
+      const { svg, width, height } = buildPlanningExportSVG({
+        activeDay,
+        currentMonth,
+        currentYear,
+        currentDates,
+        daySections,
+        affectations,
+        blockedCells,
+        titreOverrides,
+        dateLabels,
+        formatDate,
+        nameCase: affichageNoms,
+      });
+      const { dataUrl } = await svgToPngDataUrl(svg, width, height, 2);
+      const pngBlob = await (await fetch(dataUrl)).blob();
+      const pngFilename = `planning-${moisSlug}-${currentYear}-${activeDay}.png`;
+      const pngStatus = await downloadOrShareFile(pngBlob, pngFilename, {
+        title: pngFilename,
+        preOpenedWindow,
+      });
+
+      const xlsxBlob = buildPlanningExportXLSX({
+        activeDay,
+        currentMonth,
+        currentYear,
+        currentDates,
+        daySections,
+        affectations,
+        blockedCells,
+        titreOverrides,
+        dateLabels,
+        formatDate,
+        nameCase: affichageNoms,
+      });
+      const xlsxFilename = `planning-${moisSlug}-${currentYear}-${activeDay}.xlsx`;
+      const xlsxStatus = await downloadOrShareFile(xlsxBlob, xlsxFilename, {
+        title: xlsxFilename,
+      });
+
+      if (pngStatus === "blocked" || xlsxStatus === "blocked") {
+        toast.error("Impossible d'enregistrer un des deux fichiers — réessaie");
+      } else {
+        toast.success("PNG et Excel téléchargés");
+      }
+    } catch (err) {
+      console.error(err);
+      if (preOpenedWindow && !preOpenedWindow.closed) preOpenedWindow.close();
+      toast.error("Erreur lors de l'export PNG + Excel");
+    } finally {
+      setExportingBoth(false);
     }
   };
 
@@ -3055,6 +3142,18 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                   <FileSpreadsheet className="w-4 h-4 mr-2" />
                 )}
                 Enregistrer en Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleExportBoth}
+                disabled={exportingBoth}
+                data-testid="export-both-btn"
+              >
+                {exportingBoth ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                Enregistrer PNG + Excel (les deux)
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

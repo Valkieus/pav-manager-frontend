@@ -605,25 +605,34 @@ function buildPlanningExportSVG({
   // grandes/hautes (REGIE/CADREURS/RÉGISSEURS/DIFFUSION ~31-32px avec police
   // ~20-22px), lignes standard ~18px, en-tête affectation/dates ~35px,
   // titre/sous-titre/espace ~30/32/17px.
-  const FONT_TITLE = 24;
-  const FONT_SUB = 14;
-  const FONT_HEADER = 14;
-  const FONT_BAND = 20;
-  const FONT_LABEL = 14;
-  const FONT_CELL = 14;
-  const LINE_H = 15.5;
+  // Fix 28/09/2026 (retour GPT/utilisateur : "l'export n'est pas le
+  // tableau affiché, il faut un rendu compact, dense, sans grand vide")
+  // : toutes les constantes ci-dessous sont resserrées par rapport à la
+  // version précédente pour produire un PNG plus dense (moins de marge,
+  // bandes de section moins hautes, lignes standard plus basses), et le
+  // canvas final n'est plus jamais forcé à 1280x1032 — voir
+  // svgToPngDataUrl plus bas, qui rasterise désormais à la taille
+  // naturelle du SVG (x2 pour la netteté), ratio inchangé, donc plus
+  // aucune déformation.
+  const FONT_TITLE = 19;
+  const FONT_SUB = 12;
+  const FONT_HEADER = 12;
+  const FONT_BAND = 15;
+  const FONT_LABEL = 11;
+  const FONT_CELL = 11;
+  const LINE_H = 13;
 
   let LABEL_W = 150;
   let DATE_W = 150;
   const PAD = 3;
-  const MARGIN = 12;
+  const MARGIN = 8;
 
   const nDates = currentDates.length || 1;
   const hasAnyDateLabel = currentDates.some(
     (d) => dateLabels?.[activeDay]?.[d],
   );
-  const HEADER_H = hasAnyDateLabel ? 44 : 34;
-  const BAND_H = 30;
+  const HEADER_H = hasAnyDateLabel ? 34 : 26;
+  const BAND_H = 22;
 
   // ---- Pass 1: compute row heights for both tables from the real data ----
   const buildTableLayout = (tableSections) => {
@@ -646,7 +655,7 @@ function buildPlanningExportSVG({
             !!prevRole.separateurApres);
         const slotHeights = [];
         for (let slotIdx = 0; slotIdx < role.slots; slotIdx++) {
-          let h = 18;
+          let h = 15;
           for (let dateIdx = 0; dateIdx < nDates; dateIdx++) {
             const key = `${role.key}_${slotIdx}`;
             const value = affectations[key]?.[dateIdx] || "";
@@ -698,14 +707,14 @@ function buildPlanningExportSVG({
 
   const tableHeight = (rows) =>
     HEADER_H + rows.reduce((a, r) => a + r.height, 0);
-  const TABLE_GAP = 30;
-  const TITLE_H = 30;
-  const SUB_H = 26;
-  const TOP_GAP = 14;
-  const FOOTER_GAP = 6;
+  const TABLE_GAP = 16;
+  const TITLE_H = 24;
+  const SUB_H = 20;
+  const TOP_GAP = 8;
+  const FOOTER_GAP = 5;
   const FOOTER_TEXT =
     "SOUS RÉSERVE DE CHANGEMENTS ÉVENTUELS FAITS PAR LE RESPONSABLE DU DÉPARTEMENT";
-  const FONT_FOOTER = 10;
+  const FONT_FOOTER = 9;
   const FOOTER_H = FONT_FOOTER + 4;
 
   const table1H = tableHeight(rows1);
@@ -1130,20 +1139,17 @@ function buildPlanningExportXLSX({
   });
 }
 
-// Fix 28/09/2026 (demande utilisateur) : format de sortie fixe
-// 1280×1024 px (ratio 5:4 = 1,25), quel que soit le contenu — au lieu
-// d'une taille qui varie avec le nombre de colonnes/lignes. Le contenu
-// (dimensionné à sa taille naturelle par buildPlanningExportSVG) est mis
-// à l'échelle pour tenir dans ce cadre sans déformation (on garde le
-// ratio du tableau), centré, avec un léger bandeau blanc si son ratio ne
-// tombe pas pile sur 1,25 — jamais de texte étiré/déformé.
-// 1280 x 1032 px (ratio 1,2403:1) — mesuré directement sur le PNG de
-// référence fourni par l'utilisateur (28/09/2026), pas un format standard
-// (ni A4, ni 16:9, ni 5:4 exact).
-const EXPORT_TARGET_W = 1280;
-const EXPORT_TARGET_H = 1032;
-
-async function svgToPngDataUrl(svgString, width, height, scale = 2, target = null) {
+// Fix 28/09/2026 (diagnostic + consigne utilisateur) : le canvas cible
+// fixe 1280x1032 a été supprimé — il forçait un étirement non uniforme
+// (largeur et hauteur indépendantes) qui déformait le tableau dès que son
+// ratio naturel s'écartait de 1,2403:1. Le PNG est maintenant rasterisé
+// strictement à la taille naturelle du SVG (celle calculée par
+// buildPlanningExportSVG à partir du contenu réel) multipliée par `scale`
+// pour la netteté — largeur et hauteur suivent le même facteur, donc le
+// ratio ne bouge jamais. Si une largeur cible fixe est nécessaire un jour,
+// calculer la hauteur à partir du ratio naturel plutôt que de fixer les
+// deux dimensions : targetHeight = naturalHeight * (targetWidth / naturalWidth).
+async function svgToPngDataUrl(svgString, width, height, scale = 2) {
   const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   try {
@@ -1154,34 +1160,12 @@ async function svgToPngDataUrl(svgString, width, height, scale = 2, target = nul
       image.src = url;
     });
     const canvas = document.createElement("canvas");
-    let canvasW, canvasH, drawW, drawH, offsetX, offsetY;
-    if (target) {
-      // Fix 28/09/2026 (retour utilisateur : "fait en sorte que le contenu
-      // prenne toute la feuille") : le contenu remplit tout le canvas fixe
-      // (mise à l'échelle indépendante en largeur/hauteur), au lieu d'un
-      // fit-contain qui laissait des bandes blanches quand le ratio du
-      // tableau ne tombait pas pile sur 1280x1032 — même principe qu'un
-      // "ajuster à la page" Excel.
-      canvasW = target.width;
-      canvasH = target.height;
-      drawW = canvasW;
-      drawH = canvasH;
-      offsetX = 0;
-      offsetY = 0;
-    } else {
-      canvasW = Math.round(width * scale);
-      canvasH = Math.round(height * scale);
-      drawW = canvasW;
-      drawH = canvasH;
-      offsetX = 0;
-      offsetY = 0;
-    }
-    canvas.width = Math.round(canvasW);
-    canvas.height = Math.round(canvasH);
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
     const ctx = canvas.getContext("2d");
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     return {
       dataUrl: canvas.toDataURL("image/png"),
       width: canvas.width,
@@ -2097,10 +2081,7 @@ export default function Planning() {
         formatDate,
         nameCase: affichageNoms,
       });
-      const { dataUrl } = await svgToPngDataUrl(svg, width, height, 2, {
-        width: EXPORT_TARGET_W,
-        height: EXPORT_TARGET_H,
-      });
+      const { dataUrl } = await svgToPngDataUrl(svg, width, height, 2);
       const moisSlug = (MOIS_NOMS[currentMonth - 1] || "")
         .toLowerCase()
         .normalize("NFD")

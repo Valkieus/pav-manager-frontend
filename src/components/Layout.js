@@ -1232,14 +1232,6 @@ tailored per permission level. */}
                   haut à droite
                 </li>
               </ol>
-              {/* Demande 28/09/2026 ("facilite la tâche") : iOS ne permet
-              aucune installation déclenchée par le site (pas de prompt
-              automatique), donc on rend l'étape manuelle la plus évidente
-              possible avec une flèche animée qui pointe vers le bouton
-              Partager réel de Safari, en bas de l'écran. */}
-              <div className="fixed inset-x-0 bottom-3 flex justify-center pointer-events-none z-[60]">
-                <ArrowDown className="w-7 h-7 text-primary animate-bounce drop-shadow" />
-              </div>
             </>
           ) : isSafariDesktop() ? (
             <ol className="space-y-2 text-sm text-muted-foreground list-decimal pl-4">
@@ -1270,6 +1262,21 @@ tailored per permission level. */}
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Demande 28/09/2026 ("facilite la tâche") : iOS ne permet aucune
+      installation déclenchée par le site (pas de prompt automatique), donc
+      on rend l'étape manuelle la plus évidente possible avec une flèche
+      animée qui pointe vers le vrai bouton Partager de Safari, tout en bas
+      de l'écran. Rendue ICI, en dehors de <DialogContent> (qui a un
+      translate-x/-y CSS pour se centrer — un ancêtre avec transform crée un
+      nouveau bloc de référence pour tout descendant en position fixed, donc
+      la flèche restait coincée juste sous "Compris" au lieu d'aller
+      jusqu'en bas de l'écran réel). */}
+      {iosInstallHelpOpen && isIOSDevice() && (
+        <div className="fixed inset-x-0 bottom-3 flex justify-center pointer-events-none z-[100]">
+          <ArrowDown className="w-8 h-8 text-primary animate-bounce drop-shadow-lg" />
+        </div>
+      )}
     </div>
   );
 };

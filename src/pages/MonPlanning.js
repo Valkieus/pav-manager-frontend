@@ -118,7 +118,7 @@ export default function MonPlanning() {
           <CalendarClock className="w-6 h-6" /> Mon planning
         </h1>
         <p className="text-muted-foreground">
-          Tes jours de service ce mois-ci — vue réduite du planning générale.
+          Tes jours de service ce mois-ci — vue réduite du planning général.
         </p>
       </div>
 

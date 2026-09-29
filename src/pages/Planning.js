@@ -73,6 +73,7 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
+  Undo2,
 } from "lucide-react";
 import PlanningEvenementSection from "./PlanningEvenementSection";
 import {
@@ -1306,6 +1307,16 @@ export default function Planning() {
   const [autoSaveStatus, setAutoSaveStatus] = useState("idle");
   const autoSaveTimerRef = useRef(null);
   const skipNextAutoSaveRef = useRef(true);
+  // Historique local "Retour en arrière" : pile de snapshots (max 20) de la
+  // tranche d'état modifiable du planning (grille, notes/absences, sections,
+  // cases grisées, en-têtes, libellés de date, casse d'affichage). Portée à
+  // la session en cours uniquement — remise à zéro à chaque chargement de
+  // mois/planning, jamais persistée. Chaque snapshot est cloné en profondeur
+  // pour ne jamais être affecté par une mutation ultérieure de l'état React.
+  const [undoStack, setUndoStack] = useState([]);
+  const prevUndoSnapshotRef = useRef(null);
+  const skipNextUndoCaptureRef = useRef(true);
+  const isUndoingRef = useRef(false);
   const [exportingPng, setExportingPng] = useState(false);
   const [exportingXlsx, setExportingXlsx] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -1504,7 +1515,7 @@ export default function Planning() {
       // Chargée dans son propre try/catch : /techniciens renvoie 403 pour
       // un Technicien (accès complet réservé à Responsable+, coordonnées
       // personnelles incluses), ce qui plantait tout fetchData avant même
-      // d'atteindre le planning lui-même — d'où la Planning générale vide
+      // d'atteindre le planning lui-même — d'où la Planning général vide
       // avec juste un toast d'erreur générique pour ce rôle. On retombe sur
       // /techniciens/roster (nom + poste, sans données sensibles, ouvert à
       // tout compte connecté) pour que l'affichage des noms assignés
@@ -1576,6 +1587,12 @@ export default function Planning() {
       // modification d'état déclenchée par ce chargement ne doit pas être
       // interprétée comme une action utilisateur par l'autosave.
       skipNextAutoSaveRef.current = true;
+      // Idem pour l'historique "Retour en arrière" : un changement de mois
+      // n'est pas une action utilisateur annulable, et l'historique d'un
+      // mois n'a pas de sens une fois qu'on a changé de mois.
+      skipNextUndoCaptureRef.current = true;
+      prevUndoSnapshotRef.current = null;
+      setUndoStack([]);
       setAutoSaveStatus("idle");
     } catch (err) {
       toast.error("Erreur lors du chargement");
@@ -1707,6 +1724,95 @@ export default function Planning() {
       setSaving(false);
     }
   };
+
+  // Clonage profond d'un snapshot de la tranche d'état modifiable du
+  // planning — utilisé par l'historique "Retour en arrière". structuredClone
+  // est disponible dans tous les navigateurs ciblés ; on retombe sur un
+  // clonage JSON si jamais il ne l'était pas (même contenu : uniquement des
+  // objets/tableaux/primitives sérialisables, comme le confirme
+  // buildPlanningPayload plus haut).
+  const cloneUndoSnapshot = useCallback((snapshot) => {
+    if (typeof structuredClone === "function") {
+      try {
+        return structuredClone(snapshot);
+      } catch {
+        // fallthrough sur le clonage JSON ci-dessous
+      }
+    }
+    return JSON.parse(JSON.stringify(snapshot));
+  }, []);
+
+  // Historique "Retour en arrière" : à chaque changement de la tranche
+  // d'état modifiable (la même liste de dépendances que l'autosave
+  // ci-dessous), on empile le snapshot *précédent* — donc l'état dans
+  // lequel il faut revenir si l'utilisateur clique sur "Retour en arrière".
+  // - skipNextUndoCaptureRef évite de capturer le premier rendu après un
+  //   chargement (fetchData / changement de mois), comme skipNextAutoSaveRef
+  //   le fait déjà pour l'autosave.
+  // - isUndoingRef évite qu'un undo ne s'ajoute lui-même à la pile (ce qui
+  //   transformerait "Retour en arrière" en un simple aller-retour infini) ;
+  //   l'undo continue cependant de laisser tourner l'autosave normalement,
+  //   pour que la restauration soit bien persistée côté serveur.
+  // Portée à la session en cours : la pile n'est jamais persistée et est
+  // limitée aux 20 dernières actions.
+  useEffect(() => {
+    if (!canManage()) return;
+    const snapshot = {
+      affectations,
+      notes,
+      absences,
+      sections,
+      blockedCells,
+      titreOverrides,
+      dateLabels,
+      affichageNoms,
+    };
+    if (skipNextUndoCaptureRef.current) {
+      skipNextUndoCaptureRef.current = false;
+      prevUndoSnapshotRef.current = snapshot;
+      return;
+    }
+    if (isUndoingRef.current) {
+      isUndoingRef.current = false;
+      prevUndoSnapshotRef.current = snapshot;
+      return;
+    }
+    const previous = prevUndoSnapshotRef.current;
+    prevUndoSnapshotRef.current = snapshot;
+    if (!previous) return;
+    setUndoStack((stack) => [...stack, cloneUndoSnapshot(previous)].slice(-20));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    affectations,
+    notes,
+    absences,
+    sections,
+    blockedCells,
+    titreOverrides,
+    dateLabels,
+    affichageNoms,
+  ]);
+
+  // Annule la dernière action locale (case affectée/désaffectée, ligne
+  // ajoutée/supprimée, absence/note modifiée, catégorie renommée,
+  // réordonnancement...) en restaurant le snapshot précédent, puis laisse
+  // l'autosave existant re-sauvegarder ce snapshot côté serveur — la
+  // restauration n'est donc pas qu'un flash visuel, elle est bien persistée.
+  const handleUndo = useCallback(() => {
+    if (!canManage() || undoStack.length === 0) return;
+    const last = undoStack[undoStack.length - 1];
+    isUndoingRef.current = true;
+    setAffectations(last.affectations);
+    setNotes(last.notes);
+    setAbsences(last.absences);
+    setSections(last.sections);
+    setBlockedCells(last.blockedCells);
+    setTitreOverrides(last.titreOverrides);
+    setDateLabels(last.dateLabels);
+    setAffichageNoms(last.affichageNoms);
+    setUndoStack((stack) => stack.slice(0, -1));
+    toast.success("Dernière action annulée");
+  }, [canManage, undoStack]);
 
   // Enregistrement automatique : dès qu'une donnée éditable change (grille,
   // absences/notes, sections, en-tête, libellés de date...), une sauvegarde
@@ -3128,7 +3234,7 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            Planning générale
+            Planning général
             {canManage() && planning && !planning.is_published && (
               <Badge
                 variant="outline"
@@ -3257,6 +3363,23 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 <Save className="w-4 h-4 sm:mr-2" />
               )}
               <span className="hidden sm:inline">Enregistrer</span>
+            </Button>
+          )}
+          {canManage() && planningEditMode && (
+            <Button
+              variant="outline"
+              onClick={handleUndo}
+              disabled={undoStack.length === 0}
+              data-testid="undo-btn"
+              className="flex-1 sm:flex-none"
+              title={
+                undoStack.length === 0
+                  ? "Aucune action à annuler"
+                  : "Annuler la dernière action effectuée sur ce planning"
+              }
+            >
+              <Undo2 className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Retour en arrière</span>
             </Button>
           )}
           {canManage() && planningEditMode && (

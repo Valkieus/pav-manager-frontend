@@ -36,17 +36,17 @@ const TAB_META = {
     icon: CalendarClock,
     Component: MonPlanning,
   },
-  equipe: { label: "Planning générale", icon: Users, Component: Planning },
+  equipe: { label: "Planning général", icon: Users, Component: Planning },
 };
 const DEFAULT_ORDER = ["mon-planning", "equipe"];
 
 // Point d'entrée de la section Planning : deux vues derrière un seul onglet
 // de navigation.
 // - "Mon planning" : vue mensuelle réduite, mes jours de service.
-// - "Planning générale" : le planning mensuel équipe (vendredi/dimanche).
+// - "Planning général" : le planning mensuel équipe (vendredi/dimanche).
 // Les plannings événements ne sont plus un onglet séparé — ils se créent
 // et se gèrent depuis le bouton "Planning événement" à l'intérieur même
-// de Planning générale (cf. PlanningEvenementSection).
+// de Planning général (cf. PlanningEvenementSection).
 // Coordination+ peut réorganiser la priorité d'affichage des deux onglets.
 // Radix Tabs démonte les panneaux inactifs par défaut, donc <Planning />
 // (export PNG, impression, etc.) ne tourne que quand son onglet est actif —
@@ -173,7 +173,7 @@ export default function PlanningHub() {
             <DialogTitle>Réorganiser les onglets Planning</DialogTitle>
             <DialogDescription>
               Définis l'ordre de priorité d'affichage de "Mon planning" et
-              "Planning générale". Le premier onglet devient l'onglet par défaut
+              "Planning général". Le premier onglet devient l'onglet par défaut
               à l'ouverture.
             </DialogDescription>
           </DialogHeader>

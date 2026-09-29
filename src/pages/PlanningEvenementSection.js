@@ -137,7 +137,7 @@ const emptyCreateForm = () => ({ titre: '', date_debut: todayIso(), date_fin: to
 
 // Plannings événements : plannings ponctuels/exceptionnels (dates libres, pas
 // forcément vendredi/dimanche), accessibles depuis un bouton "Planning
-// événement" dans Planning générale plutôt qu'un onglet séparé. Reprend les
+// événement" dans Planning général plutôt qu'un onglet séparé. Reprend les
 // mêmes options annexes que le planning équipe : grille rôle x date,
 // case grisée/indisponible, export PNG, impression, édition libre du nombre
 // de colonnes (dates).
@@ -334,7 +334,7 @@ export default function PlanningEvenementSection({ onBack, technicienNames = [],
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <Button variant="ghost" size="sm" onClick={onBack} className="mb-1 -ml-2">
-              <ArrowLeft className="w-4 h-4 mr-1.5" /> Retour au planning générale
+              <ArrowLeft className="w-4 h-4 mr-1.5" /> Retour au planning général
             </Button>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <PartyPopper className="w-6 h-6" /> Plannings événements

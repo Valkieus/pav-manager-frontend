@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -999,6 +999,7 @@ export default function Administration() {
   const isPlanningCategory = (category) =>
     (category || "").trim().toLowerCase() === "planning";
   const [logs, setLogs] = useState([]);
+  const [logsUpdatedAt, setLogsUpdatedAt] = useState(null);
   const [logSearch, setLogSearch] = useState("");
   const [logModuleFilter, setLogModuleFilter] = useState("all");
   const [logSeverityFilter, setLogSeverityFilter] = useState("all");
@@ -1062,8 +1063,10 @@ export default function Administration() {
   // is actually opened (Super Admin only, no need to load it on every visit).
   const [systemStatus, setSystemStatus] = useState(null);
   const [systemStatusLoading, setSystemStatusLoading] = useState(false);
+  const [systemStatusUpdatedAt, setSystemStatusUpdatedAt] = useState(null);
   const [infraStatus, setInfraStatus] = useState(null);
   const [infraStatusLoading, setInfraStatusLoading] = useState(false);
+  const [infraStatusUpdatedAt, setInfraStatusUpdatedAt] = useState(null);
 
   // Droits d'accès tab — role-permissions matrix, fetched only when opened
   // (Super Admin only).
@@ -1114,27 +1117,33 @@ export default function Administration() {
     }
   };
 
-  const fetchSystemStatus = async () => {
-    setSystemStatusLoading(true);
+  // `silent` = appel d'auto-refresh en arrière-plan : pas de spinner (évite le
+  // clignotement toutes les 15-60s), et pas de toast d'erreur répété sur un
+  // simple blip réseau (même principe que fetchLogs plus bas) — seul le clic
+  // manuel sur "Actualiser" reste bruyant en cas d'échec (#502/#504).
+  const fetchSystemStatus = async (silent = false) => {
+    if (!silent) setSystemStatusLoading(true);
     try {
       const res = await axios.get(`${API}/admin/system-status`);
       setSystemStatus(res.data);
+      setSystemStatusUpdatedAt(Date.now());
     } catch (err) {
-      toast.error("Erreur lors du chargement de la supervision");
+      if (!silent) toast.error("Erreur lors du chargement de la supervision");
     } finally {
-      setSystemStatusLoading(false);
+      if (!silent) setSystemStatusLoading(false);
     }
   };
 
-  const fetchInfraStatus = async () => {
-    setInfraStatusLoading(true);
+  const fetchInfraStatus = async (silent = false) => {
+    if (!silent) setInfraStatusLoading(true);
     try {
       const res = await axios.get(`${API}/admin/infra-status`);
       setInfraStatus(res.data);
+      setInfraStatusUpdatedAt(Date.now());
     } catch (err) {
-      toast.error("Erreur lors du chargement de l'état de l'infrastructure");
+      if (!silent) toast.error("Erreur lors du chargement de l'état de l'infrastructure");
     } finally {
-      setInfraStatusLoading(false);
+      if (!silent) setInfraStatusLoading(false);
     }
   };
 
@@ -1166,6 +1175,7 @@ export default function Administration() {
   // Redondance stockage B2 (deux comptes Backblaze indépendants + bascule)
   const [b2Status, setB2Status] = useState(null);
   const [b2StatusLoading, setB2StatusLoading] = useState(false);
+  const [b2StatusUpdatedAt, setB2StatusUpdatedAt] = useState(null);
   const [b2LimitInputs, setB2LimitInputs] = useState({
     primary: "",
     backup: "",
@@ -1247,15 +1257,16 @@ export default function Administration() {
     }
   };
 
-  const fetchB2Status = async () => {
-    setB2StatusLoading(true);
+  const fetchB2Status = async (silent = false) => {
+    if (!silent) setB2StatusLoading(true);
     try {
       const res = await axios.get(`${API}/admin/infra/b2-status`);
       setB2Status(res.data);
+      setB2StatusUpdatedAt(Date.now());
     } catch (err) {
-      toast.error("Erreur lors du chargement du stockage B2");
+      if (!silent) toast.error("Erreur lors du chargement du stockage B2");
     } finally {
-      setB2StatusLoading(false);
+      if (!silent) setB2StatusLoading(false);
     }
   };
 
@@ -1657,15 +1668,52 @@ export default function Administration() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // 22/08/2026 : la Supervision paraissait "figée" — les 3 fetch ci-dessous
-  // n'étaient déclenchés qu'une seule fois par session (gardés par `!systemStatus`
-  // etc.), donc revenir sur l'onglet après un moment montrait toujours les
-  // mêmes chiffres. Corrigé en (1) refetch à CHAQUE ouverture de l'onglet, et
-  // (2) rafraîchissement automatique toutes les 30s tant que l'onglet reste
-  // ouvert — sans jamais faire clignoter la vue en "chargement" plein écran,
-  // les blocs concernés ne montrent le loader que si aucune donnée n'existe
-  // encore (`loading && !data`), une actualisation en fond met juste les
-  // chiffres à jour silencieusement.
+  // #504 (rendre la Supervision réellement live/temps réel) : remplace les
+  // setInterval fixes par un setTimeout auto-récursif par section, avec une
+  // cadence propre à chacune selon ce qu'elle coûte réellement côté serveur
+  // (voir server.py) : lecture Mongo locale (system-status) -> 20s ; appels
+  // externes Render+Netlify (infra-status, désormais mis en cache 45s côté
+  // serveur) -> 60s ; listing complet des buckets B2 (b2-status, caché 40s
+  // côté serveur) -> 45s. Le setTimeout récursif (plutôt que setInterval)
+  // permet à un clic manuel "Actualiser" de réellement réinitialiser le
+  // compte à rebours au lieu de se contenter d'un fetch en plus (voir
+  // restartSupervisionPolling ci-dessous). L'API Page Visibility met les 3
+  // cycles en pause quand l'onglet du navigateur n'est pas visible (aucune
+  // requête gaspillée) et les relance avec un refresh immédiat au retour.
+  const supervisionTimersRef = useRef({ system: null, infra: null, b2: null });
+  const SUPERVISION_DELAYS = { system: 20000, infra: 60000, b2: 45000 };
+  const supervisionFetchersRef = useRef({});
+  supervisionFetchersRef.current = {
+    system: fetchSystemStatus,
+    infra: fetchInfraStatus,
+    b2: fetchB2Status,
+  };
+
+  const scheduleSupervisionRefresh = (key) => {
+    const timers = supervisionTimersRef.current;
+    if (timers[key]) clearTimeout(timers[key]);
+    timers[key] = setTimeout(async () => {
+      if (document.visibilityState === "visible") {
+        await supervisionFetchersRef.current[key](true);
+      }
+      scheduleSupervisionRefresh(key);
+    }, SUPERVISION_DELAYS[key]);
+  };
+
+  const stopSupervisionPolling = () => {
+    const timers = supervisionTimersRef.current;
+    Object.keys(timers).forEach((k) => {
+      if (timers[k]) clearTimeout(timers[k]);
+      timers[k] = null;
+    });
+  };
+
+  // Utilisé par le bouton "Actualiser" manuel : relance les 3 cycles à zéro
+  // pour que le prochain refresh auto n'arrive pas juste après le manuel.
+  const restartSupervisionPolling = () => {
+    ["system", "infra", "b2"].forEach((key) => scheduleSupervisionRefresh(key));
+  };
+
   useEffect(() => {
     if (activeTab !== "supervision" || !canViewReadOnlyTabs) return;
     fetchSystemStatus();
@@ -1677,12 +1725,24 @@ export default function Administration() {
         fetchLogPurgeAllowlist();
       }
     }
-    const interval = setInterval(() => {
-      fetchSystemStatus();
-      fetchInfraStatus();
-      fetchB2Status();
-    }, 30000);
-    return () => clearInterval(interval);
+    ["system", "infra", "b2"].forEach((key) => scheduleSupervisionRefresh(key));
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        // L'onglet redevient visible : refresh immédiat plutôt que d'attendre
+        // le prochain tick, puis on relance les 3 cycles proprement.
+        fetchSystemStatus(true);
+        fetchInfraStatus(true);
+        fetchB2Status(true);
+        ["system", "infra", "b2"].forEach((key) => scheduleSupervisionRefresh(key));
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      stopSupervisionPolling();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -1692,20 +1752,48 @@ export default function Administration() {
   // 20s tant qu'il reste ouvert. fetchLogs() est silencieux en cas d'échec
   // (pas de toast d'erreur répété toutes les 20s sur un blip réseau) — le
   // clic manuel "Actualiser" (fetchData) reste, lui, bruyant en cas d'erreur.
+  // #504 : mise en pause quand l'onglet navigateur n'est pas visible + reprise
+  // avec refresh immédiat, comme pour Supervision ci-dessus.
+  const logsTimerRef = useRef(null);
+
   const fetchLogs = async () => {
     try {
       const res = await axios.get(`${API}/logs`);
       setLogs(res.data);
+      setLogsUpdatedAt(Date.now());
     } catch (err) {
       // silencieux — rafraîchissement en arrière-plan
     }
   };
 
+  const scheduleLogsRefresh = () => {
+    if (logsTimerRef.current) clearTimeout(logsTimerRef.current);
+    logsTimerRef.current = setTimeout(async () => {
+      if (document.visibilityState === "visible") {
+        await fetchLogs();
+      }
+      scheduleLogsRefresh();
+    }, 20000);
+  };
+
   useEffect(() => {
     if (activeTab !== "logs") return;
     fetchLogs();
-    const interval = setInterval(fetchLogs, 20000);
-    return () => clearInterval(interval);
+    scheduleLogsRefresh();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchLogs();
+        scheduleLogsRefresh();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (logsTimerRef.current) clearTimeout(logsTimerRef.current);
+      logsTimerRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -3963,8 +4051,17 @@ même limite pour éviter un 403 après coup. */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground hidden sm:inline">
                   Mise à jour automatique toutes les 20s
+                  {logsUpdatedAt
+                    ? ` — actualisé à ${new Date(logsUpdatedAt).toLocaleTimeString("fr-FR")}`
+                    : ""}
                 </span>
-                <Button variant="outline" onClick={fetchLogs}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    fetchLogs();
+                    scheduleLogsRefresh();
+                  }}
+                >
                   <RefreshCw className="w-4 h-4 mr-2" /> Actualiser
                 </Button>
               </div>
@@ -4062,8 +4159,15 @@ même limite pour éviter un 403 après coup. */}
                   <p className="font-semibold text-sm leading-tight">
                     Vue d'ensemble
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Mise à jour automatique toutes les 30s
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <span
+                      className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"
+                      aria-hidden="true"
+                    />
+                    Live — Mongo 20s / Stockage B2 45s / Render+Netlify 60s
+                    {systemStatusUpdatedAt
+                      ? ` — actualisé à ${new Date(systemStatusUpdatedAt).toLocaleTimeString("fr-FR")}`
+                      : ""}
                   </p>
                 </div>
               </div>
@@ -4074,6 +4178,7 @@ même limite pour éviter un 403 après coup. */}
                   fetchSystemStatus();
                   fetchInfraStatus();
                   fetchB2Status();
+                  restartSupervisionPolling();
                 }}
                 disabled={
                   systemStatusLoading || infraStatusLoading || b2StatusLoading

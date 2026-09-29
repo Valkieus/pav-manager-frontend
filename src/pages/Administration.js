@@ -88,12 +88,25 @@ import {
   BookOpen,
   FileText,
   MessageSquare,
+  Eye,
+  Database,
+  BarChart3,
 } from "lucide-react";
 import {
   downloadOrShareFile,
   downloadStatusMessage,
   reserveTabForIOSFallback,
 } from "../utils/fileDownload";
+import * as XLSX from "xlsx-js-style";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -131,6 +144,33 @@ const SUPERVISED_COLLECTIONS_FRONT = [
   "communications",
   "communication_chat",
 ];
+
+// Libelles lisibles pour l'onglet "Par entite" de Supervision (#579) --
+// reutilise le meme ordre/liste que SUPERVISED_COLLECTIONS_FRONT ; toute
+// collection sans entree ici retombe simplement sur son nom technique.
+const SUPERVISED_COLLECTIONS_LABELS = {
+  users: "Utilisateurs",
+  techniciens: "Effectif",
+  planning: "Planning",
+  absences: "Absences",
+  formations: "Formations",
+  formation_suggestions: "Suggestions de formation",
+  devis: "Devis",
+  fournisseurs: "Fournisseurs",
+  materiel: "Materiel / Regisseurs",
+  salles: "Salles",
+  creneaux: "Creneaux",
+  reservations: "Reservations",
+  notifications: "Notifications",
+  logs: "Logs",
+  groups: "Groupes",
+  actualites: "Actualites",
+  documents: "Documents (base de connaissance)",
+  organigramme: "Organigramme",
+  settings: "Parametres",
+  communications: "Communication (annonces)",
+  communication_chat: "Communication (discussions)",
+};
 
 // Pages that can individually be put into maintenance (mirrors Layout.js navItems)
 const MAINTENANCE_PAGES = [
@@ -1160,6 +1200,13 @@ export default function Administration() {
   const [exportFormat, setExportFormat] = useState("csv");
   const [exporting, setExporting] = useState(false);
 
+  // ---- Supervision par entite (snapshot/export/visualisation, #579) ----
+  const [entitySelected, setEntitySelected] = useState("techniciens");
+  const [entitySnapshot, setEntitySnapshot] = useState(null);
+  const [entityLoading, setEntityLoading] = useState(false);
+  const [entityError, setEntityError] = useState(null);
+  const [entityExporting, setEntityExporting] = useState(false);
+
   // Actions infra (Supervision) : redéployer Render, historique + restauration Netlify
   const [renderDeploys, setRenderDeploys] = useState(null);
   const [renderDeploysOpen, setRenderDeploysOpen] = useState(false);
@@ -1597,6 +1644,93 @@ export default function Administration() {
     }
   };
 
+  // ---- Supervision par entite : charge le snapshot (compte/taille/echantillon) ----
+  const fetchEntitySnapshot = async (collection) => {
+    setEntityLoading(true);
+    setEntityError(null);
+    try {
+      const res = await axios.get(`${API}/admin/supervision/entity/${collection}`);
+      setEntitySnapshot(res.data);
+    } catch (err) {
+      setEntitySnapshot(null);
+      setEntityError(
+        err.response?.status === 404
+          ? "Categorie inconnue"
+          : "Impossible de charger l'apercu de cette entite",
+      );
+    } finally {
+      setEntityLoading(false);
+    }
+  };
+
+  // Convertit un tableau d'objets (echantillon ou export complet) en feuille
+  // XLSX -- meme approche que buildEffectifListXLSX dans Effectif.js (xlsx-js-style).
+  const buildEntityXLSX = (collection, rows) => {
+    const keys = [];
+    const seen = new Set();
+    for (const r of rows) {
+      for (const k of Object.keys(r)) {
+        if (!seen.has(k)) {
+          seen.add(k);
+          keys.push(k);
+        }
+      }
+    }
+    const stringify = (v) => {
+      if (v === null || v === undefined) return "";
+      if (typeof v === "object") return JSON.stringify(v);
+      return v;
+    };
+    const aoa = [keys, ...rows.map((r) => keys.map((k) => stringify(r[k])))];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const HEADER_HEX = "1F4E78";
+    const headerStyle = {
+      font: { bold: true, color: { rgb: "FFFFFF" } },
+      fill: { fgColor: { rgb: HEADER_HEX } },
+      alignment: { horizontal: "center", vertical: "center" },
+    };
+    keys.forEach((_, c) => {
+      const ref = XLSX.utils.encode_cell({ r: 0, c });
+      if (!ws[ref]) ws[ref] = { t: "s", v: "" };
+      ws[ref].s = headerStyle;
+    });
+    ws["!cols"] = keys.map(() => ({ wch: 20 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      wb,
+      ws,
+      (SUPERVISED_COLLECTIONS_LABELS[collection] || collection).slice(0, 31),
+    );
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    return new Blob([wbout], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+  };
+
+  const handleExportEntityXlsx = async () => {
+    const preOpenedWindow = reserveTabForIOSFallback();
+    setEntityExporting(true);
+    try {
+      const res = await axios.get(
+        `${API}/admin/supervision/entity/${entitySelected}/export`,
+      );
+      const rows = Array.isArray(res.data) ? res.data : [];
+      const blob = buildEntityXLSX(entitySelected, rows);
+      const filename = `${entitySelected}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const status = await downloadOrShareFile(blob, filename, {
+        title: filename,
+        preOpenedWindow,
+      });
+      if (status === "downloaded") toast.success("Export Excel téléchargé");
+      else if (status === "blocked") toast.error(downloadStatusMessage(status));
+    } catch (err) {
+      if (preOpenedWindow && !preOpenedWindow.closed) preOpenedWindow.close();
+      toast.error("Erreur lors de l'export de l'entité");
+    } finally {
+      setEntityExporting(false);
+    }
+  };
+
   const [submitting, setSubmitting] = useState(false);
 
   const [userForm, setUserForm] = useState({
@@ -1667,6 +1801,15 @@ export default function Administration() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  // Charge l'apercu "par entite" (#579) des qu'on est sur l'onglet
+  // Supervision et a chaque changement de collection selectionnee.
+  useEffect(() => {
+    if (activeTab === "supervision" && (isSuperAdmin() || isAdmin())) {
+      fetchEntitySnapshot(entitySelected);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, entitySelected]);
 
   // #504 (rendre la Supervision réellement live/temps réel) : remplace les
   // setInterval fixes par un setTimeout auto-récursif par section, avec une
@@ -5616,6 +5759,203 @@ même limite pour éviter un 403 après coup. */}
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
+
+                {/* Supervision par entité : snapshot / export / visualisation (#579) */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Database className="w-5 h-5" /> Par entité
+                    </CardTitle>
+                    <CardDescription>
+                      Sélectionne une entité pour voir un aperçu de son état
+                      actuel, l'exporter en Excel, ou visualiser sa
+                      répartition.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex flex-wrap items-end gap-2">
+                      <div className="space-y-1">
+                        <Label>Entité</Label>
+                        <Select
+                          value={entitySelected}
+                          onValueChange={setEntitySelected}
+                        >
+                          <SelectTrigger className="w-[260px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SUPERVISED_COLLECTIONS_FRONT.map((c) => (
+                              <SelectItem key={c} value={c}>
+                                {SUPERVISED_COLLECTIONS_LABELS[c] || c}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => fetchEntitySnapshot(entitySelected)}
+                        disabled={entityLoading}
+                      >
+                        {entityLoading ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                        )}
+                        Actualiser
+                      </Button>
+                      <Button
+                        onClick={handleExportEntityXlsx}
+                        disabled={entityExporting}
+                      >
+                        {entityExporting && (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        )}
+                        <Download className="w-4 h-4 mr-2" />
+                        Exporter en Excel
+                      </Button>
+                    </div>
+
+                    {entityLoading && !entitySnapshot && (
+                      <div className="flex items-center justify-center py-8 text-muted-foreground">
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Chargement de l'aperçu…
+                      </div>
+                    )}
+
+                    {entityError && (
+                      <div className="text-sm text-destructive flex items-center gap-2 py-2">
+                        <AlertTriangle className="w-4 h-4" /> {entityError}
+                      </div>
+                    )}
+
+                    {entitySnapshot && !entityError && (
+                      <>
+                        {/* Snapshot */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          <div className="rounded-lg border p-3">
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Eye className="w-3 h-3" /> Documents
+                            </div>
+                            <div className="text-lg font-semibold">
+                              {entitySnapshot.count}
+                            </div>
+                          </div>
+                          <div className="rounded-lg border p-3">
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <HardDrive className="w-3 h-3" /> Taille
+                            </div>
+                            <div className="text-lg font-semibold">
+                              {formatBytes(entitySnapshot.size_bytes)}
+                            </div>
+                          </div>
+                          <div className="rounded-lg border p-3">
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <History className="w-3 h-3" /> Dernière modif.
+                              connue
+                            </div>
+                            <div className="text-sm font-medium">
+                              {entitySnapshot.last_modified
+                                ? new Date(
+                                    entitySnapshot.last_modified,
+                                  ).toLocaleString("fr-FR")
+                                : "Non disponible"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Visualisation : répartition par champ catégoriel connu */}
+                        {entitySnapshot.breakdown_by_field?.counts?.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-sm font-medium flex items-center gap-2">
+                              <BarChart3 className="w-4 h-4" /> Répartition par{" "}
+                              {entitySnapshot.breakdown_by_field.field}
+                            </div>
+                            <div className="h-[240px]">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                  data={entitySnapshot.breakdown_by_field.counts}
+                                >
+                                  <CartesianGrid
+                                    strokeDasharray="3 3"
+                                    className="stroke-muted"
+                                  />
+                                  <XAxis
+                                    dataKey="value"
+                                    className="text-xs"
+                                    interval={0}
+                                    angle={-20}
+                                    textAnchor="end"
+                                    height={60}
+                                  />
+                                  <YAxis className="text-xs" allowDecimals={false} />
+                                  <Tooltip
+                                    contentStyle={{
+                                      backgroundColor: "hsl(var(--card))",
+                                      border: "1px solid hsl(var(--border))",
+                                      borderRadius: "8px",
+                                    }}
+                                  />
+                                  <Bar
+                                    dataKey="count"
+                                    fill="#001DF3"
+                                    radius={[4, 4, 0, 0]}
+                                  />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Échantillon */}
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium">
+                            Aperçu — {entitySnapshot.sample_shown} sur{" "}
+                            {entitySnapshot.count} élément(s)
+                          </div>
+                          <div className="max-h-[320px] overflow-auto rounded-lg border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  {Object.keys(entitySnapshot.sample[0] || {})
+                                    .slice(0, 6)
+                                    .map((k) => (
+                                      <TableHead key={k}>{k}</TableHead>
+                                    ))}
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {entitySnapshot.sample.map((row, i) => (
+                                  <TableRow key={i}>
+                                    {Object.keys(entitySnapshot.sample[0] || {})
+                                      .slice(0, 6)
+                                      .map((k) => (
+                                        <TableCell
+                                          key={k}
+                                          className="max-w-[220px] truncate text-xs"
+                                        >
+                                          {typeof row[k] === "object"
+                                            ? JSON.stringify(row[k])
+                                            : String(row[k] ?? "")}
+                                        </TableCell>
+                                      ))}
+                                  </TableRow>
+                                ))}
+                                {entitySnapshot.sample.length === 0 && (
+                                  <TableRow>
+                                    <TableCell className="text-center text-muted-foreground py-4">
+                                      Aucune donnée
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Export de données */}
                 <Card>

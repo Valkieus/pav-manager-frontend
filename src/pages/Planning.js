@@ -1026,7 +1026,7 @@ function buildPlanningDayWorksheet({
     setStyle(headerRow, 0, {
       font: { bold: true, color: { rgb: TITLE_HEX } },
       fill: { fgColor: { rgb: BAND_HEX } },
-      alignment: { horizontal: "left", vertical: "center" },
+      alignment: { horizontal: "center", vertical: "center", wrapText: true },
       border: CELL_BORDER,
     });
 

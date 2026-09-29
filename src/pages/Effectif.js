@@ -24,6 +24,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import { toast } from "sonner";
 import {
   Plus,
@@ -42,7 +48,18 @@ import {
   XCircle,
   Send,
   Download,
+  ChevronDown,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
+import * as XLSX from "xlsx-js-style";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import {
+  downloadOrShareFile,
+  downloadStatusMessage,
+  reserveTabForIOSFallback,
+} from "../utils/fileDownload";
 import { invalidateTechniciensCache } from "../lib/technicienCache";
 import TeamAbsenceDashboard from "./TeamAbsenceDashboard";
 
@@ -147,6 +164,8 @@ export default function Effectif() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterBranche, setFilterBranche] = useState("all");
   const [filterBadge, setFilterBadge] = useState("all"); // 'all' | 'avec' | 'sans' — KPI badge (#302)
+  const [exportingListXlsx, setExportingListXlsx] = useState(false); // #578
+  const [exportingFichePdf, setExportingFichePdf] = useState(false); // #578
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
@@ -721,6 +740,194 @@ export default function Effectif() {
     });
   }, [techniciens, searchTerm, filterBranche, filterBadge]);
 
+  // ---------------------------------------------------------------------
+  // Export XLSX (liste complète, filtrée par recherche/branche/badge comme
+  // affichée à l'écran) + PDF (fiche individuelle) — tâche #578. Réutilise
+  // les mêmes bibliothèques et le même utilitaire de téléchargement que
+  // Planning.js (xlsx-js-style + downloadOrShareFile) et que Devis.js
+  // (html2canvas + jsPDF) plutôt que d'introduire une nouvelle dépendance.
+  // ---------------------------------------------------------------------
+  const buildEffectifListXLSX = (list) => {
+    const headers = [
+      "Nom",
+      "Branches",
+      "Poste principal",
+      "Postes secondaires",
+      "Niveau technicien",
+      "Niveau d'accès",
+      "Badge attribué",
+      "Téléphone",
+      "Email",
+    ];
+    const rows = list.map((t) => [
+      t.nom || "",
+      (t.branches || []).join(", "),
+      t.poste_principal || "",
+      (t.postes_secondaires || []).join(", "),
+      t.niveau_technicien || "",
+      t.niveau_acces || "",
+      t.badge_attribue ? "Oui" : "Non",
+      t.telephone || "",
+      t.email || "",
+    ]);
+    const aoa = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const HEADER_HEX = "1F4E78";
+    const headerStyle = {
+      font: { bold: true, color: { rgb: "FFFFFF" } },
+      fill: { fgColor: { rgb: HEADER_HEX } },
+      alignment: { horizontal: "center", vertical: "center" },
+    };
+    headers.forEach((_, c) => {
+      const ref = XLSX.utils.encode_cell({ r: 0, c });
+      if (!ws[ref]) ws[ref] = { t: "s", v: "" };
+      ws[ref].s = headerStyle;
+    });
+    ws["!cols"] = [
+      { wch: 24 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 28 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 26 },
+    ];
+    ws["!autofilter"] = { ref: `A1:I${aoa.length}` };
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Effectif");
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    return new Blob([wbout], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+  };
+
+  const handleExportListXlsx = async () => {
+    setExportingListXlsx(true);
+    try {
+      const blob = buildEffectifListXLSX(filteredTechniciens);
+      const filename = `effectif-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const status = await downloadOrShareFile(blob, filename, { title: filename });
+      const msg =
+        status === "blocked"
+          ? "Impossible d'enregistrer le fichier — réessaie"
+          : status === "downloaded"
+            ? "Le fichier Excel a été téléchargé"
+            : downloadStatusMessage(status);
+      if (status === "blocked") toast.error(msg);
+      else if (msg) toast.success(msg);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erreur lors de l'export Excel");
+    } finally {
+      setExportingListXlsx(false);
+    }
+  };
+
+  // Construit un mini-document HTML hors-écran pour la fiche d'un
+  // technicien puis le convertit en PDF via html2canvas + jsPDF — même
+  // méthode que handleDownloadDevisPdf dans Devis.js.
+  const handleExportFichePdf = async () => {
+    if (!selectedTech) return;
+    const preOpenedWindow = reserveTabForIOSFallback();
+    setExportingFichePdf(true);
+    const tech = selectedTech;
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.top = "0";
+    container.style.left = "-99999px";
+    container.style.width = "794px";
+    container.style.background = "#ffffff";
+    const branchesHtml =
+      (tech.branches || [])
+        .map(
+          (b) =>
+            `<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#eef2ff;color:#4338ca;font-size:12px;margin:0 4px 4px 0;">${b}</span>`,
+        )
+        .join("") || '<span style="color:#999;">Aucune branche</span>';
+    const postesSecHtml =
+      (tech.postes_secondaires || [])
+        .map(
+          (p) =>
+            `<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#f3f4f6;color:#374151;font-size:12px;margin:0 4px 4px 0;">${p}</span>`,
+        )
+        .join("") || '<span style="color:#999;">Aucun</span>';
+    container.innerHTML = `
+      <div style="font-family: Arial, sans-serif; padding: 40px; color: #333; box-sizing: border-box; width: 794px;">
+        <div style="display:flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px;">
+          <div>
+            <div style="font-size: 28px; font-weight: bold; color: #2563eb;">PAV Manager</div>
+            <div style="font-size: 12px; color: #666;">Fiche technicien — Effectif</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 24px; font-weight: bold; color: #1e40af;">FICHE</div>
+            <div style="color: #666; margin-top: 5px;">Édité le ${new Date().toLocaleDateString("fr-FR")}</div>
+          </div>
+        </div>
+        <div style="margin-bottom: 25px;">
+          <div style="font-size: 22px; font-weight: bold;">${tech.nom || ""}</div>
+          <div style="margin-top: 6px;">
+            <span style="display:inline-block; padding: 6px 14px; border-radius: 20px; font-weight: bold; background: #dbeafe; color: #1e3a8a;">${tech.niveau_acces || ""}</span>
+            ${tech.niveau_technicien ? `<span style="display:inline-block; padding: 6px 14px; border-radius: 20px; font-weight: bold; background: #fef3c7; color: #92400e; margin-left:8px;">${tech.niveau_technicien}</span>` : ""}
+          </div>
+        </div>
+        <div style="margin-bottom: 25px;">
+          <div style="font-size: 14px; font-weight: bold; color: #2563eb; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Branches</div>
+          <div>${branchesHtml}</div>
+        </div>
+        <div style="margin-bottom: 25px;">
+          <div style="font-size: 14px; font-weight: bold; color: #2563eb; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Poste(s)</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div><div style="font-size: 12px; color: #666; margin-bottom: 3px;">Poste principal</div><div style="font-size: 16px; font-weight: 500;">${tech.poste_principal || "Non spécifié"}</div></div>
+            <div><div style="font-size: 12px; color: #666; margin-bottom: 3px;">Postes secondaires</div><div>${postesSecHtml}</div></div>
+          </div>
+        </div>
+        <div style="margin-bottom: 25px;">
+          <div style="font-size: 14px; font-weight: bold; color: #2563eb; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Coordonnées</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div><div style="font-size: 12px; color: #666; margin-bottom: 3px;">Téléphone</div><div style="font-size: 16px; font-weight: 500;">${tech.telephone || "Non renseigné"}</div></div>
+            <div><div style="font-size: 12px; color: #666; margin-bottom: 3px;">Email</div><div style="font-size: 16px; font-weight: 500;">${tech.email || "Non renseigné"}</div></div>
+          </div>
+        </div>
+        <div style="margin-bottom: 25px;">
+          <div style="font-size: 14px; font-weight: bold; color: #2563eb; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Badge</div>
+          <div style="font-size: 16px; font-weight: 500;">${tech.badge_attribue ? "Attribué" : "Non attribué"}</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(container);
+    try {
+      const canvas = await html2canvas(container, { scale: 2, backgroundColor: "#ffffff" });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const imgHeight = (canvas.height * pageWidth) / canvas.width;
+      pdf.addImage(imgData, "PNG", 0, 0, pageWidth, imgHeight);
+      const filename = `fiche-${(tech.nom || "technicien").replace(/[^a-zA-Z0-9-_]/g, "_")}.pdf`;
+      const blob = pdf.output("blob");
+      const status = await downloadOrShareFile(blob, filename, {
+        title: filename,
+        preOpenedWindow,
+      });
+      const msg =
+        status === "blocked"
+          ? "Impossible d'enregistrer le fichier — réessaie"
+          : status === "downloaded"
+            ? "Le PDF a été téléchargé"
+            : downloadStatusMessage(status);
+      if (status === "blocked") toast.error(msg);
+      else if (msg) toast.success(msg);
+    } catch (err) {
+      console.error(err);
+      if (preOpenedWindow && !preOpenedWindow.closed) preOpenedWindow.close();
+      toast.error("Erreur lors de la génération du PDF");
+    } finally {
+      document.body.removeChild(container);
+      setExportingFichePdf(false);
+    }
+  };
+
   return (
     <div className="space-y-6" data-testid="effectif-page">
       {/* Header */}
@@ -733,6 +940,44 @@ export default function Effectif() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                data-testid="effectif-export-menu-btn"
+              >
+                <Download className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Exporter</span>
+                <ChevronDown className="w-3.5 h-3.5 ml-1 hidden sm:inline" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={handleExportListXlsx}
+                disabled={exportingListXlsx}
+                data-testid="effectif-export-xlsx-btn"
+              >
+                {exportingListXlsx ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                )}
+                Exporter la liste (XLSX)
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleExportFichePdf}
+                disabled={!selectedTech || exportingFichePdf}
+                data-testid="effectif-export-fiche-pdf-btn"
+              >
+                {exportingFichePdf ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4 mr-2" />
+                )}
+                Exporter la fiche (PDF)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canApproveTechniciens() && (
             <Dialog
               open={pendingManagerOpen}
@@ -1689,6 +1934,23 @@ export default function Effectif() {
                       </div>
                     )
                   )}
+                </div>
+
+                <div className="pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    disabled={exportingFichePdf}
+                    onClick={handleExportFichePdf}
+                    data-testid="effectif-fiche-export-pdf-btn"
+                  >
+                    {exportingFichePdf ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <FileText className="w-4 h-4 mr-2" />
+                    )}
+                    Exporter la fiche (PDF)
+                  </Button>
                 </div>
 
                 {canManage() && (

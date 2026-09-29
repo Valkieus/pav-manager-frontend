@@ -1043,6 +1043,7 @@ export default function Administration() {
   const [logSearch, setLogSearch] = useState("");
   const [logModuleFilter, setLogModuleFilter] = useState("all");
   const [logSeverityFilter, setLogSeverityFilter] = useState("all");
+  const [selectedLog, setSelectedLog] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Maintenance Mode (#542 : plusieurs activations simultanées possibles)
@@ -4256,7 +4257,12 @@ même limite pour éviter un 403 après coup. */}
                           );
                         })
                         .map((log) => (
-                          <TableRow key={log.id}>
+                          <TableRow
+                            key={log.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setSelectedLog(log)}
+                            data-testid={`log-row-${log.id}`}
+                          >
                             <TableCell className="text-xl">
                               {getActionIcon(log.action)}
                             </TableCell>
@@ -4287,6 +4293,86 @@ même limite pour éviter un 403 après coup. */}
                 )}
               </CardContent>
             </Card>
+
+            <Dialog
+              open={!!selectedLog}
+              onOpenChange={(open) => !open && setSelectedLog(null)}
+            >
+              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                {selectedLog && (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <span className="text-xl">
+                          {getActionIcon(selectedLog.action)}
+                        </span>
+                        {selectedLog.action}
+                      </DialogTitle>
+                      <DialogDescription>
+                        {new Date(selectedLog.timestamp).toLocaleString("fr-FR")}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <Badge variant="outline" className="text-xs">
+                          {selectedLog.module || "Général"}
+                        </Badge>
+                        {getSeverityBadge(selectedLog.severity || "info")}
+                        <span className="text-muted-foreground">
+                          par <strong>{selectedLog.user_name}</strong>
+                        </span>
+                      </div>
+                      <div className="rounded-md bg-muted/50 p-3 whitespace-pre-wrap break-words">
+                        {selectedLog.details || "Aucun détail"}
+                      </div>
+                      <div>
+                        <p className="font-semibold mb-2">
+                          Actions réalisées par {selectedLog.user_name}
+                        </p>
+                        {(() => {
+                          const userActions = logs.filter(
+                            (l) => l.user_id === selectedLog.user_id,
+                          );
+                          return (
+                            <>
+                              <p className="text-xs text-muted-foreground mb-2">
+                                {userActions.length} action(s) dans l'historique
+                                chargé
+                              </p>
+                              <ul className="space-y-1 max-h-64 overflow-y-auto">
+                                {userActions.map((l) => (
+                                  <li
+                                    key={l.id}
+                                    className={`flex gap-2 items-start rounded px-2 py-1 ${
+                                      l.id === selectedLog.id
+                                        ? "bg-primary/10"
+                                        : ""
+                                    }`}
+                                  >
+                                    <span>{getActionIcon(l.action)}</span>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium">{l.action}</p>
+                                      <p className="text-xs text-muted-foreground break-words">
+                                        {l.details}
+                                      </p>
+                                    </div>
+                                    <span className="text-xs text-muted-foreground font-mono shrink-0">
+                                      {new Date(l.timestamp).toLocaleString(
+                                        "fr-FR",
+                                      )}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </DialogContent>
+            </Dialog>
           </TabsContent>
         )}
 

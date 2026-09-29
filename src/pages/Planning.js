@@ -1058,7 +1058,7 @@ function buildPlanningDayWorksheet({
           const rowIdx = addRow(rowCells);
           setStyle(rowIdx, 0, {
             font: { bold: true },
-            alignment: { vertical: "center", wrapText: true },
+            alignment: { horizontal: "center", vertical: "center", wrapText: true },
             border: CELL_BORDER,
           });
           currentDates.forEach((_, dateIdx) => {
@@ -1099,7 +1099,7 @@ function buildPlanningDayWorksheet({
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws["!merges"] = merges;
-  ws["!cols"] = [{ wch: 28 }, ...Array(nDates).fill({ wch: 16 })];
+  ws["!cols"] = [{ wch: 24 }, ...Array(nDates).fill({ wch: 24 })];
   styleOps.forEach(({ r: rr, c: cc, style }) => {
     const ref = XLSX.utils.encode_cell({ r: rr, c: cc });
     if (!ws[ref]) ws[ref] = { t: "s", v: "" };

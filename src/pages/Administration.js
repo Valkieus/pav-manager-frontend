@@ -4352,7 +4352,7 @@ même limite pour éviter un 403 après coup. */}
                                     <span>{getActionIcon(l.action)}</span>
                                     <div className="flex-1 min-w-0">
                                       <p className="font-medium">{l.action}</p>
-                                      <p className="text-xs text-muted-foreground break-words">
+                                      <p className="text-xs text-muted-foreground break-words whitespace-pre-wrap">
                                         {l.details}
                                       </p>
                                     </div>

@@ -1362,6 +1362,10 @@ export default function Planning() {
   // on tape sur l'onglet pour ouvrir/fermer. Remplace l'ancien <aside>
   // qui s'empilait tout en bas de la page sur mobile.
   const [rosterPanelOpen, setRosterPanelOpen] = useState(false);
+  // Vue du panneau : « Mon équipe » (membres des équipes/branches de la
+  // personne connectée) ou « Tous ». Par défaut « Mon équipe » dès que le
+  // compte a une équipe.
+  const [rosterScope, setRosterScope] = useState(null);
   const [editCategoryLabel, setEditCategoryLabel] = useState("");
 
   // Group/merge roles (e.g. "Caméra 1-6")
@@ -2805,12 +2809,21 @@ export default function Planning() {
     return found;
   }, [affectations, sections]);
 
+  const myBranches = useMemo(() => user?.branches || [], [user]);
+  const effectiveRosterScope =
+    rosterScope || (myBranches.length > 0 ? "mine" : "all");
+
   const assignmentRoster = useMemo(() => {
     const assigned = [];
     const notAssigned = [];
     (techniciens || []).forEach((t) => {
       const name = (t.nom || "").trim();
       if (!name) return;
+      if (
+        effectiveRosterScope === "mine" &&
+        !(t.branches || []).some((b) => myBranches.includes(b))
+      )
+        return;
       const key = name.toLowerCase();
       let matched = assignedNamesSet.has(key);
       if (!matched) {
@@ -2826,7 +2839,7 @@ export default function Planning() {
     assigned.sort();
     notAssigned.sort();
     return { assigned, notAssigned };
-  }, [techniciens, assignedNamesSet]);
+  }, [techniciens, assignedNamesSet, effectiveRosterScope, myBranches]);
 
   // Names actually typed into the affectation grid for a given date, across
   // both Vendredi and Dimanche tables — used to detect when someone who
@@ -4054,6 +4067,34 @@ tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
               )}
             </button>
             <div className="roster-panel-scroll p-4 space-y-4 overflow-y-auto">
+              {myBranches.length > 0 && (
+                <div className="space-y-1">
+                  <div className="inline-flex w-full rounded-md border p-0.5 text-xs">
+                    {[
+                      ["mine", myBranches.length > 1 ? "Mes équipes" : "Mon équipe"],
+                      ["all", "Général"],
+                    ].map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setRosterScope(value)}
+                        className={`flex-1 rounded px-2 py-1 font-medium transition-colors ${
+                          effectiveRosterScope === value
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {effectiveRosterScope === "mine" && (
+                    <p className="text-[11px] text-muted-foreground">
+                      {myBranches.join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-1.5">
                   Déjà affectés ce mois-ci ({assignmentRoster.assigned.length}

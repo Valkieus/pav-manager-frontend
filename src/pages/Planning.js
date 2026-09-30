@@ -10,6 +10,7 @@ import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import PlanningTeamAbsences from "../components/PlanningTeamAbsences";
 import {
   Card,
   CardContent,
@@ -1661,6 +1662,49 @@ export default function Planning() {
       .then((res) => setMonthAbsences(res.data))
       .catch(() => setMonthAbsences([]));
   }, [currentMonth, currentYear, canManage]);
+
+  // Après l'ajout / la suppression d'une absence au nom d'une personne : le
+  // serveur a écrit la ligne dans le champ « Absences de l'équipe » du
+  // planning. On relit les absences du mois et on fusionne ce texte avec la
+  // saisie locale (sans jamais écraser ce qui est en cours de frappe), pour
+  // que l'autosave n'efface pas la ligne ajoutée côté serveur.
+  const refreshAbsencesAfterChange = async (opts) => {
+    try {
+      const res = await axios.get(`${API}/absences`, {
+        params: { mois: currentMonth, annee: currentYear },
+      });
+      setMonthAbsences(res.data);
+    } catch (e) {
+      // silencieux : la liste se rafraîchira au prochain chargement
+    }
+    try {
+      const pl = await axios.get(
+        `${API}/planning/${currentYear}/${currentMonth}`,
+      );
+      const serverAbs = pl.data.absences || {};
+      setAbsences((prev) => {
+        const next = { ...prev };
+        ["dimanche", "vendredi"].forEach((day) => {
+          const removedMarker = opts?.removed
+            ? `${opts.removed.full_name} — absent du ${opts.removed.date_debut} au ${opts.removed.date_fin}`
+            : null;
+          const local = (prev[day] || "")
+            .split("\n")
+            .filter((l) => l.trim())
+            .filter((l) => !(removedMarker && l.startsWith(removedMarker)));
+          const server = (serverAbs[day] || "").split("\n").filter((l) => l.trim());
+          // On garde les lignes locales, on ajoute celles du serveur absentes
+          // en local, sauf si la ligne locale a été retirée volontairement
+          // (absence supprimée côté serveur => elle n'est plus dans `server`).
+          const merged = [...local, ...server.filter((l) => !local.includes(l))];
+          next[day] = merged.join("\n");
+        });
+        return next;
+      });
+    } catch (e) {
+      // pas de planning ce mois-ci : rien à fusionner
+    }
+  };
 
   // Keep isPrinting in sync with the native print dialog so the Absences
   // and Notes columns can both be hidden from the printed output.
@@ -3694,54 +3738,6 @@ as the affectations are edited. */}
         </div>
       )}
 
-        {/* Rappel des droits d'édition de la grille (diagnostic « pourquoi
-            ma ligne est grisée ? ») : jamais imprimé/exporté. */}
-        {planningEditMode &&
-          canManage() &&
-          !canValidate() &&
-          !planningScope.grid_editable && (
-          <div className="print:hidden rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-2 text-xs text-amber-900 dark:text-amber-300">
-            Aucun de vos groupes ne vous donne de périmètre sur la grille du
-            Planning : elle est en lecture seule (seuls Absences et Notes sont
-            modifiables). Ajoutez ce compte à un groupe Planning (contrôle
-            intégral ou périmètre par lignes) pour éditer des lignes.
-          </div>
-        )}
-        {planningEditMode &&
-          planningScope.grid_editable &&
-          !planningScope.grid_full && (
-          <div className="print:hidden rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 p-2 text-xs text-blue-900 dark:text-blue-300">
-            Lignes modifiables avec votre groupe :{" "}
-            {(() => {
-              // Noms affichés sur le planning (et non les clés internes du
-              // périmètre), dédoublonnés, pour les deux jours.
-              const labels = [];
-              Object.values(sections || {}).forEach((tables) =>
-                Object.values(tables || {}).forEach((secs) =>
-                  (Array.isArray(secs) ? secs : []).forEach((section) =>
-                    (section.roles || []).forEach((role) => {
-                      if (
-                        role.label &&
-                        canEditPlanningCell(section.name, role.key, role.label) &&
-                        !labels.includes(role.label)
-                      )
-                        labels.push(role.label);
-                    }),
-                  ),
-                ),
-              );
-              return labels.length > 0 ? (
-                <span className="font-semibold">{labels.join(", ")}</span>
-              ) : (
-                <span>
-                  aucune (votre groupe ne couvre aucune ligne de ce planning)
-                </span>
-              );
-            })()}
-            .
-          </div>
-        )}
-
         {/* Absences / Notes — moved up here (right after the conflict banner,
 before the big table) so it's not missed at the bottom of a long
 scroll on phones/desktop (feedback 21/09/2026). Still deliberately
@@ -3750,52 +3746,15 @@ logic. Coordination+ only, et seulement en mode édition. */}
         {canManage() && planningEditMode && (
           <Card className="print:hidden">
             <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold">
-                  Absences de l'équipe
-                </label>
-                {declaredAbsencesForActiveDay.length > 0 && (
-                  <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-2 space-y-1 text-xs">
-                    <p className="font-semibold text-amber-800 dark:text-amber-400">
-                      Absences déclarées (auto, toujours à jour) :
-                    </p>
-                    {declaredAbsencesForActiveDay.map((a) => (
-                      <p
-                        key={a.id}
-                        className="text-amber-900 dark:text-amber-300"
-                      >
-                        <span className="font-medium">{a.full_name}</span> du{" "}
-                        {new Date(
-                          a.date_debut + "T00:00:00",
-                        ).toLocaleDateString("fr-FR", {
-                          day: "2-digit",
-                          month: "2-digit",
-                        })}{" "}
-                        au{" "}
-                        {new Date(
-                          a.date_fin + "T00:00:00",
-                        ).toLocaleDateString("fr-FR", {
-                          day: "2-digit",
-                          month: "2-digit",
-                        })}
-                        {" — "}
-                        {a.raison}
-                      </p>
-                    ))}
-                  </div>
-                )}
-                <textarea
-                  className="w-full min-h-[120px] text-sm border border-input rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-ring p-2 resize-y"
-                  value={absences[activeDay] || ""}
-                  onChange={(e) =>
-                    setAbsences((prev) => ({
-                      ...prev,
-                      [activeDay]: e.target.value,
-                    }))
-                  }
-                  placeholder="Absences de l'équipe..."
-                />
-              </div>
+              <PlanningTeamAbsences
+                techniciens={techniciens}
+                declared={declaredAbsencesForActiveDay}
+                text={absences[activeDay] || ""}
+                onTextChange={(v) =>
+                  setAbsences((prev) => ({ ...prev, [activeDay]: v }))
+                }
+                onCreated={refreshAbsencesAfterChange}
+              />
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold">
                   Notes / informations pertinentes

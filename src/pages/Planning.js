@@ -1500,9 +1500,17 @@ export default function Planning() {
   const canEditPlanningCell = useCallback(
     (sectionName, roleKey) => {
       if (!planningEditMode) return false;
-      if (!canValidate()) return false;
-      if (!planningScope.is_restricted) return true;
-      const scope = planningScope.scope || [];
+      // Droits de grille fondés sur les GROUPES (et non le seul rôle) : le
+      // backend renvoie grid_editable / grid_full / grid_scope, y compris
+      // pour un compte Coordination dans un groupe à périmètre Planning.
+      const byGroup = planningScope.grid_editable !== undefined;
+      if (byGroup && !planningScope.grid_editable) return false;
+      if (!byGroup && !canValidate()) return false;
+      if (byGroup ? planningScope.grid_full : !planningScope.is_restricted)
+        return true;
+      const scope = byGroup
+        ? planningScope.grid_scope || []
+        : planningScope.scope || [];
       if (scope.includes(sectionName)) return true;
       // Les postes « apprenti » font partie de la même équipe que les autres
       // postes de la ligne (animateur_vfx_1/2/3 -> apprenti animateur) :
@@ -3660,20 +3668,25 @@ as the affectations are edited. */}
 
         {/* Rappel des droits d'édition de la grille (diagnostic « pourquoi
             ma ligne est grisée ? ») : jamais imprimé/exporté. */}
-        {planningEditMode && canManage() && !canValidate() && (
+        {planningEditMode &&
+          canManage() &&
+          !canValidate() &&
+          !planningScope.grid_editable && (
           <div className="print:hidden rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-2 text-xs text-amber-900 dark:text-amber-300">
-            Votre niveau d'accès ({user?.niveau_acces}) ne permet de modifier
-            que les champs Absences et Notes : la grille d'affectation est en
-            lecture seule. Il faut le niveau Responsable (ou plus) pour éditer
-            des lignes.
+            Aucun de vos groupes ne vous donne de périmètre sur la grille du
+            Planning : elle est en lecture seule (seuls Absences et Notes sont
+            modifiables). Ajoutez ce compte à un groupe Planning (contrôle
+            intégral ou périmètre par lignes) pour éditer des lignes.
           </div>
         )}
-        {planningEditMode && canValidate() && planningScope.is_restricted && (
+        {planningEditMode &&
+          planningScope.grid_editable &&
+          !planningScope.grid_full && (
           <div className="print:hidden rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 p-2 text-xs text-blue-900 dark:text-blue-300">
             Lignes modifiables avec votre groupe :{" "}
-            {(planningScope.scope || []).length > 0 ? (
+            {(planningScope.grid_scope || []).length > 0 ? (
               <span className="font-mono">
-                {(planningScope.scope || []).join(", ")}
+                {(planningScope.grid_scope || []).join(", ")}
               </span>
             ) : (
               <span>aucune (votre groupe n'a pas de périmètre Planning)</span>

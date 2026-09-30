@@ -1498,7 +1498,7 @@ export default function Planning() {
   // real enforcement on PUT /planning server-side; this just keeps the UI
   // from offering edits that would be rejected on save.
   const canEditPlanningCell = useCallback(
-    (sectionName, roleKey) => {
+    (sectionName, roleKey, roleLabel = "") => {
       if (!planningEditMode) return false;
       // Droits de grille fondés sur les GROUPES (et non le seul rôle) : le
       // backend renvoie grid_editable / grid_full / grid_scope, y compris
@@ -1512,27 +1512,32 @@ export default function Planning() {
         ? planningScope.grid_scope || []
         : planningScope.scope || [];
       if (scope.includes(sectionName)) return true;
+      if (
+        scope.some((pattern) => pattern && roleKey.includes(pattern))
+      )
+        return true;
       // Les postes « apprenti » font partie de la même équipe que les autres
       // postes de la ligne (animateur_vfx_1/2/3 -> apprenti animateur) :
       // toute entrée du groupe qui couvre cette équipe couvre aussi
-      // l'apprenti, quelle que soit la clé exacte de la ligne. Miroir de
+      // l'apprenti, que l'équipe soit reconnue par la clé de la ligne ou par
+      // son libellé (ligne créée à la main avec une autre clé). Miroir de
       // _scope_allows côté backend.
-      const family = (key) =>
-        key
-          .replace(/^v_/, "")
-          .replace(/_\d+$/, "")
-          .split(/[_-]+/)
-          .filter((t) => t && t !== "apprenti")
-          .join("_");
-      const roleFamily = roleKey.includes("apprenti") ? family(roleKey) : "";
+      const words = (text) =>
+        stripAccents(text || "")
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter((w) => w && !/^\d+$/.test(w));
+      const isApprenti =
+        roleKey.includes("apprenti") || words(roleLabel).includes("apprenti");
+      if (!isApprenti) return false;
+      const teamWords = new Set(
+        [roleKey.replace(/^v_/, ""), roleLabel]
+          .map((src) => words(src).filter((w) => w !== "apprenti")[0])
+          .filter(Boolean),
+      );
       return scope.some((pattern) => {
-        if (!pattern) return false;
-        if (roleKey.includes(pattern)) return true;
-        if (!roleFamily) return false;
-        const base = family(
-          pattern.includes("apprenti") ? `${pattern}_0` : pattern,
-        );
-        return !!base && base.split("_")[0] === roleFamily.split("_")[0];
+        const first = words(pattern).filter((w) => w !== "apprenti")[0];
+        return !!first && teamWords.has(first);
       });
     },
     [planningScope, canValidate, planningEditMode],
@@ -2045,7 +2050,7 @@ export default function Planning() {
               : rawVal;
             const hasContent = Array.isArray(val) ? val.some((v) => v) : !!val;
             if (!hasContent) continue;
-            if (!canEditPlanningCell(sectionName, target.key)) {
+            if (!canEditPlanningCell(sectionName, target.key, target.label)) {
               skippedOutOfScope++;
               continue;
             }
@@ -3103,6 +3108,7 @@ export default function Planning() {
                                     canEdit={canEditPlanningCell(
                                       section.name,
                                       role.key,
+                                      role.label,
                                     )}
                                     datalistId={datalistId}
                                     nameCase={affichageNoms}

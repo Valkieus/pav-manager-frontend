@@ -3658,6 +3658,30 @@ as the affectations are edited. */}
         </div>
       )}
 
+        {/* Rappel des droits d'édition de la grille (diagnostic « pourquoi
+            ma ligne est grisée ? ») : jamais imprimé/exporté. */}
+        {planningEditMode && canManage() && !canValidate() && (
+          <div className="print:hidden rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-2 text-xs text-amber-900 dark:text-amber-300">
+            Votre niveau d'accès ({user?.niveau_acces}) ne permet de modifier
+            que les champs Absences et Notes : la grille d'affectation est en
+            lecture seule. Il faut le niveau Responsable (ou plus) pour éditer
+            des lignes.
+          </div>
+        )}
+        {planningEditMode && canValidate() && planningScope.is_restricted && (
+          <div className="print:hidden rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 p-2 text-xs text-blue-900 dark:text-blue-300">
+            Lignes modifiables avec votre groupe :{" "}
+            {(planningScope.scope || []).length > 0 ? (
+              <span className="font-mono">
+                {(planningScope.scope || []).join(", ")}
+              </span>
+            ) : (
+              <span>aucune (votre groupe n'a pas de périmètre Planning)</span>
+            )}
+            . Les lignes « apprenti » suivent l'équipe correspondante.
+          </div>
+        )}
+
         {/* Absences / Notes — moved up here (right after the conflict banner,
 before the big table) so it's not missed at the bottom of a long
 scroll on phones/desktop (feedback 21/09/2026). Still deliberately

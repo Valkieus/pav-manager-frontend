@@ -3712,14 +3712,33 @@ as the affectations are edited. */}
           !planningScope.grid_full && (
           <div className="print:hidden rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 p-2 text-xs text-blue-900 dark:text-blue-300">
             Lignes modifiables avec votre groupe :{" "}
-            {(planningScope.grid_scope || []).length > 0 ? (
-              <span className="font-mono">
-                {(planningScope.grid_scope || []).join(", ")}
-              </span>
-            ) : (
-              <span>aucune (votre groupe n'a pas de périmètre Planning)</span>
-            )}
-            . Les lignes « apprenti » suivent l'équipe correspondante.
+            {(() => {
+              // Noms affichés sur le planning (et non les clés internes du
+              // périmètre), dédoublonnés, pour les deux jours.
+              const labels = [];
+              Object.values(sections || {}).forEach((tables) =>
+                Object.values(tables || {}).forEach((secs) =>
+                  (Array.isArray(secs) ? secs : []).forEach((section) =>
+                    (section.roles || []).forEach((role) => {
+                      if (
+                        role.label &&
+                        canEditPlanningCell(section.name, role.key, role.label) &&
+                        !labels.includes(role.label)
+                      )
+                        labels.push(role.label);
+                    }),
+                  ),
+                ),
+              );
+              return labels.length > 0 ? (
+                <span className="font-semibold">{labels.join(", ")}</span>
+              ) : (
+                <span>
+                  aucune (votre groupe ne couvre aucune ligne de ce planning)
+                </span>
+              );
+            })()}
+            .
           </div>
         )}
 

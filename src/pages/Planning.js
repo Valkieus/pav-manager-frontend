@@ -1743,6 +1743,57 @@ export default function Planning() {
     return `${day} ${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;
   };
 
+  // Petit popup rouge éphémère quand on met dans le planning le nom d'une
+  // personne absente ce jour-là (absence déclarée avec dates : par elle-même
+  // ou saisie dans « Absences de l'équipe »). Pour une ligne libre déjà
+  // présente dans « Absences de l'équipe » (sans dates exploitables), un
+  // avertissement orange rappelle la ligne. Dédoublonné par personne + jour
+  // pour ne pas se répéter à chaque frappe.
+  const warnIfAbsent = useCallback(
+    (value, dateIdx) => {
+      const norm = (t) =>
+        stripAccents(t || "")
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter(Boolean);
+      const typed = norm(value);
+      if (typed.length === 0 || typed.join("").length < 3) return;
+      const iso = (dates[activeDay] || [])[dateIdx];
+      if (!iso) return;
+      const hit = (monthAbsences || []).find((a) => {
+        if (!(a.date_debut <= iso && iso <= a.date_fin)) return false;
+        const tokens = norm(a.full_name);
+        return typed.every((t) => tokens.includes(t));
+      });
+      if (hit) {
+        const fmtD = (d) =>
+          new Date(`${d}T00:00:00`).toLocaleDateString("fr-FR", {
+            day: "2-digit",
+            month: "2-digit",
+          });
+        toast.error(
+          `${hit.full_name} est absent(e) ce jour-là (${hit.raison}, du ${fmtD(hit.date_debut)} au ${fmtD(hit.date_fin)})`,
+          { id: `absent-${hit.id}-${iso}`, duration: 4000 },
+        );
+        return;
+      }
+      const line = (absences[activeDay] || "")
+        .split("\n")
+        .map((l) => l.trim())
+        .find((l) => {
+          const head = norm(l.split(/[:—–-]/)[0]);
+          return head.length > 0 && typed.every((t) => head.includes(t));
+        });
+      if (line) {
+        toast.warning(`À vérifier : « ${line} »`, {
+          id: `absent-line-${typed.join("-")}`,
+          duration: 4000,
+        });
+      }
+    },
+    [monthAbsences, dates, activeDay, absences],
+  );
+
   const handleAffectationChange = useCallback(
     (roleKey, slotIdx, dateIdx, value) => {
       const key = `${roleKey}_${slotIdx}`;
@@ -1753,8 +1804,9 @@ export default function Planning() {
           [dateIdx]: value === "__none__" ? "" : value,
         },
       }));
+      if (value && value !== "__none__") warnIfAbsent(value, dateIdx);
     },
-    [],
+    [warnIfAbsent],
   );
 
   const buildPlanningPayload = useCallback(

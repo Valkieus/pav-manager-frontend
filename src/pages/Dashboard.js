@@ -1559,6 +1559,30 @@ Technicien, reste visible à partir de Responsable. */}
                 </a>
               )}
 
+              {/* SongSpot — même règle de visibilité que le Cahier de Louange
+(masqué pour Technicien, visible à partir de Responsable). */}
+              {!isMembre && (
+                <a
+                  href="https://songspot-cec.netlify.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex shrink-0 items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border hover:border-violet-500/50 hover:shadow-md transition-all group"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+                    <Music className="w-4 h-4 text-violet-600" />
+                  </div>
+                  <div className="whitespace-nowrap">
+                    <p className="font-medium text-sm group-hover:text-violet-600 transition-colors">
+                      SongSpot
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      songspot-cec.netlify.app
+                    </p>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground ml-1 shrink-0" />
+                </a>
+              )}
+
               {/* Recherche Biblique — visible à tous, comme le Cahier de
 Louange ci-dessus. */}
               <a
@@ -1717,6 +1741,30 @@ Technicien, reste visible à partir de Responsable. */}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       cec-songs.netlify.app
+                    </p>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground ml-1 shrink-0" />
+                </a>
+              )}
+
+              {/* SongSpot — même règle de visibilité que le Cahier de Louange
+(masqué pour Technicien, visible à partir de Responsable). */}
+              {!isMembre && (
+                <a
+                  href="https://songspot-cec.netlify.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex shrink-0 items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border hover:border-violet-500/50 hover:shadow-md transition-all group"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+                    <Music className="w-4 h-4 text-violet-600" />
+                  </div>
+                  <div className="whitespace-nowrap">
+                    <p className="font-medium text-sm group-hover:text-violet-600 transition-colors">
+                      SongSpot
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      songspot-cec.netlify.app
                     </p>
                   </div>
                   <ExternalLink className="w-3.5 h-3.5 text-muted-foreground ml-1 shrink-0" />

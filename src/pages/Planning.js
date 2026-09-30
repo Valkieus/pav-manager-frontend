@@ -1504,7 +1504,15 @@ export default function Planning() {
       if (!planningScope.is_restricted) return true;
       const scope = planningScope.scope || [];
       if (scope.includes(sectionName)) return true;
-      return scope.some((pattern) => pattern && roleKey.includes(pattern));
+      // Les postes « apprenti » font partie de la même équipe que les postes
+      // numérotés (animateur_vfx_1/2/3 -> animateur_vfx_apprenti) : une
+      // entrée numérotée couvre aussi la ligne apprenti correspondante.
+      return scope.some((pattern) => {
+        if (!pattern) return false;
+        if (roleKey.includes(pattern)) return true;
+        const base = pattern.replace(/_\d+$/, "");
+        return !!base && roleKey.includes("apprenti") && roleKey.includes(base);
+      });
     },
     [planningScope, canValidate, planningEditMode],
   );

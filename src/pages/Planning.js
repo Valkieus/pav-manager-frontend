@@ -184,7 +184,7 @@ const THEME = {
 
 // Memoized cell component for better performance
 const PlanningCell = memo(
-  ({ value, canEdit, onChange, blocked, datalistId, nameCase }) => {
+  ({ value, canEdit, onChange, blocked, datalistId, nameCase, reason }) => {
     const textTransform = NAME_CASE_CSS[nameCase] || "none";
     if (blocked) {
       return (
@@ -198,7 +198,7 @@ const PlanningCell = memo(
         <span
           className="text-center block text-xs leading-tight py-1 px-0.5 font-medium break-words whitespace-normal"
           style={{ textTransform }}
-          title={value || ""}
+          title={reason ? `${value || ""}\n[Lecture seule] ${reason}` : value || ""}
         >
           {value || "-"}
         </span>
@@ -1531,13 +1531,20 @@ export default function Planning() {
         roleKey.includes("apprenti") || words(roleLabel).includes("apprenti");
       if (!isApprenti) return false;
       const teamWords = new Set(
-        [roleKey.replace(/^v_/, ""), roleLabel]
-          .map((src) => words(src).filter((w) => w !== "apprenti")[0])
-          .filter(Boolean),
+        [roleKey.replace(/^v_/, ""), roleLabel].flatMap((src) =>
+          words(src).filter((w) => w !== "apprenti"),
+        ),
       );
       return scope.some((pattern) => {
         const first = words(pattern).filter((w) => w !== "apprenti")[0];
-        return !!first && teamWords.has(first);
+        if (!first) return false;
+        // égalité, ou abréviation d'au moins 4 lettres (anim. -> animateur)
+        return [...teamWords].some(
+          (tw) =>
+            tw === first ||
+            (tw.length >= 4 && first.startsWith(tw)) ||
+            (first.length >= 4 && tw.startsWith(first)),
+        );
       });
     },
     [planningScope, canValidate, planningEditMode],
@@ -3111,6 +3118,21 @@ export default function Planning() {
                                       role.label,
                                     )}
                                     datalistId={datalistId}
+                                    reason={
+                                      planningEditMode &&
+                                      !canEditPlanningCell(
+                                        section.name,
+                                        role.key,
+                                        role.label,
+                                      )
+                                        ? `section « ${section.name} », clé « ${role.key} », libellé « ${role.label} » — périmètre de votre groupe : ${
+                                            (planningScope.grid_scope ||
+                                              planningScope.scope ||
+                                              []
+                                            ).join(", ") || "aucun"
+                                          }`
+                                        : ""
+                                    }
                                     nameCase={affichageNoms}
                                     onChange={(v) =>
                                       handleAffectationChange(

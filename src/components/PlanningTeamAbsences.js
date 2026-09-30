@@ -168,8 +168,9 @@ export default function PlanningTeamAbsences({
       </div>
 
       {/* Ajout : personne (liste compacte) — motif libre — durée */}
-      <div className="rounded-lg border bg-muted/30 p-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="rounded-lg border bg-muted/30 p-2 space-y-2">
+        {/* Ligne 1 : personne + motif */}
+        <div className="flex items-center gap-2">
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -178,7 +179,7 @@ export default function PlanningTeamAbsences({
                 size="sm"
                 role="combobox"
                 aria-expanded={open}
-                className="h-8 w-[190px] justify-between font-normal"
+                className="h-8 w-[190px] shrink-0 justify-between font-normal"
                 data-testid="absence-person-select"
               >
                 <span className="flex items-center gap-1.5 truncate">
@@ -226,10 +227,13 @@ export default function PlanningTeamAbsences({
             value={motif}
             onChange={(e) => setMotif(e.target.value)}
             placeholder="Motif (saisie libre)"
-            className="h-8 flex-1 min-w-[150px] text-sm"
+            className="h-8 flex-1 min-w-0 text-sm"
             onKeyDown={(e) => e.key === "Enter" && submit()}
             data-testid="absence-motif"
           />
+        </div>
+        {/* Ligne 2 : durée + bouton (passe à la ligne seulement sur petit écran) */}
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground">du</span>
           <Input
             type="date"
@@ -238,7 +242,7 @@ export default function PlanningTeamAbsences({
               setDebut(e.target.value);
               if (!fin || fin < e.target.value) setFin(e.target.value);
             }}
-            className="h-8 w-[140px] text-sm"
+            className="h-8 w-[150px] text-sm"
           />
           <span className="text-xs text-muted-foreground">au</span>
           <Input
@@ -246,12 +250,12 @@ export default function PlanningTeamAbsences({
             value={fin}
             min={debut}
             onChange={(e) => setFin(e.target.value)}
-            className="h-8 w-[140px] text-sm"
+            className="h-8 w-[150px] text-sm"
           />
           <Button
             type="button"
             size="sm"
-            className="h-8"
+            className="h-8 ml-auto shrink-0"
             onClick={submit}
             disabled={saving}
             data-testid="absence-add-btn"

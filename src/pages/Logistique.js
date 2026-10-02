@@ -271,7 +271,8 @@ export default function Logistique({ kioskMode = false }) {
   // dizaines de fiches auto-générées encore vides ne donnent plus
   // l'impression que les vraies données (import Excel) ont disparu.
   const MOIS_NOMS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-  const [monthOv, setMonthOv] = useState({});
+  // Mois affiché par (caméra, année) : un seul à la fois, choisi avec les pastilles.
+  const [monthSel, setMonthSel] = useState({});
   // Cartes « Caméra N » repliables d'un clic sur leur titre.
   const [collapsedPostes, setCollapsedPostes] = useState(new Set());
   const togglePoste = (poste) =>
@@ -285,27 +286,14 @@ export default function Logistique({ kioskMode = false }) {
   // Seul le mois en cours (de l'année en cours) est ouvert par défaut : tous les
   // autres mois sont repliés et s'ouvrent d'un clic sur leur titre.
   const monthDefaultOpenFor = (year, month) => year === CURRENT_YEAR_STR && month === CURRENT_MONTH_STR;
-  // Même logique d'accordéon que toggleYear, mais au niveau mois, limitée
-  // aux mois de la même année/poste.
-  const setMonthOpen = (poste, year, month, nextOpen, el) => {
-    const key = `${poste}__${year}__${month}`;
-    if (dedupe(`m:${key}`)) return;
-    keepInView(el);
-    const defs = monthsByPosteYear.get(`${poste}__${year}`) || [];
-    setMonthOv((prev) => {
-      const next = { ...prev, [key]: nextOpen };
-      if (nextOpen) defs.filter((d) => d.month !== month).forEach((d) => { next[`${poste}__${year}__${d.month}`] = false; });
-      return next;
-    });
+  // Mois affiché : celui choisi, sinon le mois en cours, sinon le plus récent.
+  const selectedMonthFor = (poste, year) => {
+    const months = (monthsByPosteYear.get(`${poste}__${year}`) || []).map((d) => d.month);
+    const chosen = monthSel[`${poste}__${year}`];
+    if (chosen && months.includes(chosen)) return chosen;
+    if (monthDefaultOpenFor(year, CURRENT_MONTH_STR) && months.includes(CURRENT_MONTH_STR)) return CURRENT_MONTH_STR;
+    return months[months.length - 1] || '';
   };
-  // Fix 28/09/2026 (retour utilisateur : "bien remplis je ne vois pas") : un
-  // mois est ouvert par défaut soit parce que c'est le mois en cours, soit
-  // parce qu'il contient au moins une vraie fiche remplie (pas seulement
-  // des fiches auto-générées vides) — sinon les données réelles importées
-  // de l'Excel (ex: Août 2026) restaient repliées et invisibles au premier
-  // coup d'œil, plusieurs mois avant le mois en cours.
-  const isMonthOpen = (key, defaultOpen) =>
-    key in monthOv ? monthOv[key] : defaultOpen;
   const isSeanceVide = (s) => {
     const hasEquipe = (s.equipe || []).some((m) => (m.nom || '').trim());
     const hasChecks = (s.equipements || []).some((e) => e.sortie || e.entree || (e.checks && Object.values(e.checks).some((c) => c.sortie || c.entree)));
@@ -1026,11 +1014,7 @@ export default function Logistique({ kioskMode = false }) {
     years.forEach((year) => {
       const gy = g.filter((s) => (s.date || '').slice(0, 4) === year);
       const months = Array.from(new Set(gy.map((s) => (s.date || '').slice(5, 7) || '00')));
-      const monthDefs = months.map((month) => {
-        const gm = gy.filter((s) => (s.date || '').slice(5, 7) === month);
-        const defaultOpen = monthDefaultOpenFor(year, month);
-        return { month, defaultOpen };
-      });
+      const monthDefs = months.map((month) => ({ month }));
       monthsByPosteYear.set(`${poste}__${year}`, monthDefs);
     });
   });
@@ -1043,23 +1027,12 @@ export default function Logistique({ kioskMode = false }) {
       return next;
     });
   };
-  const setAllSeanceMonthsOpen = (open) => {
-    setMonthOv((prev) => {
-      const next = { ...prev };
-      monthsByPosteYear.forEach((months, posteYearKey) => {
-        months.forEach(({ month }) => { next[`${posteYearKey}__${month}`] = open ? true : false; });
-      });
-      return next;
-    });
-  };
   const expandAllSeances = () => {
     setCollapsedPostes(new Set());
     setAllSeanceYearsOpen(true);
-    setAllSeanceMonthsOpen(true);
   };
   const collapseAllSeances = () => {
     setAllSeanceYearsOpen(false);
-    setAllSeanceMonthsOpen(false);
   };
 
   // ================= CONTACTS =================
@@ -2369,14 +2342,13 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                             <TableBody>
                               {(() => {
                                 const rows = [];
+                                const pillsDone = new Set();
                                 let currentYear = null;
-                                let currentMonth = null;
                                 group.forEach((s) => {
                                   const year = (s.date || '').slice(0, 4) || 'Sans date';
                                   const monthNum = (s.date || '').slice(5, 7) || '00';
                                   if (year !== currentYear) {
                                     currentYear = year;
-                                    currentMonth = null;
                                     const yearKey = `${poste}__${year}`;
                                     const yearCount = group.filter((g) => (g.date || '').slice(0, 4) === year).length;
                                     const open = isYearOpen(yearKey, year);
@@ -2402,33 +2374,37 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                   // Fix 28/09/2026 : 2e niveau de regroupement par mois sous
                                   // l'année (mois en cours ouvert par défaut) pour retrouver
                                   // une fiche en année → mois → jour au lieu d'une longue liste.
-                                  if (monthNum !== currentMonth) {
-                                    currentMonth = monthNum;
-                                    const monthKey = `${poste}__${currentYear}__${monthNum}`;
-                                    const monthGroupItems = group.filter((g) => (g.date || '').slice(0, 4) === currentYear && (g.date || '').slice(5, 7) === monthNum);
-                                    const monthCount = monthGroupItems.length;
-                                    const monthDefaultOpen = monthDefaultOpenFor(currentYear, monthNum);
-                                    const monthOpen = isMonthOpen(monthKey, monthDefaultOpen);
-                                    const monthLabel = MOIS_NOMS_FR[parseInt(monthNum, 10) - 1] || monthNum;
+                                  // Pastilles des mois (une seule fois par année) : un seul mois
+                                  // est affiché à la fois, choisi d'un toucher sur sa pastille.
+                                  const selMonth = selectedMonthFor(poste, currentYear);
+                                  if (!pillsDone.has(currentYear)) {
+                                    pillsDone.add(currentYear);
+                                    const yearMonths = monthsByPosteYear.get(`${poste}__${currentYear}`) || [];
                                     rows.push(
-                                      <TableRow key={`month-${monthKey}`} className={`cursor-pointer touch-manipulation ${monthOpen ? 'bg-blue-600 hover:bg-blue-600 text-white dark:bg-blue-700 dark:hover:bg-blue-700' : 'bg-muted/40 hover:bg-muted/60'}`} onClick={(e) => setMonthOpen(poste, currentYear, monthNum, !monthOpen, e.currentTarget)}>
-                                        <TableCell colSpan={7} className="p-0 cursor-pointer">
-                                          <button
-                                            type="button"
-                                            aria-expanded={monthOpen}
-                                            className={`flex w-full touch-manipulation items-center gap-2 py-4 pl-8 pr-4 text-left text-base font-semibold ${monthOpen ? 'text-white' : 'text-foreground'}`}
-                                          >
-                                            {monthOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                                            {monthLabel}
-                                            <Badge variant="outline" className={`font-normal text-sm ${monthOpen ? 'border-white/60 text-white' : ''}`}>{monthCount}</Badge>
-                                          </button>
+                                      <TableRow key={`pills-${poste}-${currentYear}`} className="hover:bg-transparent">
+                                        <TableCell colSpan={7} className="p-3">
+                                          <div className="flex flex-wrap gap-2" data-testid="month-pills">
+                                            {yearMonths.map(({ month }) => {
+                                              const n = group.filter((g) => (g.date || '').slice(0, 4) === currentYear && (g.date || '').slice(5, 7) === month).length;
+                                              const active = month === selMonth;
+                                              return (
+                                                <button
+                                                  key={month}
+                                                  type="button"
+                                                  onClick={() => setMonthSel((prev) => ({ ...prev, [`${poste}__${currentYear}`]: month }))}
+                                                  className={`touch-manipulation inline-flex items-center gap-2 rounded-full border-2 px-4 py-2 text-base font-semibold ${active ? 'border-blue-600 bg-blue-600 text-white shadow' : 'border-border bg-background hover:bg-muted'}`}
+                                                >
+                                                  {MOIS_NOMS_FR[parseInt(month, 10) - 1] || month}
+                                                  <span className={`rounded-full px-2 text-sm ${active ? 'bg-white/25' : 'bg-muted text-muted-foreground'}`}>{n}</span>
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
                                         </TableCell>
                                       </TableRow>,
                                     );
                                   }
-                                  const monthKey = `${poste}__${currentYear}__${currentMonth}`;
-                                  const curMonthDefaultOpen = monthDefaultOpenFor(currentYear, currentMonth);
-                                  if (!isMonthOpen(monthKey, curMonthDefaultOpen)) return;
+                                  if (monthNum !== selMonth) return;
                                   const vide = isSeanceVide(s);
                                   rows.push(
                                 <Fragment key={s.id}>

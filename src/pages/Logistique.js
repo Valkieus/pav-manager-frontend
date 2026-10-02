@@ -2112,8 +2112,8 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                           title="Cliquer pour tout cocher / décocher cette colonne"
                                           className={`text-[11px] font-semibold px-2 py-0.5 rounded transition-colors ${
                                             field === 'sortie'
-                                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25'
-                                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25'
+                                              ? 'bg-blue-800/20 text-blue-900 dark:text-blue-300 hover:bg-blue-800/30'
+                                              : 'bg-sky-300/30 text-sky-800 dark:text-sky-300 hover:bg-sky-300/45'
                                           }`}
                                         >
                                           {field === 'sortie' ? 'Sortie' : 'Entrée'}
@@ -2146,7 +2146,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                           <TableCell
                                             key={`${rc}-${field}`}
                                             className={`text-center p-1 ${field === 'entree' ? 'border-l' : ''} ${
-                                              checked ? (field === 'sortie' ? 'bg-amber-500/10' : 'bg-emerald-500/10') : ''
+                                              checked ? (field === 'sortie' ? 'bg-blue-800/15' : 'bg-sky-300/25') : ''
                                             }`}
                                           >
                                             <input

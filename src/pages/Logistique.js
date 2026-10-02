@@ -53,7 +53,8 @@ import {
   FileSpreadsheet,
   FileText,
   Calendar,
-  CheckSquare
+  CheckSquare,
+  ArchiveRestore
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -94,6 +95,9 @@ export default function Logistique() {
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategorie, setFilterCategorie] = useState('all');
+  // Vue « Archivés » de l'inventaire : liste séparée, chargée à la demande.
+  const [showArchivedMat, setShowArchivedMat] = useState(false);
+  const [archivedMateriel, setArchivedMateriel] = useState([]);
   const [form, setForm] = useState({
     nom: '',
     categorie: '',
@@ -487,23 +491,48 @@ export default function Logistique() {
     }
   };
 
+  const fetchArchivedMateriel = async () => {
+    try {
+      const res = await axios.get(`${API}/materiel`, { params: { include_archived: true } });
+      setArchivedMateriel((res.data || []).filter((m) => m.is_archived));
+    } catch (err) {
+      setArchivedMateriel([]);
+    }
+  };
+  useEffect(() => {
+    if (showArchivedMat) fetchArchivedMateriel();
+  }, [showArchivedMat]);
+
   const handleArchive = async (id) => {
-    if (!window.confirm('Archiver ce matériel ?')) return;
+    if (!window.confirm("Archiver ce matériel ? Il disparaît de l'inventaire mais reste récupérable dans « Archivés ».")) return;
     try {
       await axios.put(`${API}/materiel/${id}/archive`);
       toast.success('Matériel archivé');
       fetchAll();
+      if (showArchivedMat) fetchArchivedMateriel();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    }
+  };
+
+  const handleUnarchive = async (id) => {
+    try {
+      await axios.put(`${API}/materiel/${id}/unarchive`);
+      toast.success("Matériel remis dans l'inventaire");
+      fetchAll();
+      fetchArchivedMateriel();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer définitivement ?')) return;
+    if (!window.confirm('Supprimer définitivement ce matériel ? Cette action est irréversible (pour le conserver, utilisez plutôt « Archiver »).')) return;
     try {
       await axios.delete(`${API}/materiel/${id}`);
       toast.success('Matériel supprimé');
       fetchAll();
+      if (showArchivedMat) fetchArchivedMateriel();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
     }
@@ -588,7 +617,7 @@ export default function Logistique() {
     </TableHead>
   );
 
-  const filteredMateriel = materiel.filter(m => {
+  const filteredMateriel = (showArchivedMat ? archivedMateriel : materiel).filter(m => {
     const matchSearch = m.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (m.numero_serie && m.numero_serie.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchCategorie = filterCategorie === 'all' || m.categorie === filterCategorie;
@@ -2309,10 +2338,26 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                 )}
               </div>
 
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+                </div>
+                <Button
+                  type="button"
+                  variant={showArchivedMat ? 'default' : 'outline'}
+                  onClick={() => setShowArchivedMat((v) => !v)}
+                  data-testid="toggle-archived-materiel"
+                >
+                  <Archive className="w-4 h-4 mr-2" />
+                  {showArchivedMat ? "Retour à l'inventaire" : 'Archivés'}
+                </Button>
               </div>
+              {showArchivedMat && (
+                <p className="text-sm text-muted-foreground">
+                  Matériel archivé : retiré de l'inventaire courant. Vous pouvez le remettre en service ou le supprimer définitivement.
+                </p>
+              )}
 
               {/* Onglets "feuilles" façon Excel : un onglet par catégorie (CAMÉRAS,
                   CONNECTIQUES, CÂBLES, SON, ... comme dans le fichier INVENTAIRE
@@ -2370,7 +2415,7 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                       </TableHeader>
                       <TableBody>
                         {sortedMateriel.map((m) => (
-                          <TableRow key={m.id} onClick={() => handleEdit(m)} className="cursor-pointer hover:bg-muted/50">
+                          <TableRow key={m.id} onClick={() => !m.is_archived && handleEdit(m)} className={m.is_archived ? 'opacity-80' : 'cursor-pointer hover:bg-muted/50'}>
                             <TableCell>
                               {m.photo_url ? (
                                 <img
@@ -2397,14 +2442,19 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                             <TableCell>{getStatutBadge(m.statut)}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
+                                {canManage() && !m.is_archived && (
+                                  <Button size="sm" variant="ghost" title="Modifier" onClick={(e) => { e.stopPropagation(); handleEdit(m); }}><Edit className="w-4 h-4" /></Button>
+                                )}
+                                {canManage() && !m.is_archived && (
+                                  <Button size="sm" variant="ghost" title="Archiver" onClick={(e) => { e.stopPropagation(); handleArchive(m.id); }}><Archive className="w-4 h-4" /></Button>
+                                )}
+                                {canManage() && m.is_archived && (
+                                  <Button size="sm" variant="outline" title="Remettre dans l'inventaire" onClick={(e) => { e.stopPropagation(); handleUnarchive(m.id); }}>
+                                    <ArchiveRestore className="w-4 h-4 mr-1" />Restaurer
+                                  </Button>
+                                )}
                                 {canManage() && (
-                                  <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEdit(m); }}><Edit className="w-4 h-4" /></Button>
-                                )}
-                                {isAdmin() && (
-                                              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleArchive(m.id); }}><Archive className="w-4 h-4" /></Button>
-                                )}
-                                {isSuperAdmin() && (
-                                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(m.id); }}><Trash2 className="w-4 h-4" /></Button>
+                                  <Button size="sm" variant="ghost" className="text-destructive" title="Supprimer définitivement" onClick={(e) => { e.stopPropagation(); handleDelete(m.id); }}><Trash2 className="w-4 h-4" /></Button>
                                 )}
                               </div>
                             </TableCell>

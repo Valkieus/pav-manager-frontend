@@ -2426,7 +2426,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                 <Fragment key={s.id}>
                                   <TableRow
                                     onClick={() => canManage() && handleEditSeance(s)}
-                                    className={`${weekendParite(s.date) === 1 ? 'bg-muted/70 hover:bg-muted' : 'bg-background hover:bg-muted/40'} ${canManage() ? 'cursor-pointer' : ''}`}
+                                    className={`${weekendParite(s.date) === 1 ? 'bg-slate-300 hover:bg-slate-400/80 dark:bg-slate-700 dark:hover:bg-slate-600' : 'bg-background hover:bg-muted/40'} ${canManage() ? 'cursor-pointer' : ''}`}
                                   >
                                     <TableCell className={`font-medium align-top border-l-8 ${cameraCouleur(s.poste)?.border || 'border-l-transparent'}`}>
                                       <div className="flex flex-col gap-1">

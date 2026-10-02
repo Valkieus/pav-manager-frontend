@@ -285,6 +285,9 @@ export default function Logistique() {
 
   // ---------- Incidents state ----------
   const [incidents, setIncidents] = useState([]);
+  // Vue « Archivés » des incidents : liste séparée, chargée à la demande.
+  const [showArchivedInc, setShowArchivedInc] = useState(false);
+  const [archivedIncidents, setArchivedIncidents] = useState([]);
   // Roster (utilisé pour les suggestions de signature ci-dessous).
   const [regisseursRoster, setRegisseursRoster] = useState([]);
   // Effectif complet (nom + poste) : les cadreurs ne sont pas dans la branche
@@ -957,7 +960,7 @@ export default function Logistique() {
   };
 
   const handleDeleteContact = async (id) => {
-    if (!window.confirm('Supprimer ce contact ?')) return;
+    if (!window.confirm('Supprimer ce contact définitivement ? Cette action est irréversible.')) return;
     try {
       await axios.delete(`${API}/regisseur-contacts/${id}`);
       toast.success('Contact supprimé');
@@ -1046,27 +1049,53 @@ export default function Logistique() {
     }
   };
 
+  const fetchArchivedIncidents = async () => {
+    try {
+      const res = await axios.get(`${API}/regisseur-incidents`, { params: { include_archived: true } });
+      setArchivedIncidents((res.data || []).filter((i) => i.is_archived));
+    } catch (err) {
+      setArchivedIncidents([]);
+    }
+  };
+  useEffect(() => {
+    if (showArchivedInc) fetchArchivedIncidents();
+  }, [showArchivedInc]);
+
   const handleArchiveIncident = async (id) => {
-    if (!window.confirm('Archiver cet incident ?')) return;
+    if (!window.confirm("Archiver cet incident ? Il disparaît de la liste mais reste récupérable dans « Archivés ».")) return;
     try {
       await axios.put(`${API}/regisseur-incidents/${id}/archive`);
       toast.success('Incident archivé');
       fetchAll();
+      if (showArchivedInc) fetchArchivedIncidents();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    }
+  };
+
+  const handleUnarchiveIncident = async (id) => {
+    try {
+      await axios.put(`${API}/regisseur-incidents/${id}/unarchive`);
+      toast.success('Incident remis dans la liste');
+      fetchAll();
+      fetchArchivedIncidents();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
     }
   };
 
   const handleDeleteIncident = async (id) => {
-    if (!window.confirm('Supprimer cet incident ?')) return;
+    if (!window.confirm("Supprimer cet incident définitivement ? Cette action est irréversible (pour le conserver, utilisez plutôt « Archiver »).")) return;
     try {
       await axios.delete(`${API}/regisseur-incidents/${id}`);
       toast.success('Incident supprimé');
       fetchAll();
+      if (showArchivedInc) fetchArchivedIncidents();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
     }
   };
+
 
   const [incidentSearch, setIncidentSearch] = useState('');
   const incidentMatchesSearch = (i, q) => {
@@ -1087,7 +1116,7 @@ export default function Logistique() {
       .toLowerCase();
     return haystack.includes(needle);
   };
-  const filteredIncidents = incidents
+  const filteredIncidents = (showArchivedInc ? archivedIncidents : incidents)
     .filter(i => filterIncidentPoste === 'all' || i.poste === filterIncidentPoste)
     .filter(i => incidentMatchesSearch(i, incidentSearch))
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -2709,8 +2738,8 @@ classeur plutôt que de choisir dans une liste. */}
                                     {canManage() && (
                                       <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditContact(c); }}><Edit className="w-4 h-4" /></Button>
                                     )}
-                                    {isSuperAdmin() && (
-                                      <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteContact(c.id); }}><Trash2 className="w-4 h-4" /></Button>
+                                    {canManage() && (
+                                      <Button size="sm" variant="ghost" className="text-destructive" title="Supprimer ce contact" onClick={(e) => { e.stopPropagation(); handleDeleteContact(c.id); }}><Trash2 className="w-4 h-4" /></Button>
                                     )}
                                   </div>
                                 </TableCell>
@@ -2737,6 +2766,23 @@ classeur plutôt que de choisir dans une liste. */}
                   placeholder="Rechercher (date, description, équipement, personne...)"
                   className="pl-8"
                 />
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant={showArchivedInc ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setShowArchivedInc((v) => !v)}
+                  data-testid="toggle-archived-incidents"
+                >
+                  <Archive className="w-4 h-4 mr-2" />
+                  {showArchivedInc ? 'Retour aux incidents' : 'Archivés'}
+                </Button>
+                {showArchivedInc && (
+                  <p className="text-sm text-muted-foreground">
+                    Incidents archivés : vous pouvez les remettre dans la liste ou les supprimer définitivement.
+                  </p>
+                )}
               </div>
               {/* Onglets "feuilles" façon Excel : un onglet cliquable par caméra,
                   comme les feuilles CAMERA 1 / CAMERA 2 / ... du classeur d'origine. */}
@@ -2879,7 +2925,7 @@ classeur plutôt que de choisir dans une liste. */}
                             </TableHeader>
                             <TableBody>
                               {group.map((i) => (
-                                <TableRow key={i.id} onClick={() => handleEditIncident(i)} className="cursor-pointer hover:bg-muted/50">
+                                <TableRow key={i.id} onClick={() => !i.is_archived && handleEditIncident(i)} className={i.is_archived ? 'opacity-80' : 'cursor-pointer hover:bg-muted/50'}>
                                   <TableCell className="text-muted-foreground">{i.date || '-'}</TableCell>
                                   <TableCell className="text-muted-foreground">{i.cadreur_regisseur || '-'}</TableCell>
                                   <TableCell className="text-muted-foreground">{i.equipement_concerne || '-'}</TableCell>
@@ -2894,14 +2940,19 @@ classeur plutôt que de choisir dans une liste. */}
                                   <TableCell className="text-muted-foreground">{i.responsable_suivi || '-'}</TableCell>
                                   <TableCell className="text-right">
                                     <div className="flex justify-end gap-1">
+                                      {canManage() && !i.is_archived && (
+                                        <Button size="sm" variant="ghost" title="Modifier" onClick={(e) => { e.stopPropagation(); handleEditIncident(i); }}><Edit className="w-4 h-4" /></Button>
+                                      )}
+                                      {canManage() && !i.is_archived && (
+                                        <Button size="sm" variant="ghost" title="Archiver" onClick={(e) => { e.stopPropagation(); handleArchiveIncident(i.id); }}><Archive className="w-4 h-4" /></Button>
+                                      )}
+                                      {canManage() && i.is_archived && (
+                                        <Button size="sm" variant="outline" title="Remettre dans la liste" onClick={(e) => { e.stopPropagation(); handleUnarchiveIncident(i.id); }}>
+                                          <ArchiveRestore className="w-4 h-4 mr-1" />Restaurer
+                                        </Button>
+                                      )}
                                       {canManage() && (
-                                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditIncident(i); }}><Edit className="w-4 h-4" /></Button>
-                                      )}
-                                      {isAdmin() && (
-                                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleArchiveIncident(i.id); }}><Archive className="w-4 h-4" /></Button>
-                                      )}
-                                      {isSuperAdmin() && (
-                                        <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteIncident(i.id); }}><Trash2 className="w-4 h-4" /></Button>
+                                        <Button size="sm" variant="ghost" className="text-destructive" title="Supprimer définitivement" onClick={(e) => { e.stopPropagation(); handleDeleteIncident(i.id); }}><Trash2 className="w-4 h-4" /></Button>
                                       )}
                                     </div>
                                   </TableCell>

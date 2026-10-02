@@ -785,16 +785,39 @@ export default function Logistique() {
     setSeanceForm({ ...seanceForm, equipements: eqs });
   };
 
+  // Lignes que le « Tout cocher » ne doit JAMAIS cocher, selon la caméra :
+  //  - Caméras 1, 2, 5 : pas de carte SD ;
+  //  - Caméras 3, 4    : pas de disque dur (à la place de la carte SD) ni de ventilateur ;
+  //  - Caméras 6, 7    : rien du tout.
+  // (Les cases restent cochables à la main une par une.)
+  const camNumForm = parseInt((seanceForm.poste || '').replace(/\D+/g, ''), 10);
+  const isAutoCheckExcluded = (eqNom) => {
+    const n = (eqNom || '').toLowerCase();
+    if ([6, 7].includes(camNumForm)) return true;
+    if ([1, 2, 5].includes(camNumForm)) return /cartes?\s*sd/.test(n);
+    if ([3, 4].includes(camNumForm)) return /disque\s*dur|ventilat|ventilo/.test(n);
+    return false;
+  };
+  const eligibleEquipements = () => seanceForm.equipements.filter((eq) => !isAutoCheckExcluded(eq.nom));
+  const hasEligible = eligibleEquipements().length > 0;
+
   // 1 clic : coche (ou décoche si déjà tout coché) la case Sortie — ou Entrée —
-  // de TOUS les membres (C / A / R) sur TOUTES les lignes d'équipement.
-  const allChecked = (field) =>
-    seanceForm.equipements.length > 0 &&
-    seanceForm.equipements.every((eq) =>
-      ROLE_CODES.every((rc) => !!eq.checks?.[rc]?.[field])
+  // de TOUS les membres (C / A / R) sur les lignes d'équipement concernées.
+  const allChecked = (field) => {
+    const eligible = eligibleEquipements();
+    return (
+      eligible.length > 0 &&
+      eligible.every((eq) => ROLE_CODES.every((rc) => !!eq.checks?.[rc]?.[field]))
     );
+  };
   const toggleAllChecks = (field) => {
+    if (!hasEligible) {
+      toast.info('Rien à cocher automatiquement pour ce poste.');
+      return;
+    }
     const value = !allChecked(field);
     const eqs = seanceForm.equipements.map((eq) => {
+      if (isAutoCheckExcluded(eq.nom)) return eq;
       const checks = { ...emptyChecks(), ...eq.checks };
       ROLE_CODES.forEach((rc) => {
         checks[rc] = { ...checks[rc], [field]: value };
@@ -805,11 +828,16 @@ export default function Logistique() {
   };
 
   // Colonne du tableau : coche / décoche Sortie ou Entrée d'un rôle (C / A / R)
-  // sur toutes les lignes d'équipement.
+  // sur les lignes d'équipement concernées (mêmes exclusions).
   const toggleColumnChecks = (rc, field) => {
-    if (seanceForm.equipements.length === 0) return;
-    const value = !seanceForm.equipements.every((eq) => !!eq.checks?.[rc]?.[field]);
+    const eligible = eligibleEquipements();
+    if (eligible.length === 0) {
+      toast.info('Rien à cocher automatiquement pour ce poste.');
+      return;
+    }
+    const value = !eligible.every((eq) => !!eq.checks?.[rc]?.[field]);
     const eqs = seanceForm.equipements.map((eq) => {
+      if (isAutoCheckExcluded(eq.nom)) return eq;
       const checks = { ...emptyChecks(), ...eq.checks };
       checks[rc] = { ...checks[rc], [field]: value };
       return { ...eq, checks };
@@ -1965,6 +1993,11 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                         value={eq.nom}
                                         onChange={(e) => updateEquipementNom(idx, e.target.value)}
                                       />
+                                      {isAutoCheckExcluded(eq.nom) && (
+                                        <span className="block text-[10px] text-muted-foreground px-1 pt-0.5">
+                                          pas coché par « Tout cocher »
+                                        </span>
+                                      )}
                                     </TableCell>
                                     {ROLE_CODES.flatMap((rc) =>
                                       ['sortie', 'entree'].map((field) => {

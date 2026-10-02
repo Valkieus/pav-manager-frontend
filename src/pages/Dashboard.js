@@ -53,6 +53,7 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
   ChevronRight,
   Award,
   Sparkles,
@@ -453,7 +454,7 @@ const MiniCalendar = ({
   month,
   serviceDates = [],
   events = [],
-  onServiceDayClick,
+  onDayClick,
 }) => {
   const pad = (n) => String(n).padStart(2, "0");
   const firstOfMonth = new Date(year, month - 1, 1);
@@ -513,20 +514,24 @@ const MiniCalendar = ({
           ]
             .filter(Boolean)
             .join(" — ");
-          const Tag = isService ? "button" : "div";
+          // Cliquable dès qu'il y a quelque chose à voir ce jour-là : un
+          // service OU un événement (Actualités, absence, formation).
+          const isClickable = isService || dayEvents.length > 0;
+          const Tag = isClickable ? "button" : "div";
           return (
             <Tag
               key={idx}
-              type={isService ? "button" : undefined}
+              type={isClickable ? "button" : undefined}
               title={title || undefined}
               onClick={
-                isService
-                  ? () => onServiceDayClick?.(dateStr, serviceInfo)
+                isClickable
+                  ? () => onDayClick?.(dateStr, serviceInfo, dayEvents)
                   : undefined
               }
               className={`relative aspect-square flex items-center justify-center rounded-md text-xs
 ${isToday ? "ring-2 ring-primary" : eventRingClass}
-${isService ? "bg-primary/10 font-semibold text-primary cursor-pointer hover:bg-primary/20 transition-colors" : "text-foreground"}`}
+${isService ? "bg-primary/10 font-semibold text-primary" : "text-foreground"}
+${isClickable ? "cursor-pointer hover:bg-primary/20 transition-colors" : ""}`}
             >
               {d}
               {dayEvents.length > 0 && (
@@ -601,6 +606,39 @@ export default function Dashboard() {
   // haut sur le Dashboard (service_info_text), pour ne pas avoir à
   // remonter/aller sur Mon planning juste pour vérifier.
   const [dayPreview, setDayPreview] = useState(null);
+  // Navigation du mini-calendrier : le mois courant utilise les données du
+  // résumé (service + éléments personnels + événements) ; un autre mois ne
+  // charge que les événements Actualités (route dédiée).
+  const [calView, setCalView] = useState(() => {
+    const n = new Date();
+    return { year: n.getFullYear(), month: n.getMonth() + 1 };
+  });
+  const [calOtherEvents, setCalOtherEvents] = useState([]);
+  const nowForCal = new Date();
+  const isCurrentCalMonth =
+    calView.year === nowForCal.getFullYear() &&
+    calView.month === nowForCal.getMonth() + 1;
+  useEffect(() => {
+    if (isCurrentCalMonth) {
+      setCalOtherEvents([]);
+      return;
+    }
+    let cancelled = false;
+    axios
+      .get(`${API}/dashboard/calendar-events`, {
+        params: { annee: calView.year, mois: calView.month },
+      })
+      .then((res) => !cancelled && setCalOtherEvents(res.data.events || []))
+      .catch(() => !cancelled && setCalOtherEvents([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [calView, isCurrentCalMonth]);
+  const shiftCalMonth = (delta) =>
+    setCalView((v) => {
+      const d = new Date(v.year, v.month - 1 + delta, 1);
+      return { year: d.getFullYear(), month: d.getMonth() + 1 };
+    });
 
   const isMembre = user?.niveau_acces === "Technicien";
 
@@ -1061,10 +1099,45 @@ paraît disproportionné sur desktop. */}
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-lg capitalize">
             <Calendar className="w-5 h-5 text-primary" />
-            {new Date().toLocaleDateString("fr-FR", {
-              month: "long",
-              year: "numeric",
-            })}
+            <span className="flex-1">
+              {new Date(calView.year, calView.month - 1, 1).toLocaleDateString(
+                "fr-FR",
+                { month: "long", year: "numeric" },
+              )}
+            </span>
+            <span className="flex items-center gap-1 normal-case">
+              {!isCurrentCalMonth && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => {
+                    const n = new Date();
+                    setCalView({ year: n.getFullYear(), month: n.getMonth() + 1 });
+                  }}
+                >
+                  Aujourd'hui
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => shiftCalMonth(-1)}
+                aria-label="Mois précédent"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => shiftCalMonth(1)}
+                aria-label="Mois suivant"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1072,15 +1145,26 @@ paraît disproportionné sur desktop. */}
 cases du calendrier deviennent démesurées sur grand écran. */}
           <div className="max-w-md mx-auto">
           <MiniCalendar
-            year={new Date().getFullYear()}
-            month={new Date().getMonth() + 1}
-            serviceDates={brief?.calendar_service_dates || []}
-            events={[
-              ...(brief?.calendar_events || []),
-              ...(brief?.calendar_personal || []),
-            ]}
-            onServiceDayClick={(dateStr, serviceInfo) =>
-              setDayPreview({ date: dateStr, ...serviceInfo })
+            year={calView.year}
+            month={calView.month}
+            serviceDates={
+              isCurrentCalMonth ? brief?.calendar_service_dates || [] : []
+            }
+            events={
+              isCurrentCalMonth
+                ? [
+                    ...(brief?.calendar_events || []),
+                    ...(brief?.calendar_personal || []),
+                  ]
+                : calOtherEvents
+            }
+            onDayClick={(dateStr, serviceInfo, dayEvents) =>
+              setDayPreview({
+                date: dateStr,
+                isService: !!serviceInfo,
+                ...(serviceInfo || {}),
+                events: dayEvents || [],
+              })
             }
           />
           </div>
@@ -1955,7 +2039,7 @@ aujourd'hui (les deux vérifiés côté serveur également). */}
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Calendar className="w-5 h-5 text-primary" />
-              Jour de service
+              {dayPreview?.isService ? "Jour de service" : "Ce jour-là"}
             </DialogTitle>
             <DialogDescription>
               {dayPreview &&
@@ -1971,24 +2055,80 @@ aujourd'hui (les deux vérifiés côté serveur également). */}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <div className="flex items-center gap-2 text-sm">
-              <Badge variant="secondary" className="capitalize">
-                {dayPreview?.jour}
-              </Badge>
-              {dayPreview?.poste && (
-                <span className="font-medium text-foreground">
-                  {dayPreview.poste}
-                </span>
-              )}
-            </div>
-            {brief?.service_info_text && (
+            {dayPreview?.isService && (
+              <div className="flex items-center gap-2 text-sm">
+                <Badge variant="secondary" className="capitalize">
+                  {dayPreview?.jour}
+                </Badge>
+                {dayPreview?.poste && (
+                  <span className="font-medium text-foreground">
+                    {dayPreview.poste}
+                  </span>
+                )}
+              </div>
+            )}
+            {dayPreview?.isService && brief?.service_info_text && (
               <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
                 <Clock className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>{brief.service_info_text}</span>
               </div>
             )}
+            {(dayPreview?.events || []).length > 0 && (
+              <div className="space-y-1.5">
+                {(dayPreview.events || []).map((e, i) => (
+                  <div
+                    key={`${e.titre}-${i}`}
+                    className="flex items-start gap-2 rounded-md border p-2.5 text-sm"
+                  >
+                    <span
+                      className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${
+                        e.invite
+                          ? "bg-amber-500"
+                          : e.type === "absence"
+                            ? "bg-slate-400"
+                            : e.type === "formation"
+                              ? "bg-violet-500"
+                              : "bg-blue-500"
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-medium">{e.titre}</p>
+                      {e.invite && e.invite_nom && (
+                        <p className="text-xs text-muted-foreground">
+                          Invité : {e.invite_nom}
+                        </p>
+                      )}
+                      {e.date_fin_evenement &&
+                        e.date_fin_evenement !== e.date_evenement && (
+                          <p className="text-xs text-muted-foreground">
+                            Du{" "}
+                            {new Date(
+                              e.date_evenement + "T00:00:00",
+                            ).toLocaleDateString("fr-FR")}{" "}
+                            au{" "}
+                            {new Date(
+                              e.date_fin_evenement + "T00:00:00",
+                            ).toLocaleDateString("fr-FR")}
+                          </p>
+                        )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <DialogFooter>
+            {(dayPreview?.events || []).some((e) => e.type === "evenement") && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDayPreview(null);
+                  navigate("/actualites");
+                }}
+              >
+                Voir les actualités
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setDayPreview(null)}>
               Fermer
             </Button>

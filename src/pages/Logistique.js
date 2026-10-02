@@ -209,6 +209,53 @@ export default function Logistique() {
     equipe: []
   });
 
+  // Cadreurs prévus au planning pour la date du culte, par poste (Caméra N) :
+  // [{ label: 'Caméra 1', num: 1, names: [{ slot: 0, nom }, { slot: 1, nom }] }].
+  // Alimente la liste « par postes » et les suggestions de la fiche.
+  const [plannedCadreurs, setPlannedCadreurs] = useState([]);
+  useEffect(() => {
+    const date = seanceForm.date;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) {
+      setPlannedCadreurs([]);
+      return undefined;
+    }
+    let cancelled = false;
+    const [y, m] = date.split('-').map(Number);
+    axios
+      .get(`${API}/planning/${y}/${m}`)
+      .then((res) => {
+        if (cancelled) return;
+        const pl = res.data || {};
+        const out = [];
+        ['dimanche', 'vendredi'].forEach((day) => {
+          const dateIdx = ((pl.dates || {})[day] || []).indexOf(date);
+          if (dateIdx < 0) return;
+          const tables = (pl.sections || {})[day] || {};
+          Object.values(tables).forEach((secs) =>
+            (Array.isArray(secs) ? secs : []).forEach((sec) => {
+              if (sec?.name !== 'CADREURS') return;
+              (sec.roles || []).forEach((role) => {
+                const num = parseInt((role.label || '').replace(/\D+/g, ''), 10);
+                const names = [];
+                for (let slot = 0; slot < (role.slots || 1); slot++) {
+                  const raw = (pl.affectations || {})[`${role.key}_${slot}`];
+                  const val = Array.isArray(raw) ? raw[dateIdx] : raw && raw[dateIdx];
+                  if (val && String(val).trim()) names.push({ slot, nom: String(val).trim() });
+                }
+                if (names.length) out.push({ label: role.label, num: Number.isNaN(num) ? null : num, names });
+              });
+            })
+          );
+        });
+        out.sort((a, b) => (a.num ?? 99) - (b.num ?? 99));
+        setPlannedCadreurs(out);
+      })
+      .catch(() => !cancelled && setPlannedCadreurs([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [seanceForm.date]);
+
   // ---------- Contacts state ----------
   const [contacts, setContacts] = useState([]);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
@@ -254,15 +301,29 @@ export default function Logistique() {
   );
   const namesForRole = (role) => {
     const r = (role || '').trim().toUpperCase();
+    const isCadreurRole = r === 'C' || r === 'A' || r.startsWith('CAD') || r.startsWith('ASS');
     const base =
       r === 'R' || r.startsWith('REG')
         ? regisseursRoster
-        : r === 'C' || r === 'A' || r.startsWith('CAD') || r.startsWith('ASS')
+        : isCadreurRole
           ? cadreursRoster
           : fullRoster;
-    return Array.from(new Set(base.map((t) => (t.nom || '').trim()).filter(Boolean))).sort((a, b) =>
+    const sorted = Array.from(new Set(base.map((t) => (t.nom || '').trim()).filter(Boolean))).sort((a, b) =>
       a.localeCompare(b, 'fr')
     );
+    if (!isCadreurRole || plannedCadreurs.length === 0) return sorted;
+    // Cadreurs prévus au planning ce jour-là en premier : ceux du poste du
+    // culte (Caméra N), puis ceux des autres postes, puis le reste de l'effectif.
+    const camNum = parseInt((seanceForm.poste || '').replace(/\D+/g, ''), 10);
+    const planned = [
+      ...plannedCadreurs.filter((p) => p.num === camNum),
+      ...plannedCadreurs.filter((p) => p.num !== camNum),
+    ].flatMap((p) => p.names.map((n) => n.nom));
+    return Array.from(new Set([...planned, ...sorted]));
+  };
+  const addPlannedToEquipe = (role, nom) => {
+    if (seanceForm.equipe.some((m) => (m.nom || '').trim().toLowerCase() === nom.toLowerCase())) return;
+    setSeanceForm({ ...seanceForm, equipe: [...seanceForm.equipe, { role, nom }] });
   };
   // Observations : écrites par les régisseurs (+ Admin / Super Admin).
   const canWriteObservations =
@@ -1532,6 +1593,40 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                             <Input value={seanceForm.superviseur} onChange={(e) => setSeanceForm({ ...seanceForm, superviseur: e.target.value })} />
                           </div>
                         </div>
+                        {plannedCadreurs.length > 0 && (
+                          <div className="rounded-md border bg-muted/30 p-2 space-y-1.5" data-testid="planned-cadreurs">
+                            <p className="text-xs font-semibold text-muted-foreground">
+                              Cadreurs prévus au planning ce jour-là, par poste (cliquer pour ajouter à l'équipe)
+                            </p>
+                            {plannedCadreurs.map((p) => {
+                              const isCurrent =
+                                p.num != null &&
+                                p.num === parseInt((seanceForm.poste || '').replace(/\D+/g, ''), 10);
+                              return (
+                                <div
+                                  key={p.label}
+                                  className={`flex flex-wrap items-center gap-1.5 rounded px-1.5 py-1 ${isCurrent ? 'bg-primary/10' : ''}`}
+                                >
+                                  <span className="text-xs font-medium w-20 shrink-0">{p.label}</span>
+                                  {p.names.map((n) => (
+                                    <button
+                                      key={`${p.label}-${n.slot}`}
+                                      type="button"
+                                      onClick={() => addPlannedToEquipe(n.slot === 0 ? 'C' : 'A', n.nom)}
+                                      className="px-2 py-0.5 rounded-md border border-border bg-background hover:bg-primary/10 hover:border-primary/50 text-xs transition-colors"
+                                      title={n.slot === 0 ? 'Cadreur' : 'Assistant'}
+                                    >
+                                      {n.nom}
+                                      <span className="ml-1 text-[10px] text-muted-foreground">
+                                        {n.slot === 0 ? 'C' : 'A'}
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Heure sortie</Label>

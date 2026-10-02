@@ -219,12 +219,30 @@ export default function Logistique({ kioskMode = false }) {
   const [seanceSearch, setSeanceSearch] = useState('');
   // Ouverture/fermeture explicite par clé (true/false) ; sans entrée, valeur par défaut.
   const [yearOv, setYearOv] = useState({});
+  // Garde-fou : après la fermeture d'une fenêtre (Radix), le <body> peut rester
+  // en pointer-events:none et ignorer les touches « de temps en temps » (iPad).
+  useEffect(() => {
+    const unlock = () => {
+      if (document.body.style.pointerEvents === 'none' && !document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) {
+        document.body.style.pointerEvents = '';
+      }
+    };
+    document.addEventListener('pointerdown', unlock, true);
+    return () => document.removeEventListener('pointerdown', unlock, true);
+  }, []);
   const CURRENT_YEAR_STR = String(new Date().getFullYear());
   const isYearOpen = (key, year) =>
     key in yearOv ? yearOv[key] : year === CURRENT_YEAR_STR;
   // Un clic ouvre/ferme l'année ; en ouvrant, les autres années du même poste
   // se referment (accordéon).
-  const toggleYear = (poste, year) => {
+  // Quand l'ouverture d'un titre referme d'autres blocs situés au-dessus, la page
+  // se décale et le titre touché « file » sous le doigt : on le garde à l'écran.
+  const keepInView = (el) => {
+    if (!el || !el.scrollIntoView) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => el.scrollIntoView({ block: 'nearest' })));
+  };
+  const toggleYear = (poste, year, el) => {
+    keepInView(el);
     const key = `${poste}__${year}`;
     const siblings = (yearsByPoste.get(poste) || []).filter((y) => y !== year);
     setYearOv((prev) => {
@@ -258,7 +276,8 @@ export default function Logistique({ kioskMode = false }) {
   const monthDefaultOpenFor = (year, month) => year === CURRENT_YEAR_STR && month === CURRENT_MONTH_STR;
   // Même logique d'accordéon que toggleYear, mais au niveau mois, limitée
   // aux mois de la même année/poste.
-  const toggleMonth = (poste, year, month) => {
+  const toggleMonth = (poste, year, month, el) => {
+    keepInView(el);
     const key = `${poste}__${year}__${month}`;
     const defs = monthsByPosteYear.get(`${poste}__${year}`) || [];
     const defOf = (m) => (defs.find((d) => d.month === m) || {}).defaultOpen || false;
@@ -2358,7 +2377,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                           <button
                                             type="button"
                                             aria-expanded={open}
-                                            onClick={() => toggleYear(poste, year)}
+                                            onClick={(e) => toggleYear(poste, year, e.currentTarget)}
                                             className="flex w-full touch-manipulation items-center gap-2 px-4 py-4 text-left text-lg font-bold"
                                           >
                                             {open ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
@@ -2388,7 +2407,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                           <button
                                             type="button"
                                             aria-expanded={monthOpen}
-                                            onClick={() => toggleMonth(poste, currentYear, monthNum)}
+                                            onClick={(e) => toggleMonth(poste, currentYear, monthNum, e.currentTarget)}
                                             className="flex w-full touch-manipulation items-center gap-2 py-4 pl-8 pr-4 text-left text-base font-semibold text-foreground"
                                           >
                                             {monthOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}

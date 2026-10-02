@@ -702,6 +702,19 @@ export default function Logistique() {
     setSeanceForm({ ...seanceForm, equipements: eqs });
   };
 
+  // Colonne du tableau : coche / décoche Sortie ou Entrée d'un rôle (C / A / R)
+  // sur toutes les lignes d'équipement.
+  const toggleColumnChecks = (rc, field) => {
+    if (seanceForm.equipements.length === 0) return;
+    const value = !seanceForm.equipements.every((eq) => !!eq.checks?.[rc]?.[field]);
+    const eqs = seanceForm.equipements.map((eq) => {
+      const checks = { ...emptyChecks(), ...eq.checks };
+      checks[rc] = { ...checks[rc], [field]: value };
+      return { ...eq, checks };
+    });
+    setSeanceForm({ ...seanceForm, equipements: eqs });
+  };
+
   const removeEquipementLigne = (idx) => {
     const eqs = [...seanceForm.equipements];
     eqs.splice(idx, 1);
@@ -1615,37 +1628,53 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                           </div>
                         </div>
                         {plannedCadreurs.length > 0 && (
-                          <div className="rounded-md border bg-muted/30 p-2 space-y-1.5" data-testid="planned-cadreurs">
-                            <p className="text-xs font-semibold text-muted-foreground">
-                              Cadreurs prévus au planning ce jour-là, par poste (cliquer pour ajouter à l'équipe)
-                            </p>
-                            {plannedCadreurs.map((p) => {
-                              const isCurrent =
-                                p.num != null &&
-                                p.num === parseInt((seanceForm.poste || '').replace(/\D+/g, ''), 10);
-                              return (
-                                <div
-                                  key={p.label}
-                                  className={`flex flex-wrap items-center gap-1.5 rounded px-1.5 py-1 ${isCurrent ? 'bg-primary/10' : ''}`}
-                                >
-                                  <span className="text-xs font-medium w-20 shrink-0">{p.label}</span>
-                                  {p.names.map((n) => (
-                                    <button
-                                      key={`${p.label}-${n.slot}`}
-                                      type="button"
-                                      onClick={() => addPlannedToEquipe(n.slot === 0 ? 'C' : 'A', n.nom)}
-                                      className="px-2 py-0.5 rounded-md border border-border bg-background hover:bg-primary/10 hover:border-primary/50 text-xs transition-colors"
-                                      title={n.slot === 0 ? 'Cadreur' : 'Assistant'}
-                                    >
-                                      {n.nom}
-                                      <span className="ml-1 text-[10px] text-muted-foreground">
-                                        {n.slot === 0 ? 'C' : 'A'}
-                                      </span>
-                                    </button>
-                                  ))}
-                                </div>
-                              );
-                            })}
+                          <div className="rounded-lg border overflow-hidden" data-testid="planned-cadreurs">
+                            <div className="bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
+                              Cadreurs prévus au planning ce jour-là — cliquer sur un nom pour l'ajouter à l'équipe
+                            </div>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-32 h-8">Poste</TableHead>
+                                  <TableHead className="h-8">Cadreur (C)</TableHead>
+                                  <TableHead className="h-8">Assistant (A)</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {plannedCadreurs.map((p) => {
+                                  const isCurrent =
+                                    p.num != null &&
+                                    p.num === parseInt((seanceForm.poste || '').replace(/\D+/g, ''), 10);
+                                  const nameBtn = (slot, role) => {
+                                    const n = p.names.find((x) => x.slot === slot);
+                                    if (!n) return <span className="text-muted-foreground">—</span>;
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => addPlannedToEquipe(role, n.nom)}
+                                        className="px-2 py-0.5 rounded-md border border-border bg-background hover:bg-primary/10 hover:border-primary/50 text-xs font-medium transition-colors"
+                                      >
+                                        {n.nom}
+                                      </button>
+                                    );
+                                  };
+                                  return (
+                                    <TableRow key={p.label} className={isCurrent ? 'bg-primary/10 hover:bg-primary/10' : ''}>
+                                      <TableCell className="py-1.5">
+                                        <span className="inline-flex items-center gap-2 font-medium text-sm">
+                                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                                            {p.num ?? '•'}
+                                          </span>
+                                          {p.label}
+                                        </span>
+                                      </TableCell>
+                                      <TableCell className="py-1.5">{nameBtn(0, 'C')}</TableCell>
+                                      <TableCell className="py-1.5">{nameBtn(1, 'A')}</TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
                           </div>
                         )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1734,48 +1763,87 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                               </Button>
                             </div>
                           )}
-                          <div className="space-y-2 max-h-[360px] overflow-y-auto">
-                            {seanceForm.equipements.map((eq, idx) => (
-                              <div key={idx} className="border rounded p-2 space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <Input
-                                    className="flex-1"
-                                    placeholder="Équipement (ex: JVC GY HM 750)"
-                                    value={eq.nom}
-                                    onChange={(e) => updateEquipementNom(idx, e.target.value)}
-                                  />
-                                  <Button type="button" size="sm" variant="ghost" onClick={() => removeEquipementLigne(idx)}>
-                                    <Trash2 className="w-4 h-4 text-destructive" />
-                                  </Button>
-                                </div>
-                                <div className="grid grid-cols-3 gap-2">
+                          <div className="border rounded-lg overflow-auto max-h-[380px]">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead rowSpan={2} className="min-w-[170px] align-middle">Équipement</TableHead>
                                   {ROLE_CODES.map((rc) => (
-                                    <div key={rc} className="border rounded p-1.5 text-xs">
-                                      <p className="font-medium mb-1">{rc} — {ROLE_LABELS_FULL[rc]}</p>
-                                      <label className="flex items-center gap-1">
-                                        <input
-                                          type="checkbox"
-                                          checked={!!(eq.checks?.[rc]?.sortie)}
-                                          onChange={(e) => updateEquipementCheck(idx, rc, 'sortie', e.target.checked)}
-                                        />
-                                        Sortie
-                                      </label>
-                                      <label className="flex items-center gap-1">
-                                        <input
-                                          type="checkbox"
-                                          checked={!!(eq.checks?.[rc]?.entree)}
-                                          onChange={(e) => updateEquipementCheck(idx, rc, 'entree', e.target.checked)}
-                                        />
-                                        Entrée
-                                      </label>
-                                    </div>
+                                    <TableHead key={rc} colSpan={2} className="text-center border-l h-8">
+                                      {rc} — {ROLE_LABELS_FULL[rc]}
+                                    </TableHead>
                                   ))}
-                                </div>
-                              </div>
-                            ))}
-                            {seanceForm.equipements.length === 0 && (
-                              <p className="text-xs text-muted-foreground">Aucune ligne d'équipement — cliquez sur "Ajouter une ligne"</p>
-                            )}
+                                  <TableHead rowSpan={2} className="w-10" />
+                                </TableRow>
+                                <TableRow>
+                                  {ROLE_CODES.flatMap((rc) =>
+                                    ['sortie', 'entree'].map((field) => (
+                                      <TableHead key={`${rc}-${field}`} className={`text-center p-1 h-8 ${field === 'sortie' ? 'border-l' : ''}`}>
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleColumnChecks(rc, field)}
+                                          title="Cliquer pour tout cocher / décocher cette colonne"
+                                          className={`text-[11px] font-semibold px-2 py-0.5 rounded transition-colors ${
+                                            field === 'sortie'
+                                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25'
+                                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25'
+                                          }`}
+                                        >
+                                          {field === 'sortie' ? 'Sortie' : 'Entrée'}
+                                        </button>
+                                      </TableHead>
+                                    ))
+                                  )}
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {seanceForm.equipements.map((eq, idx) => (
+                                  <TableRow key={idx}>
+                                    <TableCell className="p-1">
+                                      <Input
+                                        className="h-8"
+                                        placeholder="Équipement (ex: JVC GY HM 750)"
+                                        value={eq.nom}
+                                        onChange={(e) => updateEquipementNom(idx, e.target.value)}
+                                      />
+                                    </TableCell>
+                                    {ROLE_CODES.flatMap((rc) =>
+                                      ['sortie', 'entree'].map((field) => {
+                                        const checked = !!eq.checks?.[rc]?.[field];
+                                        return (
+                                          <TableCell
+                                            key={`${rc}-${field}`}
+                                            className={`text-center p-1 ${field === 'sortie' ? 'border-l' : ''} ${
+                                              checked ? (field === 'sortie' ? 'bg-amber-500/10' : 'bg-emerald-500/10') : ''
+                                            }`}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              className="w-4 h-4 cursor-pointer"
+                                              checked={checked}
+                                              onChange={(e) => updateEquipementCheck(idx, rc, field, e.target.checked)}
+                                              aria-label={`${rc} ${field === 'sortie' ? 'sortie' : 'entrée'}`}
+                                            />
+                                          </TableCell>
+                                        );
+                                      })
+                                    )}
+                                    <TableCell className="p-1 text-center">
+                                      <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => removeEquipementLigne(idx)}>
+                                        <Trash2 className="w-4 h-4 text-destructive" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                                {seanceForm.equipements.length === 0 && (
+                                  <TableRow>
+                                    <TableCell colSpan={8} className="text-center text-xs text-muted-foreground py-4">
+                                      Aucune ligne d'équipement — cliquez sur "Ajouter une ligne"
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
                           </div>
                         </div>
                         <div className="space-y-2">

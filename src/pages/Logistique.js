@@ -2380,10 +2380,25 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                   if (!pillsDone.has(currentYear)) {
                                     pillsDone.add(currentYear);
                                     const yearMonths = monthsByPosteYear.get(`${poste}__${currentYear}`) || [];
+                                    // Copie figée : currentYear change à chaque tour de boucle, un
+                                    // gestionnaire qui l'utiliserait au clic verrait la dernière année.
+                                    const pillKey = `${poste}__${currentYear}`;
                                     rows.push(
                                       <TableRow key={`pills-${poste}-${currentYear}`} className="hover:bg-transparent">
                                         <TableCell colSpan={7} className="p-3">
-                                          <div className="flex flex-wrap gap-2" data-testid="month-pills">
+                                          <div className="flex flex-wrap items-center gap-2" data-testid="month-pills">
+                                            {/* Liste déroulante native : fiable au toucher, même choix que les pastilles. */}
+                                            <select
+                                              aria-label="Choisir le mois"
+                                              value={selMonth}
+                                              onChange={(e) => { const v = e.target.value; setMonthSel((prev) => ({ ...prev, [pillKey]: v })); }}
+                                              className="h-11 rounded-md border-2 border-blue-600 bg-background px-3 text-base font-semibold"
+                                              data-testid="month-select"
+                                            >
+                                              {yearMonths.map(({ month }) => (
+                                                <option key={month} value={month}>{MOIS_NOMS_FR[parseInt(month, 10) - 1] || month}</option>
+                                              ))}
+                                            </select>
                                             {yearMonths.map(({ month }) => {
                                               const n = group.filter((g) => (g.date || '').slice(0, 4) === currentYear && (g.date || '').slice(5, 7) === month).length;
                                               const active = month === selMonth;
@@ -2391,7 +2406,8 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                                 <button
                                                   key={month}
                                                   type="button"
-                                                  onClick={() => setMonthSel((prev) => ({ ...prev, [`${poste}__${currentYear}`]: month }))}
+                                                  onClick={() => setMonthSel((prev) => ({ ...prev, [pillKey]: month }))}
+                                                  onPointerUp={() => setMonthSel((prev) => ({ ...prev, [pillKey]: month }))}
                                                   className={`touch-manipulation inline-flex items-center gap-2 rounded-full border-2 px-4 py-2 text-base font-semibold ${active ? 'border-blue-600 bg-blue-600 text-white shadow' : 'border-border bg-background hover:bg-muted'}`}
                                                 >
                                                   {MOIS_NOMS_FR[parseInt(month, 10) - 1] || month}

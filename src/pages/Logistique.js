@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import SignaturePad from '../components/SignaturePad';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -103,15 +104,37 @@ const formatNom = (raw) => {
     .join(' ');
 };
 
-// Couleur d'une fiche selon le jour du culte : vendredi = violet, dimanche = bleu.
+// Couleur d'une fiche : UNE COULEUR PAR WEEK-END (le vendredi et le dimanche
+// qui suivent partagent la même couleur, le week-end suivant en change).
+const WEEKEND_COULEURS = [
+  { nom: 'violet', dot: 'bg-violet-500', row: 'bg-violet-500/10 hover:bg-violet-500/15', cell: 'border-l-4 border-l-violet-500', text: 'text-violet-700 dark:text-violet-300' },
+  { nom: 'bleu', dot: 'bg-blue-500', row: 'bg-blue-500/10 hover:bg-blue-500/15', cell: 'border-l-4 border-l-blue-500', text: 'text-blue-700 dark:text-blue-300' },
+  { nom: 'vert', dot: 'bg-emerald-500', row: 'bg-emerald-500/10 hover:bg-emerald-500/15', cell: 'border-l-4 border-l-emerald-500', text: 'text-emerald-700 dark:text-emerald-300' },
+  { nom: 'orange', dot: 'bg-amber-500', row: 'bg-amber-500/10 hover:bg-amber-500/15', cell: 'border-l-4 border-l-amber-500', text: 'text-amber-700 dark:text-amber-300' },
+  { nom: 'rose', dot: 'bg-rose-500', row: 'bg-rose-500/10 hover:bg-rose-500/15', cell: 'border-l-4 border-l-rose-500', text: 'text-rose-700 dark:text-rose-300' },
+  { nom: 'turquoise', dot: 'bg-cyan-500', row: 'bg-cyan-500/10 hover:bg-cyan-500/15', cell: 'border-l-4 border-l-cyan-500', text: 'text-cyan-700 dark:text-cyan-300' },
+];
 const jourCouleur = (dateStr) => {
   if (!dateStr) return null;
-  const d = new Date(`${dateStr}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  const wd = d.getDay();
-  if (wd === 5) return { nom: 'Vendredi', row: 'bg-violet-500/10 hover:bg-violet-500/15', cell: 'border-l-4 border-l-violet-500', text: 'text-violet-700 dark:text-violet-300', badge: 'bg-violet-500/15 text-violet-700 dark:text-violet-300' };
-  if (wd === 0) return { nom: 'Dimanche', row: 'bg-blue-500/10 hover:bg-blue-500/15', cell: 'border-l-4 border-l-blue-500', text: 'text-blue-700 dark:text-blue-300', badge: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' };
-  return null;
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const wd = new Date(y, m - 1, d).getDay();
+  if (wd !== 5 && wd !== 0) return null; // vendredi ou dimanche seulement
+  // Jour (époque) du VENDREDI du week-end : le dimanche remonte de 2 jours.
+  const fridayEpochDay = Math.floor(Date.UTC(y, m - 1, d) / 86400000) - (wd === 0 ? 2 : 0);
+  return WEEKEND_COULEURS[Math.floor(fridayEpochDay / 7) % WEEKEND_COULEURS.length];
+};
+
+// Signatures (sortie / entrée) : initiales (texte) ou dessin (image PNG).
+const isDrawnSig = (v) => typeof v === 'string' && v.startsWith('data:image');
+const sigText = (v) => (!v ? '' : isDrawnSig(v) ? '(signature dessinée)' : v);
+const sigSummary = (s) => {
+  const parts = [
+    s.signature_sortie && `Sortie : ${sigText(s.signature_sortie)}`,
+    s.signature_entree && `Entrée : ${sigText(s.signature_entree)}`,
+  ].filter(Boolean);
+  if (parts.length === 0 && s.signature) return sigText(s.signature);
+  return parts.join(' / ');
 };
 
 // Heures de la fiche d'un culte : saisie avec un vrai sélecteur d'heure
@@ -251,11 +274,13 @@ export default function Logistique() {
   const isSeanceVide = (s) => {
     const hasEquipe = (s.equipe || []).some((m) => (m.nom || '').trim());
     const hasChecks = (s.equipements || []).some((e) => e.sortie || e.entree || (e.checks && Object.values(e.checks).some((c) => c.sortie || c.entree)));
-    return !s.superviseur && !s.signature && !hasEquipe && !hasChecks && !s.observations && !s.interventions;
+    return !s.superviseur && !s.signature && !s.signature_sortie && !s.signature_entree && !hasEquipe && !hasChecks && !s.observations && !s.interventions;
   };
   const ROLE_CODES = ['C', 'A', 'R'];
   const ROLE_LABELS_FULL = { C: 'Cadreur', A: 'Assistant', R: 'Régisseur' };
   const emptyChecks = () => ({ C: { sortie: false, entree: false }, A: { sortie: false, entree: false }, R: { sortie: false, entree: false } });
+  // Mode de saisie de chaque signature : 'initiales' (texte) ou 'dessin' (au doigt).
+  const [sigMode, setSigMode] = useState({ sortie: 'initiales', entree: 'initiales' });
   const [seanceForm, setSeanceForm] = useState({
     date: '',
     poste: '',
@@ -265,6 +290,8 @@ export default function Logistique() {
     observations: '',
     interventions: '',
     signature: '',
+    signature_sortie: '',
+    signature_entree: '',
     equipements: [],
     equipe: []
   });
@@ -746,7 +773,8 @@ export default function Logistique() {
 
   // ================= SEANCES (Entrees / Sorties) =================
   const resetSeanceForm = () => {
-    setSeanceForm({ date: '', poste: '', superviseur: '', horaire_debut: '', horaire_fin: '', observations: '', interventions: '', signature: '', equipements: [], equipe: [] });
+    setSigMode({ sortie: 'initiales', entree: 'initiales' });
+    setSeanceForm({ date: '', poste: '', superviseur: '', horaire_debut: '', horaire_fin: '', observations: '', interventions: '', signature: '', signature_sortie: '', signature_entree: '', equipements: [], equipe: [] });
     setSeanceEditingId(null);
   };
 
@@ -760,8 +788,14 @@ export default function Logistique() {
       observations: s.observations || '',
       interventions: s.interventions || '',
       signature: s.signature || '',
+      signature_sortie: s.signature_sortie || '',
+      signature_entree: s.signature_entree || '',
       equipements: (s.equipements || []).map((eq) => ({ nom: eq.nom || '', checks: { ...emptyChecks(), ...(eq.checks || {}) } })),
       equipe: s.equipe || []
+    });
+    setSigMode({
+      sortie: isDrawnSig(s.signature_sortie) ? 'dessin' : 'initiales',
+      entree: isDrawnSig(s.signature_entree) ? 'dessin' : 'initiales',
     });
     setSeanceEditingId(s.id);
     setSeanceDialogOpen(true);
@@ -926,6 +960,8 @@ export default function Logistique() {
       s.jour_label,
       s.superviseur,
       s.signature,
+      sigText(s.signature_sortie),
+      sigText(s.signature_entree),
       s.observations,
       s.interventions,
       ...(s.equipe || []).map((m) => m.nom),
@@ -1394,7 +1430,7 @@ export default function Logistique() {
         .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
         .forEach((s) => {
           const equipe = (s.equipe || []).filter((m) => (m.nom || '').trim()).map((m) => `${m.role ? m.role + ': ' : ''}${m.nom}`).join(', ');
-          aoa.push([s.date || '', s.superviseur || '', s.horaire_debut || '', s.horaire_fin || '', equipe, s.signature || '', s.observations || '']);
+          aoa.push([s.date || '', s.superviseur || '', s.horaire_debut || '', s.horaire_fin || '', equipe, sigSummary(s), s.observations || '']);
         });
     });
     const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -1467,7 +1503,7 @@ export default function Logistique() {
     const matRows = (materiel || []).map((m) => [m.categorie || '', m.nom || '', m.quantite ?? '', m.statut || '']);
     const contactRows = (contacts || []).map((c) => [c.type_contact || '', c.nom || '', c.contact || '', c.telephone || '', c.email || '']);
     const incidentRows = (incidents || []).map((i) => [i.poste || '', i.date || '', i.cadreur_regisseur || '', i.description_probleme || '']);
-    const seanceRows = (seances || []).map((s) => [s.poste || '', s.date || '', s.superviseur || '', s.signature || '']);
+    const seanceRows = (seances || []).map((s) => [s.poste || '', s.date || '', s.superviseur || '', sigSummary(s)]);
 
     container.innerHTML = `
       <div style="font-family: Arial, sans-serif; padding: 40px; color: #333; box-sizing: border-box; width: 900px;">
@@ -1759,12 +1795,14 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                 <Button type="button" variant="outline" size="sm" onClick={collapseAllSeances}>
                   Tout fermer
                 </Button>
-                {/* Légende des couleurs : une couleur par jour de culte */}
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-500/15 px-2.5 py-1 text-xs font-medium text-violet-700 dark:text-violet-300">
-                  <span className="h-2 w-2 rounded-full bg-violet-500" />Vendredi
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/15 px-2.5 py-1 text-xs font-medium text-blue-700 dark:text-blue-300">
-                  <span className="h-2 w-2 rounded-full bg-blue-500" />Dimanche
+                {/* Légende : une couleur par week-end (vendredi + dimanche) */}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  <span className="flex -space-x-1">
+                    {WEEKEND_COULEURS.slice(0, 3).map((c) => (
+                      <span key={c.nom} className={`h-2.5 w-2.5 rounded-full ring-1 ring-background ${c.dot}`} />
+                    ))}
+                  </span>
+                  1 couleur = 1 week-end (vendredi + dimanche)
                 </span>
               </div>
 
@@ -2080,39 +2118,78 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                           <Label>Interventions</Label>
                           <Textarea value={seanceForm.interventions} onChange={(e) => setSeanceForm({ ...seanceForm, interventions: e.target.value })} rows={2} />
                         </div>
-                        <div className="space-y-2">
-                          <Label>Signature</Label>
-                          {/* Champ libre pour les initiales (demande
-28/09/2026, correction : ce sont les cadreurs qui signent, pas les
-régisseurs — ils écrivent leurs initiales). Rangée de boutons
-"1 clic" au-dessus : appuyer sur un nom pré-remplit ses initiales
-dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
-                          {cadreursRoster.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mb-1">
-                              {cadreursOrdered.map((t) => {
-                                const cam = camLabelFor(t.nom);
-                                return (
-                                  <button
-                                    key={t.id}
-                                    type="button"
-                                    onClick={() => setSeanceForm({ ...seanceForm, signature: initialesFromNom(t.nom) })}
-                                    className={`px-2 py-1 rounded-md border text-xs font-medium transition-colors hover:bg-primary/10 hover:border-primary/50 ${cam ? 'border-primary/40 bg-primary/5' : 'border-border bg-muted/40'}`}
-                                    title={cam ? `${t.nom} — ${cam}` : t.nom}
-                                  >
-                                    {initialesFromNom(t.nom)}
-                                    {cam && <span className="ml-1 text-[10px] text-primary">{cam}</span>}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                          <Input
-                            value={seanceForm.signature}
-                            onChange={(e) => setSeanceForm({ ...seanceForm, signature: e.target.value })}
-                            placeholder="Initiales (ex: J.D.)"
-                            className="max-w-[260px]"
-                          />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {[
+                            ['sortie', 'Signature sortie', 'signature_sortie'],
+                            ['entree', 'Signature entrée', 'signature_entree'],
+                          ].map(([key, label, field]) => {
+                            const mode = sigMode[key];
+                            const value = seanceForm[field] || '';
+                            return (
+                              <div key={key} className="space-y-2 rounded-lg border p-3" data-testid={`signature-${key}`}>
+                                <div className="flex items-center justify-between gap-2">
+                                  <Label>{label}</Label>
+                                  <div className="inline-flex rounded-md border p-0.5 text-xs">
+                                    {[['initiales', 'Initiales'], ['dessin', 'Au doigt']].map(([m, mLabel]) => (
+                                      <button
+                                        key={m}
+                                        type="button"
+                                        onClick={() => {
+                                          if (mode === m) return;
+                                          setSigMode({ ...sigMode, [key]: m });
+                                          // Changer de mode repart d'une signature vierge.
+                                          setSeanceForm({ ...seanceForm, [field]: '' });
+                                        }}
+                                        className={`rounded px-2 py-1 font-medium transition-colors ${mode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                                      >
+                                        {mLabel}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                {mode === 'dessin' ? (
+                                  <SignaturePad
+                                    value={value}
+                                    onChange={(v) => setSeanceForm((f) => ({ ...f, [field]: v }))}
+                                  />
+                                ) : (
+                                  <>
+                                    {cadreursRoster.length > 0 && (
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {cadreursOrdered.map((t) => {
+                                          const cam = camLabelFor(t.nom);
+                                          return (
+                                            <button
+                                              key={t.id}
+                                              type="button"
+                                              onClick={() => setSeanceForm({ ...seanceForm, [field]: initialesFromNom(t.nom) })}
+                                              className={`px-2 py-1 rounded-md border text-xs font-medium transition-colors hover:bg-primary/10 hover:border-primary/50 ${cam ? 'border-primary/40 bg-primary/5' : 'border-border bg-muted/40'}`}
+                                              title={cam ? `${t.nom} — ${cam}` : t.nom}
+                                            >
+                                              {initialesFromNom(t.nom)}
+                                              {cam && <span className="ml-1 text-[10px] text-primary">{cam}</span>}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                    <Input
+                                      value={isDrawnSig(value) ? '' : value}
+                                      onChange={(e) => setSeanceForm({ ...seanceForm, [field]: e.target.value })}
+                                      placeholder="Initiales (ex: J.D.)"
+                                      className="max-w-[260px]"
+                                    />
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
+                        {seanceForm.signature && !seanceForm.signature_sortie && !seanceForm.signature_entree && (
+                          <p className="text-xs text-muted-foreground">
+                            Ancienne signature enregistrée : « {sigText(seanceForm.signature)} » — signez ci-dessus à la sortie et à l'entrée pour la remplacer.
+                          </p>
+                        )}
                         <Button type="submit" className="w-full" disabled={seanceSubmitting}>
                           {seanceSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                           {seanceEditingId ? 'Modifier' : 'Enregistrer'}
@@ -2231,10 +2308,8 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                                             ? new Date(`${s.date}T00:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
                                             : '-'}
                                         </span>
-                                        {vide ? (
+                                        {vide && (
                                           <Badge variant="outline" className="font-normal text-muted-foreground w-fit">Vide</Badge>
-                                        ) : (
-                                          <Badge className="font-normal bg-emerald-100 text-emerald-800 hover:bg-emerald-100 w-fit">Rempli</Badge>
                                         )}
                                       </div>
                                     </TableCell>
@@ -2350,7 +2425,25 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                                           )}
                                           {s.observations && <p className="text-xs text-muted-foreground italic mt-2">Obs: {s.observations}</p>}
                                           {s.interventions && <p className="text-xs text-muted-foreground italic mt-2">Interventions: {s.interventions}</p>}
-                                          {s.signature && <p className="text-xs text-muted-foreground mt-2">Signature: <span className="font-medium">{s.signature}</span></p>}
+                                          {(s.signature_sortie || s.signature_entree || s.signature) && (
+                                            <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                                              {[['Sortie', s.signature_sortie], ['Entrée', s.signature_entree]].map(([lab, v]) =>
+                                                v ? (
+                                                  <div key={lab} className="flex items-center gap-2">
+                                                    <span>Signature {lab.toLowerCase()} :</span>
+                                                    {isDrawnSig(v) ? (
+                                                      <img src={v} alt={`Signature ${lab.toLowerCase()}`} className="h-10 rounded border bg-white" />
+                                                    ) : (
+                                                      <span className="font-medium text-foreground">{v}</span>
+                                                    )}
+                                                  </div>
+                                                ) : null
+                                              )}
+                                              {!s.signature_sortie && !s.signature_entree && s.signature && (
+                                                <span>Signature : <span className="font-medium text-foreground">{sigText(s.signature)}</span></span>
+                                              )}
+                                            </div>
+                                          )}
                                         </div>
                                       </TableCell>
                                     </TableRow>

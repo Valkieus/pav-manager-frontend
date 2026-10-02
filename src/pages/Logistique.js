@@ -52,7 +52,8 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
-  Calendar
+  Calendar,
+  CheckSquare
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -578,6 +579,25 @@ export default function Logistique() {
     const checks = { ...emptyChecks(), ...current.checks };
     checks[roleCode] = { ...checks[roleCode], [field]: value };
     eqs[idx] = { ...current, checks };
+    setSeanceForm({ ...seanceForm, equipements: eqs });
+  };
+
+  // 1 clic : coche (ou décoche si déjà tout coché) la case Sortie — ou Entrée —
+  // de TOUS les membres (C / A / R) sur TOUTES les lignes d'équipement.
+  const allChecked = (field) =>
+    seanceForm.equipements.length > 0 &&
+    seanceForm.equipements.every((eq) =>
+      ROLE_CODES.every((rc) => !!eq.checks?.[rc]?.[field])
+    );
+  const toggleAllChecks = (field) => {
+    const value = !allChecked(field);
+    const eqs = seanceForm.equipements.map((eq) => {
+      const checks = { ...emptyChecks(), ...eq.checks };
+      ROLE_CODES.forEach((rc) => {
+        checks[rc] = { ...checks[rc], [field]: value };
+      });
+      return { ...eq, checks };
+    });
     setSeanceForm({ ...seanceForm, equipements: eqs });
   };
 
@@ -1542,6 +1562,30 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                               <Plus className="w-3 h-3 mr-1" />Ajouter une ligne
                             </Button>
                           </div>
+                          {seanceForm.equipements.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={allChecked('sortie') ? 'secondary' : 'outline'}
+                                onClick={() => toggleAllChecks('sortie')}
+                                data-testid="check-all-sorties"
+                              >
+                                <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
+                                {allChecked('sortie') ? 'Décocher toutes les sorties' : 'Tout cocher : sorties'}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={allChecked('entree') ? 'secondary' : 'outline'}
+                                onClick={() => toggleAllChecks('entree')}
+                                data-testid="check-all-entrees"
+                              >
+                                <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
+                                {allChecked('entree') ? 'Décocher toutes les entrées' : 'Tout cocher : entrées'}
+                              </Button>
+                            </div>
+                          )}
                           <div className="space-y-2 max-h-[360px] overflow-y-auto">
                             {seanceForm.equipements.map((eq, idx) => (
                               <div key={idx} className="border rounded p-2 space-y-2">

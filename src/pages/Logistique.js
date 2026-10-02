@@ -244,6 +244,15 @@ export default function Logistique() {
   // l'impression que les vraies données (import Excel) ont disparu.
   const MOIS_NOMS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
   const [expandedMonths, setExpandedMonths] = useState(new Set());
+  // Cartes « Caméra N » repliables d'un clic sur leur titre.
+  const [collapsedPostes, setCollapsedPostes] = useState(new Set());
+  const togglePoste = (poste) =>
+    setCollapsedPostes((prev) => {
+      const next = new Set(prev);
+      if (next.has(poste)) next.delete(poste);
+      else next.add(poste);
+      return next;
+    });
   const CURRENT_MONTH_STR = String(new Date().getMonth() + 1).padStart(2, '0');
   // Même logique d'accordéon que toggleYear, mais au niveau mois, limitée
   // aux mois de la même année/poste.
@@ -1027,6 +1036,7 @@ export default function Logistique() {
     });
   };
   const expandAllSeances = () => {
+    setCollapsedPostes(new Set());
     setAllSeanceYearsOpen(true);
     setAllSeanceMonthsOpen(true);
   };
@@ -1840,6 +1850,33 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                       <Button data-testid="add-seance-btn"><Plus className="w-4 h-4 mr-2" />Nouveau culte</Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
+                      {/* Bandeau collé en haut de la fiche : numéro de caméra en
+                          très grand, toujours visible pendant le défilement, pour
+                          ne pas se tromper de fiche. */}
+                      {seanceForm.poste && (() => {
+                        const camNum = (seanceForm.poste.match(/\d+/) || [null])[0];
+                        const couleur = jourCouleur(seanceForm.date);
+                        const jour = seanceForm.date
+                          ? new Date(`${seanceForm.date}T00:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+                          : '';
+                        return (
+                          <div
+                            className="sticky top-0 z-20 -mx-6 -mt-6 flex items-center gap-4 border-b bg-background px-6 py-3 pr-12 shadow-sm"
+                            data-testid="fiche-camera-banner"
+                          >
+                            <div className="flex h-20 min-w-[5rem] flex-col items-center justify-center rounded-xl bg-primary px-3 text-primary-foreground shadow">
+                              <span className="text-[10px] font-semibold uppercase leading-none tracking-widest opacity-80">Caméra</span>
+                              <span className="text-5xl font-black leading-none">{camNum || '•'}</span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-xl font-bold">{seanceForm.poste}</p>
+                              {jour && (
+                                <p className={`truncate text-sm font-medium capitalize ${couleur?.text || 'text-muted-foreground'}`}>{jour}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       <DialogHeader>
                         <DialogTitle>{seanceEditingId ? 'Modifier le culte' : 'Nouveau culte'}</DialogTitle>
                         <DialogDescription>Enregistrer les entrées/sorties d'équipement</DialogDescription>
@@ -2215,12 +2252,20 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                   if (group.length === 0 && filterSeancePoste === 'all') return null;
                   return (
                     <Card key={poste}>
-                      <CardHeader className="py-3 border-b">
-                        <CardTitle className="text-base flex items-center gap-2">
+                      <CardHeader
+                        className="py-3 border-b cursor-pointer select-none hover:bg-muted/40 transition-colors"
+                        onClick={() => togglePoste(poste)}
+                        role="button"
+                        aria-expanded={!collapsedPostes.has(poste)}
+                        data-testid={`poste-header-${poste}`}
+                      >
+                        <CardTitle className="text-xl flex items-center gap-2">
+                          {collapsedPostes.has(poste) ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
                           {poste || 'Non classé'}
                           <Badge variant="secondary" className="font-normal">{group.length}</Badge>
                         </CardTitle>
                       </CardHeader>
+                      {!collapsedPostes.has(poste) && (
                       <CardContent className="p-0">
                         {group.length === 0 ? (
                           <div className="p-6 text-center">
@@ -2254,11 +2299,11 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     const open = isYearOpen(yearKey, year);
                                     rows.push(
                                       <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted cursor-pointer" onClick={() => toggleYear(poste, year)}>
-                                        <TableCell colSpan={6} className="py-2">
-                                          <div className="flex items-center gap-2 font-semibold text-sm">
-                                            {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                        <TableCell colSpan={6} className="py-3">
+                                          <div className="flex items-center gap-2 font-bold text-lg">
+                                            {open ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                                             {year}
-                                            <Badge variant="outline" className="font-normal">{yearCount}</Badge>
+                                            <Badge variant="outline" className="font-normal text-sm">{yearCount}</Badge>
                                           </div>
                                         </TableCell>
                                       </TableRow>,
@@ -2279,12 +2324,12 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     const monthOpen = isMonthOpen(monthKey, monthDefaultOpen);
                                     const monthLabel = MOIS_NOMS_FR[parseInt(monthNum, 10) - 1] || monthNum;
                                     rows.push(
-                                      <TableRow key={`month-${monthKey}`} className="bg-muted/25 hover:bg-muted/40 cursor-pointer" onClick={() => toggleMonth(poste, currentYear, monthNum)}>
-                                        <TableCell colSpan={6} className="py-1.5 pl-6">
-                                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            {monthOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                      <TableRow key={`month-${monthKey}`} className="bg-muted/40 hover:bg-muted/60 cursor-pointer" onClick={() => toggleMonth(poste, currentYear, monthNum)}>
+                                        <TableCell colSpan={6} className="py-3 pl-6">
+                                          <div className="flex items-center gap-2 text-base font-semibold text-foreground">
+                                            {monthOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                                             {monthLabel}
-                                            <Badge variant="outline" className="font-normal">{monthCount}</Badge>
+                                            <Badge variant="outline" className="font-normal text-sm">{monthCount}</Badge>
                                           </div>
                                         </TableCell>
                                       </TableRow>,
@@ -2457,6 +2502,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                           </Table>
                         )}
                       </CardContent>
+                      )}
                     </Card>
                   );
                 });

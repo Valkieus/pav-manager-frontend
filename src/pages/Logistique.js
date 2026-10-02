@@ -1671,18 +1671,60 @@ export default function Logistique() {
                 </Card>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader><CardTitle className="text-base">Derniers cultes</CardTitle></CardHeader>
-                  <CardContent className="space-y-2">
-                    {sortedSeances.length === 0 && <p className="text-sm text-muted-foreground">Aucun culte enregistré</p>}
-                    {sortedSeances.slice(0, 5).map((s) => (
-                      <div key={s.id} className="flex justify-between text-sm border-b pb-1">
-                        <span>{s.date} — {s.poste}</span>
-                        <span className="text-muted-foreground">{s.superviseur}</span>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
+                {(() => {
+                  // Fiches du jour : celles du jour de culte d'aujourd'hui, sinon du
+                  // prochain (à défaut, du dernier). Couleur = celle de la caméra.
+                  const now = new Date();
+                  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                  const dated = sortedSeances.filter((s) => s.date);
+                  const targetDate =
+                    (dated.find((s) => s.date >= todayStr) || dated[dated.length - 1] || {}).date || null;
+                  const dayFiches = dated
+                    .filter((s) => s.date === targetDate)
+                    .sort((a, b) => (parseInt((a.poste.match(/\d+/) || [99])[0], 10)) - (parseInt((b.poste.match(/\d+/) || [99])[0], 10)));
+                  const label =
+                    targetDate === todayStr ? "Fiches d'aujourd'hui" : targetDate && targetDate > todayStr ? 'Fiches du prochain culte' : 'Fiches du dernier culte';
+                  return (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">
+                          {label}
+                          {targetDate && (
+                            <span className="ml-2 text-sm font-normal capitalize text-muted-foreground">
+                              {new Date(`${targetDate}T00:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long' })}
+                            </span>
+                          )}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-1.5">
+                        {dayFiches.length === 0 && <p className="text-sm text-muted-foreground">Aucun culte enregistré</p>}
+                        {dayFiches.map((s) => {
+                          const cam = cameraCouleur(s.poste);
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => {
+                                setSubTab('entrees-sorties');
+                                if (canManage()) handleEditSeance(s);
+                              }}
+                              className={`flex w-full items-center gap-3 rounded-md border-l-8 px-3 py-2 text-left text-sm transition-colors hover:brightness-95 ${cam?.border || 'border-l-transparent'} ${cam?.soft || 'bg-muted/30'}`}
+                            >
+                              <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base font-black ${cam?.solid || 'bg-muted'}`}>
+                                {parseInt((s.poste.match(/\d+/) || ['•'])[0], 10) || '•'}
+                              </span>
+                              <span className="flex-1 font-medium">{s.poste}</span>
+                              <span className="truncate text-muted-foreground">{s.superviseur ? canonName(s.superviseur) : '—'}</span>
+                              {isSeanceVide(s) && (
+                                <Badge variant="outline" className="font-normal text-muted-foreground">Vide</Badge>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
                 <Card>
                   <CardHeader><CardTitle className="text-base">Contacts</CardTitle></CardHeader>
                   <CardContent className="space-y-2">
@@ -1832,7 +1874,10 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                           : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
                       }`}
                     >
-                      {p}
+                      <span className="inline-flex items-center gap-1.5">
+                        {cameraCouleur(p) && <span className={`h-2.5 w-2.5 rounded-full ${cameraCouleur(p).dot}`} />}
+                        {p}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -3068,7 +3113,10 @@ classeur plutôt que de choisir dans une liste. */}
                           : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
                       }`}
                     >
-                      {p}
+                      <span className="inline-flex items-center gap-1.5">
+                        {cameraCouleur(p) && <span className={`h-2.5 w-2.5 rounded-full ${cameraCouleur(p).dot}`} />}
+                        {p}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -3157,8 +3205,13 @@ classeur plutôt que de choisir dans une liste. */}
                   if (group.length === 0 && filterIncidentPoste === 'all') return null;
                   return (
                     <Card key={poste}>
-                      <CardHeader className="py-3 border-b">
-                        <CardTitle className="text-base flex items-center gap-2">
+                      <CardHeader className={`py-3 border-b ${cameraCouleur(poste)?.soft || ''}`}>
+                        <CardTitle className="text-xl flex items-center gap-2">
+                          {cameraCouleur(poste) && (
+                            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-base font-black ${cameraCouleur(poste).solid}`}>
+                              {parseInt((poste.match(/\d+/) || [''])[0], 10)}
+                            </span>
+                          )}
                           {poste || 'Non classé'}
                           <Badge variant="secondary" className="font-normal">{group.length}</Badge>
                         </CardTitle>
@@ -3184,7 +3237,7 @@ classeur plutôt que de choisir dans une liste. */}
                             <TableBody>
                               {group.map((i) => (
                                 <TableRow key={i.id} onClick={() => !i.is_archived && handleEditIncident(i)} className={i.is_archived ? 'opacity-80' : 'cursor-pointer hover:bg-muted/50'}>
-                                  <TableCell className="text-muted-foreground">{i.date || '-'}</TableCell>
+                                  <TableCell className={`text-muted-foreground border-l-8 ${cameraCouleur(i.poste)?.border || 'border-l-transparent'}`}>{i.date || '-'}</TableCell>
                                   <TableCell className="text-muted-foreground">{i.cadreur_regisseur || '-'}</TableCell>
                                   <TableCell className="text-muted-foreground">{i.equipement_concerne || '-'}</TableCell>
                                   <TableCell className="max-w-[280px] truncate" title={i.description_probleme}>{i.description_probleme}</TableCell>

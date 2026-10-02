@@ -1893,7 +1893,9 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                     <DialogTrigger asChild>
                       <Button data-testid="add-seance-btn"><Plus className="w-4 h-4 mr-2" />Nouveau culte</Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
+                    {/* onOpenAutoFocus : sur iPad, le focus automatique sur le champ date
+                        ouvrait le sélecteur de date dès l'ouverture de la fiche. */}
+                    <DialogContent className="max-w-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
                       {/* Bandeau collé en haut de la fiche : numéro de caméra en
                           très grand, toujours visible pendant le défilement, pour
                           ne pas se tromper de fiche. */}

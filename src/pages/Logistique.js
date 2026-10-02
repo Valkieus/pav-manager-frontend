@@ -2186,13 +2186,13 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                         return (
                                           <TableCell
                                             key={`${rc}-${field}`}
-                                            className={`text-center p-1 ${field === 'entree' ? 'border-l' : ''} ${
+                                            className={`text-center p-2 ${field === 'entree' ? 'border-l' : ''} ${
                                               checked ? (field === 'sortie' ? 'bg-blue-800/15' : 'bg-sky-300/25') : ''
                                             }`}
                                           >
                                             <input
                                               type="checkbox"
-                                              className="w-4 h-4 cursor-pointer"
+                                              className="w-7 h-7 cursor-pointer accent-primary"
                                               checked={checked}
                                               onChange={(e) => updateEquipementCheck(idx, rc, field, e.target.checked)}
                                               aria-label={`${rc} ${field === 'sortie' ? 'sortie' : 'entrée'}`}

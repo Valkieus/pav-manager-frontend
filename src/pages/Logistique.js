@@ -140,8 +140,7 @@ const isDrawnSig = (v) => typeof v === 'string' && v.startsWith('data:image');
 const sigText = (v) => (!v ? '' : isDrawnSig(v) ? '(signature dessinée)' : v);
 const sigSummary = (s) => {
   const parts = [
-    s.signature_entree && `Entrée : ${sigText(s.signature_entree)}`,
-    s.signature_sortie && `Sortie : ${sigText(s.signature_sortie)}`,
+    s.signature_entree && `Retour matériel : ${sigText(s.signature_entree)}`,
   ].filter(Boolean);
   if (parts.length === 0 && s.signature) return sigText(s.signature);
   return parts.join(' / ');
@@ -962,7 +961,6 @@ export default function Logistique({ kioskMode = false }) {
       s.jour_label,
       s.superviseur,
       s.signature,
-      sigText(s.signature_sortie),
       sigText(s.signature_entree),
       s.observations,
       s.interventions,
@@ -2201,12 +2199,11 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                           <Label>Interventions</Label>
                           <Textarea value={seanceForm.interventions} onChange={(e) => setSeanceForm({ ...seanceForm, interventions: e.target.value })} rows={2} />
                         </div>
-                        {/* Signatures sortie / entrée : uniquement au doigt (ou à la
+                        {/* Signature unique « Retour matériel » : uniquement au doigt (ou à la
                             souris), grandes zones l'une sous l'autre. */}
                         <div className="space-y-4">
                           {[
-                            ['entree', 'Signature entrée', 'signature_entree'],
-                            ['sortie', 'Signature sortie', 'signature_sortie'],
+                            ['entree', 'Signature — Retour matériel', 'signature_entree'],
                           ].map(([key, label, field]) => {
                             const value = seanceForm[field] || '';
                             return (
@@ -2258,9 +2255,9 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                             );
                           })}
                         </div>
-                        {seanceForm.signature && !seanceForm.signature_sortie && !seanceForm.signature_entree && (
+                        {seanceForm.signature && !seanceForm.signature_entree && (
                           <p className="text-xs text-muted-foreground">
-                            Ancienne signature enregistrée : « {sigText(seanceForm.signature)} » — signez ci-dessus à la sortie et à l'entrée pour la remplacer.
+                            Ancienne signature enregistrée : « {sigText(seanceForm.signature)} » — signez ci-dessus (Retour matériel) pour la remplacer.
                           </p>
                         )}
                         <Button type="submit" className="w-full" disabled={seanceSubmitting}>
@@ -2433,13 +2430,14 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                       )}
                                     </TableCell>
                                     <TableCell className="align-top whitespace-nowrap text-sm">
-                                      {[['Sortie', s.horaire_debut, s.signature_sortie, s.signature_sortie_par], ['Entrée', s.horaire_fin, s.signature_entree, s.signature_entree_par]].map(([lab, h, sig, par]) => {
+                                      {[['Sortie', s.horaire_debut, null, null], ['Entrée', s.horaire_fin, s.signature_entree, s.signature_entree_par]].map(([lab, h, sig, par]) => {
                                         const signed = !!sig;
+                                        const hasSig = lab === 'Entrée';
                                         return (
-                                          <div key={lab} className="flex items-center gap-1.5" title={signed ? `${lab} signée${par ? ` par ${par}` : ''}` : `${lab} non signée`}>
+                                          <div key={lab} className="flex items-center gap-1.5" title={!hasSig ? undefined : signed ? `Retour matériel signé${par ? ` par ${par}` : ''}` : 'Retour matériel non signé'}>
                                             <span className="w-11 text-xs text-muted-foreground">{lab}</span>
                                             <span className="font-medium tabular-nums">{h || '—'}</span>
-                                            {signed ? <PenLine className="w-4 h-4 text-green-600" /> : <Circle className="w-4 h-4 text-muted-foreground/40" />}
+                                            {hasSig && (signed ? <PenLine className="w-4 h-4 text-green-600" /> : <Circle className="w-4 h-4 text-muted-foreground/40" />)}
                                           </div>
                                         );
                                       })}
@@ -2530,9 +2528,9 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                           )}
                                           {s.observations && <p className="text-xs text-muted-foreground italic mt-2">Obs: {s.observations}</p>}
                                           {s.interventions && <p className="text-xs text-muted-foreground italic mt-2">Interventions: {s.interventions}</p>}
-                                          {(s.signature_sortie || s.signature_entree || s.signature) && (
+                                          {(s.signature_entree || s.signature) && (
                                             <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                                              {[['Entrée', s.signature_entree], ['Sortie', s.signature_sortie]].map(([lab, v]) =>
+                                              {[['Retour matériel', s.signature_entree]].map(([lab, v]) =>
                                                 v ? (
                                                   <div key={lab} className="flex items-center gap-2">
                                                     <span>Signature {lab.toLowerCase()} :</span>
@@ -2541,13 +2539,13 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                                     ) : (
                                                       <span className="font-medium text-foreground">{v}</span>
                                                     )}
-                                                    {(lab === 'Entrée' ? s.signature_entree_par : s.signature_sortie_par) && (
-                                                      <span className="font-medium text-foreground">— {lab === 'Entrée' ? s.signature_entree_par : s.signature_sortie_par}</span>
+                                                    {s.signature_entree_par && (
+                                                      <span className="font-medium text-foreground">— {s.signature_entree_par}</span>
                                                     )}
                                                   </div>
                                                 ) : null
                                               )}
-                                              {!s.signature_sortie && !s.signature_entree && s.signature && (
+                                              {!s.signature_entree && s.signature && (
                                                 <span>Signature : <span className="font-medium text-foreground">{sigText(s.signature)}</span></span>
                                               )}
                                             </div>

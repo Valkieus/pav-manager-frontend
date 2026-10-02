@@ -3240,15 +3240,28 @@ même limite pour éviter un 403 après coup. */}
                             uniquement · session permanente
                           </p>
                         </div>
-                        <Badge
-                          className={
-                            u.is_active
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }
-                        >
-                          {u.is_active ? "Actif" : "Inactif"}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedUserForReset(u);
+                              setNewPassword("");
+                              setResetPasswordDialogOpen(true);
+                            }}
+                          >
+                            <Key className="w-4 h-4 mr-1" /> Définir le mot de passe
+                          </Button>
+                          <Badge
+                            className={
+                              u.is_active
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }
+                          >
+                            {u.is_active ? "Actif" : "Inactif"}
+                          </Badge>
+                        </div>
                       </div>
                     ))}
                   {kioskCreated && (

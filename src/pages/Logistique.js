@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import SignaturePad from '../components/SignaturePad';
@@ -241,14 +241,25 @@ export default function Logistique({ kioskMode = false }) {
     if (!el || !el.scrollIntoView) return;
     requestAnimationFrame(() => requestAnimationFrame(() => el.scrollIntoView({ block: 'nearest' })));
   };
-  const toggleYear = (poste, year, el) => {
-    keepInView(el);
+  // Le clic donne l'état voulu (« ouvrir » ou « fermer ») calculé à partir de ce
+  // qui est affiché, au lieu d'inverser un état interne : plus de décalage possible
+  // entre l'affichage et le basculement. Un 2e clic reçu dans les 350 ms sur le
+  // même titre (double événement tactile) est ignoré.
+  const lastToggleRef = useRef({ key: '', t: 0 });
+  const dedupe = (key) => {
+    const now = Date.now();
+    if (lastToggleRef.current.key === key && now - lastToggleRef.current.t < 350) return true;
+    lastToggleRef.current = { key, t: now };
+    return false;
+  };
+  const setYearOpen = (poste, year, nextOpen, el) => {
     const key = `${poste}__${year}`;
+    if (dedupe(`y:${key}`)) return;
+    keepInView(el);
     const siblings = (yearsByPoste.get(poste) || []).filter((y) => y !== year);
     setYearOv((prev) => {
-      const cur = key in prev ? prev[key] : year === CURRENT_YEAR_STR;
-      const next = { ...prev, [key]: !cur };
-      if (!cur) siblings.forEach((y) => { next[`${poste}__${y}`] = false; });
+      const next = { ...prev, [key]: nextOpen };
+      if (nextOpen) siblings.forEach((y) => { next[`${poste}__${y}`] = false; });
       return next;
     });
   };
@@ -276,15 +287,14 @@ export default function Logistique({ kioskMode = false }) {
   const monthDefaultOpenFor = (year, month) => year === CURRENT_YEAR_STR && month === CURRENT_MONTH_STR;
   // Même logique d'accordéon que toggleYear, mais au niveau mois, limitée
   // aux mois de la même année/poste.
-  const toggleMonth = (poste, year, month, el) => {
-    keepInView(el);
+  const setMonthOpen = (poste, year, month, nextOpen, el) => {
     const key = `${poste}__${year}__${month}`;
+    if (dedupe(`m:${key}`)) return;
+    keepInView(el);
     const defs = monthsByPosteYear.get(`${poste}__${year}`) || [];
-    const defOf = (m) => (defs.find((d) => d.month === m) || {}).defaultOpen || false;
     setMonthOv((prev) => {
-      const cur = key in prev ? prev[key] : defOf(month);
-      const next = { ...prev, [key]: !cur };
-      if (!cur) defs.filter((d) => d.month !== month).forEach((d) => { next[`${poste}__${year}__${d.month}`] = false; });
+      const next = { ...prev, [key]: nextOpen };
+      if (nextOpen) defs.filter((d) => d.month !== month).forEach((d) => { next[`${poste}__${year}__${d.month}`] = false; });
       return next;
     });
   };
@@ -2371,7 +2381,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     const yearCount = group.filter((g) => (g.date || '').slice(0, 4) === year).length;
                                     const open = isYearOpen(yearKey, year);
                                     rows.push(
-                                      <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted cursor-pointer touch-manipulation" onClick={(e) => toggleYear(poste, year, e.currentTarget)}>
+                                      <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted cursor-pointer touch-manipulation" onClick={(e) => setYearOpen(poste, year, !open, e.currentTarget)}>
                                         <TableCell colSpan={7} className="p-0 cursor-pointer">
                                           {/* Vrai bouton (et non clic sur la ligne) : fiable au toucher sur iPad. */}
                                           <button
@@ -2401,7 +2411,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     const monthOpen = isMonthOpen(monthKey, monthDefaultOpen);
                                     const monthLabel = MOIS_NOMS_FR[parseInt(monthNum, 10) - 1] || monthNum;
                                     rows.push(
-                                      <TableRow key={`month-${monthKey}`} className="bg-muted/40 hover:bg-muted/60 cursor-pointer touch-manipulation" onClick={(e) => toggleMonth(poste, currentYear, monthNum, e.currentTarget)}>
+                                      <TableRow key={`month-${monthKey}`} className="bg-muted/40 hover:bg-muted/60 cursor-pointer touch-manipulation" onClick={(e) => setMonthOpen(poste, currentYear, monthNum, !monthOpen, e.currentTarget)}>
                                         <TableCell colSpan={7} className="p-0 cursor-pointer">
                                           <button
                                             type="button"
@@ -2478,7 +2488,15 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                           <div key={lab} className="flex items-center gap-1.5" title={!hasSig ? undefined : signed ? `Retour matériel signé${par ? ` par ${par}` : ''}` : 'Retour matériel non signé'}>
                                             <span className="w-11 text-xs text-muted-foreground">{lab}</span>
                                             <span className="font-medium tabular-nums">{h || '—'}</span>
-                                            {hasSig && (signed ? <PenLine className="w-4 h-4 text-green-600" /> : <Circle className="w-4 h-4 text-muted-foreground/40" />)}
+                                            {hasSig && (signed ? (
+                                              <span className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2.5 py-1 text-sm font-bold text-white shadow-sm">
+                                                <PenLine className="w-5 h-5" /> Signé
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center gap-1 rounded-full border-2 border-dashed border-amber-500 px-2.5 py-1 text-sm font-semibold text-amber-600">
+                                                <Circle className="w-5 h-5" /> À signer
+                                              </span>
+                                            ))}
                                           </div>
                                         );
                                       })}

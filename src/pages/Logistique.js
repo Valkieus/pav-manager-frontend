@@ -2411,16 +2411,16 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     const monthOpen = isMonthOpen(monthKey, monthDefaultOpen);
                                     const monthLabel = MOIS_NOMS_FR[parseInt(monthNum, 10) - 1] || monthNum;
                                     rows.push(
-                                      <TableRow key={`month-${monthKey}`} className="bg-muted/40 hover:bg-muted/60 cursor-pointer touch-manipulation" onClick={(e) => setMonthOpen(poste, currentYear, monthNum, !monthOpen, e.currentTarget)}>
+                                      <TableRow key={`month-${monthKey}`} className={`cursor-pointer touch-manipulation ${monthOpen ? 'bg-blue-600 hover:bg-blue-600 text-white dark:bg-blue-700 dark:hover:bg-blue-700' : 'bg-muted/40 hover:bg-muted/60'}`} onClick={(e) => setMonthOpen(poste, currentYear, monthNum, !monthOpen, e.currentTarget)}>
                                         <TableCell colSpan={7} className="p-0 cursor-pointer">
                                           <button
                                             type="button"
                                             aria-expanded={monthOpen}
-                                            className="flex w-full touch-manipulation items-center gap-2 py-4 pl-8 pr-4 text-left text-base font-semibold text-foreground"
+                                            className={`flex w-full touch-manipulation items-center gap-2 py-4 pl-8 pr-4 text-left text-base font-semibold ${monthOpen ? 'text-white' : 'text-foreground'}`}
                                           >
                                             {monthOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                                             {monthLabel}
-                                            <Badge variant="outline" className="font-normal text-sm">{monthCount}</Badge>
+                                            <Badge variant="outline" className={`font-normal text-sm ${monthOpen ? 'border-white/60 text-white' : ''}`}>{monthCount}</Badge>
                                           </button>
                                         </TableCell>
                                       </TableRow>,

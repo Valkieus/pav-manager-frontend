@@ -803,6 +803,15 @@ export default function Logistique({ kioskMode = false }) {
     setSeanceEditingId(null);
   };
 
+  // Depuis la liste : ouvre la fiche directement sur la zone « Retour matériel »
+  // (signature + nom du signataire).
+  const openSeanceToSign = (s) => {
+    handleEditSeance(s);
+    [350, 800].forEach((d) => setTimeout(() => {
+      const el = document.querySelector('[data-testid="signature-entree"]');
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, d));
+  };
   const handleEditSeance = (s) => {
     setSeanceForm({
       date: s.date || '',
@@ -2484,6 +2493,15 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                               <span className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2.5 py-1 text-sm font-bold text-white shadow-sm">
                                                 <PenLine className="w-5 h-5" /> Signé
                                               </span>
+                                            ) : canManage() ? (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); openSeanceToSign(s); }}
+                                                className="touch-manipulation inline-flex items-center gap-1 rounded-full border-2 border-dashed border-amber-500 px-2.5 py-1 text-sm font-semibold text-amber-600 hover:bg-amber-50"
+                                                data-testid="open-sign-btn"
+                                              >
+                                                <Circle className="w-5 h-5" /> À signer
+                                              </button>
                                             ) : (
                                               <span className="inline-flex items-center gap-1 rounded-full border-2 border-dashed border-amber-500 px-2.5 py-1 text-sm font-semibold text-amber-600">
                                                 <Circle className="w-5 h-5" /> À signer
@@ -2579,6 +2597,15 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                           )}
                                           {s.observations && <p className="text-xs text-muted-foreground italic mt-2">Obs: {s.observations}</p>}
                                           {s.interventions && <p className="text-xs text-muted-foreground italic mt-2">Interventions: {s.interventions}</p>}
+                                          {!s.signature_entree && !s.signature && canManage() && (
+                                            <button
+                                              type="button"
+                                              onClick={() => openSeanceToSign(s)}
+                                              className="touch-manipulation mt-2 inline-flex items-center gap-1 rounded-full border-2 border-dashed border-amber-500 px-3 py-1.5 text-sm font-semibold text-amber-600 hover:bg-amber-50"
+                                            >
+                                              <PenLine className="w-5 h-5" /> À signer — Retour matériel
+                                            </button>
+                                          )}
                                           {(s.signature_entree || s.signature) && (
                                             <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
                                               {[['Retour matériel', s.signature_entree]].map(([lab, v]) =>

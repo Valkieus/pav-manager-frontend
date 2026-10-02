@@ -138,8 +138,8 @@ const isDrawnSig = (v) => typeof v === 'string' && v.startsWith('data:image');
 const sigText = (v) => (!v ? '' : isDrawnSig(v) ? '(signature dessinée)' : v);
 const sigSummary = (s) => {
   const parts = [
-    s.signature_sortie && `Sortie : ${sigText(s.signature_sortie)}`,
     s.signature_entree && `Entrée : ${sigText(s.signature_entree)}`,
+    s.signature_sortie && `Sortie : ${sigText(s.signature_sortie)}`,
   ].filter(Boolean);
   if (parts.length === 0 && s.signature) return sigText(s.signature);
   return parts.join(' / ');
@@ -1985,20 +1985,6 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                         )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label>Heure sortie</Label>
-                            <Input
-                              type="time"
-                              step={60}
-                              value={heureToInput(seanceForm.horaire_debut)}
-                              onChange={(e) => setSeanceForm({ ...seanceForm, horaire_debut: heureFromInput(e.target.value) })}
-                              className="max-w-[160px]"
-                              data-testid="heure-sortie"
-                            />
-                            {seanceForm.horaire_debut && !heureToInput(seanceForm.horaire_debut) && (
-                              <p className="text-xs text-muted-foreground">Ancienne saisie : « {seanceForm.horaire_debut} » — choisissez l'heure pour la remplacer.</p>
-                            )}
-                          </div>
-                          <div className="space-y-2">
                             <Label>Heure entrée</Label>
                             <Input
                               type="time"
@@ -2010,6 +1996,20 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                             />
                             {seanceForm.horaire_fin && !heureToInput(seanceForm.horaire_fin) && (
                               <p className="text-xs text-muted-foreground">Ancienne saisie : « {seanceForm.horaire_fin} » — choisissez l'heure pour la remplacer.</p>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Heure sortie</Label>
+                            <Input
+                              type="time"
+                              step={60}
+                              value={heureToInput(seanceForm.horaire_debut)}
+                              onChange={(e) => setSeanceForm({ ...seanceForm, horaire_debut: heureFromInput(e.target.value) })}
+                              className="max-w-[160px]"
+                              data-testid="heure-sortie"
+                            />
+                            {seanceForm.horaire_debut && !heureToInput(seanceForm.horaire_debut) && (
+                              <p className="text-xs text-muted-foreground">Ancienne saisie : « {seanceForm.horaire_debut} » — choisissez l'heure pour la remplacer.</p>
                             )}
                           </div>
                         </div>
@@ -2061,7 +2061,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                         </div>
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
-                            <Label>Équipements — case Sortie/Entrée par membre (comme la fiche papier)</Label>
+                            <Label>Équipements — case Entrée/Sortie par membre (comme la fiche papier)</Label>
                             <Button type="button" size="sm" variant="outline" onClick={addEquipementLigne}>
                               <Plus className="w-3 h-3 mr-1" />Ajouter une ligne
                             </Button>
@@ -2071,22 +2071,22 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                               <Button
                                 type="button"
                                 size="sm"
-                                variant={allChecked('sortie') ? 'secondary' : 'outline'}
-                                onClick={() => toggleAllChecks('sortie')}
-                                data-testid="check-all-sorties"
-                              >
-                                <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
-                                {allChecked('sortie') ? 'Décocher toutes les sorties' : 'Tout cocher : sorties'}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
                                 variant={allChecked('entree') ? 'secondary' : 'outline'}
                                 onClick={() => toggleAllChecks('entree')}
                                 data-testid="check-all-entrees"
                               >
                                 <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
                                 {allChecked('entree') ? 'Décocher toutes les entrées' : 'Tout cocher : entrées'}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={allChecked('sortie') ? 'secondary' : 'outline'}
+                                onClick={() => toggleAllChecks('sortie')}
+                                data-testid="check-all-sorties"
+                              >
+                                <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
+                                {allChecked('sortie') ? 'Décocher toutes les sorties' : 'Tout cocher : sorties'}
                               </Button>
                             </div>
                           )}
@@ -2104,8 +2104,8 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                 </TableRow>
                                 <TableRow>
                                   {ROLE_CODES.flatMap((rc) =>
-                                    ['sortie', 'entree'].map((field) => (
-                                      <TableHead key={`${rc}-${field}`} className={`text-center p-1 h-8 ${field === 'sortie' ? 'border-l' : ''}`}>
+                                    ['entree', 'sortie'].map((field) => (
+                                      <TableHead key={`${rc}-${field}`} className={`text-center p-1 h-8 ${field === 'entree' ? 'border-l' : ''}`}>
                                         <button
                                           type="button"
                                           onClick={() => toggleColumnChecks(rc, field)}
@@ -2140,12 +2140,12 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                       )}
                                     </TableCell>
                                     {ROLE_CODES.flatMap((rc) =>
-                                      ['sortie', 'entree'].map((field) => {
+                                      ['entree', 'sortie'].map((field) => {
                                         const checked = !!eq.checks?.[rc]?.[field];
                                         return (
                                           <TableCell
                                             key={`${rc}-${field}`}
-                                            className={`text-center p-1 ${field === 'sortie' ? 'border-l' : ''} ${
+                                            className={`text-center p-1 ${field === 'entree' ? 'border-l' : ''} ${
                                               checked ? (field === 'sortie' ? 'bg-amber-500/10' : 'bg-emerald-500/10') : ''
                                             }`}
                                           >
@@ -2196,8 +2196,8 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                             souris), grandes zones l'une sous l'autre. */}
                         <div className="space-y-4">
                           {[
-                            ['sortie', 'Signature sortie', 'signature_sortie'],
                             ['entree', 'Signature entrée', 'signature_entree'],
+                            ['sortie', 'Signature sortie', 'signature_sortie'],
                           ].map(([key, label, field]) => {
                             const value = seanceForm[field] || '';
                             return (
@@ -2436,8 +2436,8 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                                     <th></th>
                                                     {['C', 'A', 'R'].map((rc) => (
                                                       <>
-                                                        <th key={rc + '-s'} className="px-1 font-normal">Sortie</th>
                                                         <th key={rc + '-e'} className="px-1 font-normal">Entrée</th>
+                                                        <th key={rc + '-s'} className="px-1 font-normal">Sortie</th>
                                                       </>
                                                     ))}
                                                   </tr>
@@ -2448,8 +2448,8 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                                       <td className="pr-3 py-1 font-medium">{eq.nom}</td>
                                                       {['C', 'A', 'R'].map((rc) => (
                                                         <>
-                                                          <td key={rc + '-s'} className="px-1 text-center">{eq.checks?.[rc]?.sortie ? '✓' : '—'}</td>
                                                           <td key={rc + '-e'} className="px-1 text-center">{eq.checks?.[rc]?.entree ? '✓' : '—'}</td>
+                                                          <td key={rc + '-s'} className="px-1 text-center">{eq.checks?.[rc]?.sortie ? '✓' : '—'}</td>
                                                         </>
                                                       ))}
                                                     </tr>
@@ -2462,8 +2462,8 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                               <div key={i} className="flex gap-4 text-sm">
                                                 <span className="font-medium">{eq.nom}</span>
                                                 <span className="text-muted-foreground">{eq.personne}</span>
-                                                {eq.sortie && <Badge variant="outline">Sortie</Badge>}
                                                 {eq.entree && <Badge variant="outline">Entrée</Badge>}
+                                                {eq.sortie && <Badge variant="outline">Sortie</Badge>}
                                               </div>
                                             ))
                                           )}
@@ -2471,7 +2471,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                           {s.interventions && <p className="text-xs text-muted-foreground italic mt-2">Interventions: {s.interventions}</p>}
                                           {(s.signature_sortie || s.signature_entree || s.signature) && (
                                             <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                                              {[['Sortie', s.signature_sortie], ['Entrée', s.signature_entree]].map(([lab, v]) =>
+                                              {[['Entrée', s.signature_entree], ['Sortie', s.signature_sortie]].map(([lab, v]) =>
                                                 v ? (
                                                   <div key={lab} className="flex items-center gap-2">
                                                     <span>Signature {lab.toLowerCase()} :</span>

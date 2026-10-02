@@ -2349,13 +2349,19 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     const yearCount = group.filter((g) => (g.date || '').slice(0, 4) === year).length;
                                     const open = isYearOpen(yearKey, year);
                                     rows.push(
-                                      <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted cursor-pointer" onClick={() => toggleYear(poste, year)}>
-                                        <TableCell colSpan={7} className="py-3">
-                                          <div className="flex items-center gap-2 font-bold text-lg">
+                                      <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted">
+                                        <TableCell colSpan={7} className="p-0">
+                                          {/* Vrai bouton (et non clic sur la ligne) : fiable au toucher sur iPad. */}
+                                          <button
+                                            type="button"
+                                            aria-expanded={open}
+                                            onClick={() => toggleYear(poste, year)}
+                                            className="flex w-full touch-manipulation items-center gap-2 px-4 py-4 text-left text-lg font-bold"
+                                          >
                                             {open ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                                             {year}
                                             <Badge variant="outline" className="font-normal text-sm">{yearCount}</Badge>
-                                          </div>
+                                          </button>
                                         </TableCell>
                                       </TableRow>,
                                     );
@@ -2374,13 +2380,18 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     const monthOpen = isMonthOpen(monthKey, monthDefaultOpen);
                                     const monthLabel = MOIS_NOMS_FR[parseInt(monthNum, 10) - 1] || monthNum;
                                     rows.push(
-                                      <TableRow key={`month-${monthKey}`} className="bg-muted/40 hover:bg-muted/60 cursor-pointer" onClick={() => toggleMonth(poste, currentYear, monthNum)}>
-                                        <TableCell colSpan={7} className="py-3 pl-6">
-                                          <div className="flex items-center gap-2 text-base font-semibold text-foreground">
+                                      <TableRow key={`month-${monthKey}`} className="bg-muted/40 hover:bg-muted/60">
+                                        <TableCell colSpan={7} className="p-0">
+                                          <button
+                                            type="button"
+                                            aria-expanded={monthOpen}
+                                            onClick={() => toggleMonth(poste, currentYear, monthNum)}
+                                            className="flex w-full touch-manipulation items-center gap-2 py-4 pl-8 pr-4 text-left text-base font-semibold text-foreground"
+                                          >
                                             {monthOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                                             {monthLabel}
                                             <Badge variant="outline" className="font-normal text-sm">{monthCount}</Badge>
-                                          </div>
+                                          </button>
                                         </TableCell>
                                       </TableRow>,
                                     );

@@ -34,8 +34,12 @@ const readStored = () => {
 // (en-tête X-Acting-Regisseur) pour être tracé dans les logs et sur les
 // fiches. Le choix est mémorisé sur la tablette et modifiable à tout moment.
 export default function KioskShell() {
-  const [acting, setActing] = useState(readStored);
-  const [pickerOpen, setPickerOpen] = useState(!readStored());
+  // À chaque ouverture de l'appli on redemande qui utilise la tablette : le
+  // dernier régisseur n'est que pré-sélectionné (mis en évidence), jamais repris
+  // d'office.
+  const [acting, setActing] = useState("");
+  const [lastUsed] = useState(readStored);
+  const [pickerOpen, setPickerOpen] = useState(true);
   const [roster, setRoster] = useState([]);
   const [loadingRoster, setLoadingRoster] = useState(true);
 
@@ -176,10 +180,14 @@ export default function KioskShell() {
                 <Button
                   key={t.nom}
                   variant={acting === t.nom ? "default" : "outline"}
+                  data-last-used={lastUsed === t.nom ? "1" : undefined}
                   className="h-16 text-lg font-semibold"
                   onClick={() => choose(t.nom)}
                 >
                   {t.nom}
+                  {lastUsed === t.nom && acting !== t.nom && (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">(dernier)</span>
+                  )}
                 </Button>
               ))}
             </div>

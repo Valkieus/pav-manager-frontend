@@ -288,8 +288,6 @@ export default function Logistique() {
   const ROLE_CODES = ['C', 'A', 'R'];
   const ROLE_LABELS_FULL = { C: 'Cadreur', A: 'Assistant', R: 'Régisseur' };
   const emptyChecks = () => ({ C: { sortie: false, entree: false }, A: { sortie: false, entree: false }, R: { sortie: false, entree: false } });
-  // Mode de saisie de chaque signature : 'initiales' (texte) ou 'dessin' (au doigt).
-  const [sigMode, setSigMode] = useState({ sortie: 'initiales', entree: 'initiales' });
   const [seanceForm, setSeanceForm] = useState({
     date: '',
     poste: '',
@@ -465,15 +463,6 @@ export default function Logistique() {
     return map;
   }, [plannedCadreurs]);
   const camLabelFor = (nom) => (cameraByName[(nom || '').trim().toLowerCase()] || []).join(' / ');
-  // Cadreurs de la signature : ceux prévus ce jour-là d'abord, dans l'ordre des caméras.
-  const cadreursOrdered = useMemo(() => {
-    const rank = (t) => {
-      const key = (t.nom || '').trim().toLowerCase();
-      const found = plannedCadreurs.findIndex((p) => p.names.some((n) => n.nom.toLowerCase() === key));
-      return found < 0 ? 999 : found;
-    };
-    return [...cadreursRoster].sort((a, b) => rank(a) - rank(b));
-  }, [cadreursRoster, plannedCadreurs]);
   const addPlannedToEquipe = (role, nom) => {
     const clean = canonName(nom);
     if (seanceForm.equipe.some((m) => nomKey(m.nom) === nomKey(clean))) return;
@@ -482,14 +471,6 @@ export default function Logistique() {
   // Observations : écrites par les régisseurs (+ Admin / Super Admin).
   const canWriteObservations =
     isAdmin() || isSuperAdmin() || (user?.branches || []).includes('Régisseurs');
-  const initialesFromNom = (nom) =>
-    (nom || '')
-      .split(/[\s-]+/)
-      .filter(Boolean)
-      .map((w) => w[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 3);
   const [incidentDialogOpen, setIncidentDialogOpen] = useState(false);
   const [incidentEditingId, setIncidentEditingId] = useState(null);
   const [incidentSubmitting, setIncidentSubmitting] = useState(false);
@@ -782,7 +763,6 @@ export default function Logistique() {
 
   // ================= SEANCES (Entrees / Sorties) =================
   const resetSeanceForm = () => {
-    setSigMode({ sortie: 'initiales', entree: 'initiales' });
     setSeanceForm({ date: '', poste: '', superviseur: '', horaire_debut: '', horaire_fin: '', observations: '', interventions: '', signature: '', signature_sortie: '', signature_entree: '', equipements: [], equipe: [] });
     setSeanceEditingId(null);
   };
@@ -801,10 +781,6 @@ export default function Logistique() {
       signature_entree: s.signature_entree || '',
       equipements: (s.equipements || []).map((eq) => ({ nom: eq.nom || '', checks: { ...emptyChecks(), ...(eq.checks || {}) } })),
       equipe: s.equipe || []
-    });
-    setSigMode({
-      sortie: isDrawnSig(s.signature_sortie) ? 'dessin' : 'initiales',
-      entree: isDrawnSig(s.signature_entree) ? 'dessin' : 'initiales',
     });
     setSeanceEditingId(s.id);
     setSeanceDialogOpen(true);
@@ -2155,69 +2131,26 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                           <Label>Interventions</Label>
                           <Textarea value={seanceForm.interventions} onChange={(e) => setSeanceForm({ ...seanceForm, interventions: e.target.value })} rows={2} />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Signatures sortie / entrée : uniquement au doigt (ou à la
+                            souris), grandes zones l'une sous l'autre. */}
+                        <div className="space-y-4">
                           {[
                             ['sortie', 'Signature sortie', 'signature_sortie'],
                             ['entree', 'Signature entrée', 'signature_entree'],
                           ].map(([key, label, field]) => {
-                            const mode = sigMode[key];
                             const value = seanceForm[field] || '';
                             return (
                               <div key={key} className="space-y-2 rounded-lg border p-3" data-testid={`signature-${key}`}>
-                                <div className="flex items-center justify-between gap-2">
-                                  <Label>{label}</Label>
-                                  <div className="inline-flex rounded-md border p-0.5 text-xs">
-                                    {[['initiales', 'Initiales'], ['dessin', 'Au doigt']].map(([m, mLabel]) => (
-                                      <button
-                                        key={m}
-                                        type="button"
-                                        onClick={() => {
-                                          if (mode === m) return;
-                                          setSigMode({ ...sigMode, [key]: m });
-                                          // Changer de mode repart d'une signature vierge.
-                                          setSeanceForm({ ...seanceForm, [field]: '' });
-                                        }}
-                                        className={`rounded px-2 py-1 font-medium transition-colors ${mode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
-                                      >
-                                        {mLabel}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                                {mode === 'dessin' ? (
-                                  <SignaturePad
-                                    value={value}
-                                    onChange={(v) => setSeanceForm((f) => ({ ...f, [field]: v }))}
-                                  />
-                                ) : (
-                                  <>
-                                    {cadreursRoster.length > 0 && (
-                                      <div className="flex flex-wrap gap-1.5">
-                                        {cadreursOrdered.map((t) => {
-                                          const cam = camLabelFor(t.nom);
-                                          return (
-                                            <button
-                                              key={t.id}
-                                              type="button"
-                                              onClick={() => setSeanceForm({ ...seanceForm, [field]: initialesFromNom(t.nom) })}
-                                              className={`px-2 py-1 rounded-md border text-xs font-medium transition-colors hover:bg-primary/10 hover:border-primary/50 ${cam ? 'border-primary/40 bg-primary/5' : 'border-border bg-muted/40'}`}
-                                              title={cam ? `${t.nom} — ${cam}` : t.nom}
-                                            >
-                                              {initialesFromNom(t.nom)}
-                                              {cam && <span className="ml-1 text-[10px] text-primary">{cam}</span>}
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                    <Input
-                                      value={isDrawnSig(value) ? '' : value}
-                                      onChange={(e) => setSeanceForm({ ...seanceForm, [field]: e.target.value })}
-                                      placeholder="Initiales (ex: J.D.)"
-                                      className="max-w-[260px]"
-                                    />
-                                  </>
+                                <Label className="text-base font-semibold">{label}</Label>
+                                {value && !isDrawnSig(value) && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Ancienne signature (initiales) : « {value} » — signez ci-dessous pour la remplacer.
+                                  </p>
                                 )}
+                                <SignaturePad
+                                  value={isDrawnSig(value) ? value : ''}
+                                  onChange={(v) => setSeanceForm((f) => ({ ...f, [field]: v }))}
+                                />
                               </div>
                             );
                           })}

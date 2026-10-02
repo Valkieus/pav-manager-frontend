@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { Eraser } from "lucide-react";
 
-const WIDTH = 360;
-const HEIGHT = 120;
+const WIDTH = 720;
+const HEIGHT = 260;
 
 // Zone de signature au doigt (téléphone / tablette) ou à la souris.
 // `value` = image PNG en data URL (ou vide) ; `onChange(dataUrl | "")` est
 // appelé à la fin de chaque trait. L'image est volontairement petite
-// (360x120) pour rester légère à enregistrer.
+// (720x260) pour rester légère à enregistrer.
 export default function SignaturePad({ value, onChange }) {
   const canvasRef = useRef(null);
   const drawingRef = useRef(false);
@@ -51,7 +51,7 @@ export default function SignaturePad({ value, onChange }) {
     lastRef.current = pos(e);
     const ctx = canvasRef.current.getContext("2d");
     ctx.beginPath();
-    ctx.arc(lastRef.current.x, lastRef.current.y, 1, 0, Math.PI * 2);
+    ctx.arc(lastRef.current.x, lastRef.current.y, 1.6, 0, Math.PI * 2);
     ctx.fillStyle = "#111";
     ctx.fill();
   };
@@ -62,7 +62,7 @@ export default function SignaturePad({ value, onChange }) {
     const ctx = canvasRef.current.getContext("2d");
     const p = pos(e);
     ctx.strokeStyle = "#111";
-    ctx.lineWidth = 2.2;
+    ctx.lineWidth = 3.2;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.beginPath();
@@ -91,12 +91,12 @@ export default function SignaturePad({ value, onChange }) {
 
   return (
     <div className="space-y-1.5">
-      <div className="relative inline-block rounded-md border bg-white">
+      <div className="relative block w-full rounded-md border-2 border-dashed border-muted-foreground/30 bg-white">
         <canvas
           ref={canvasRef}
           width={WIDTH}
           height={HEIGHT}
-          className="block w-full max-w-[360px] touch-none cursor-crosshair"
+          className="block w-full touch-none cursor-crosshair"
           style={{ aspectRatio: `${WIDTH} / ${HEIGHT}` }}
           onPointerDown={start}
           onPointerMove={move}
@@ -106,7 +106,7 @@ export default function SignaturePad({ value, onChange }) {
           data-testid="signature-canvas"
         />
         {!hasInk && (
-          <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-muted-foreground/60">
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-base text-muted-foreground/50">
             Signez ici avec le doigt
           </span>
         )}

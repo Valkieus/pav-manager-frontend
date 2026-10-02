@@ -77,6 +77,32 @@ const CONTACT_TYPES = ['Fournisseur', 'Location', 'Réparation'];
 const POSTES_CAM = ['Caméra 1', 'Caméra 2', 'Caméra 3', 'Caméra 4', 'Caméra 5', 'Caméra 6', 'Caméra 7'];
 const FREQUENCE_OPTIONS = ['Ponctuel', 'Récurrent'];
 
+// Format des noms : toujours « Prénom Nom » propre, quelle que soit la façon
+// dont le nom a été saisi dans le planning (« elder » -> « Elder »,
+// « jean  wisler » -> « Jean Wisler », « Victor e » -> « Victor E. »,
+// « marc-arthur » -> « Marc-Arthur »). Particules (de, du, van…) en minuscules.
+const NOM_PARTICULES = new Set(['de', 'du', 'des', 'da', 'di', 'van', 'von', 'le', 'la', 'el']);
+const nomKey = (t) =>
+  String(t || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+const formatNom = (raw) => {
+  const cleaned = String(raw || '').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '';
+  return cleaned
+    .split(' ')
+    .map((tok, i) => {
+      const lower = tok.toLowerCase();
+      if (i > 0 && NOM_PARTICULES.has(lower)) return lower;
+      // Lettre isolée = initiale : « e » -> « E. »
+      if (/^\p{L}\.?$/u.test(tok)) return `${tok[0].toUpperCase()}.`;
+      return lower.replace(/(^|[-'’])(\p{L})/gu, (_m, sep, ch) => sep + ch.toUpperCase());
+    })
+    .join(' ');
+};
+
 // Heures de la fiche d'un culte : saisie avec un vrai sélecteur d'heure
 // (<input type="time">, "HH:MM"), enregistrée au format français déjà utilisé
 // partout (« 8h30 », « 15h12 »). Les anciennes saisies libres lisibles
@@ -235,11 +261,11 @@ export default function Logistique() {
   // Cadreurs prévus au planning pour la date du culte, par poste (Caméra N) :
   // [{ label: 'Caméra 1', num: 1, names: [{ slot: 0, nom }, { slot: 1, nom }] }].
   // Alimente la liste « par postes » et les suggestions de la fiche.
-  const [plannedCadreurs, setPlannedCadreurs] = useState([]);
+  const [plannedRaw, setPlannedRaw] = useState([]);
   useEffect(() => {
     const date = seanceForm.date;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) {
-      setPlannedCadreurs([]);
+      setPlannedRaw([]);
       return undefined;
     }
     let cancelled = false;
@@ -271,9 +297,9 @@ export default function Logistique() {
           );
         });
         out.sort((a, b) => (a.num ?? 99) - (b.num ?? 99));
-        setPlannedCadreurs(out);
+        setPlannedRaw(out);
       })
-      .catch(() => !cancelled && setPlannedCadreurs([]));
+      .catch(() => !cancelled && setPlannedRaw([]));
     return () => {
       cancelled = true;
     };
@@ -312,6 +338,30 @@ export default function Logistique() {
   // Effectif complet (nom + poste) : les cadreurs ne sont pas dans la branche
   // « Régisseurs », la liste des cadreurs doit donc venir de tout l'effectif.
   const [fullRoster, setFullRoster] = useState([]);
+  // Orthographe officielle de l'effectif (clé sans accents/casse/ponctuation).
+  const rosterNameIndex = useMemo(() => {
+    const idx = {};
+    fullRoster.forEach((t) => {
+      const n = (t.nom || '').trim();
+      if (n) idx[nomKey(n)] = n;
+    });
+    return idx;
+  }, [fullRoster]);
+  // Nom au bon format, avec l'orthographe de l'effectif quand il correspond.
+  const canonName = (raw) => {
+    const f = formatNom(raw);
+    return rosterNameIndex[nomKey(f)] || f;
+  };
+  // Cadreurs prévus au planning, noms remis au bon format.
+  const plannedCadreurs = useMemo(
+    () =>
+      plannedRaw.map((p) => ({
+        ...p,
+        names: p.names.map((n) => ({ ...n, nom: canonName(n.nom) })),
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [plannedRaw, rosterNameIndex]
+  );
   // Sous-liste des cadreurs (ceux qui signent réellement les fiches
   // Entrées/Sorties, demande 28/09/2026) pour les boutons "1 clic".
   const cadreursRoster = useMemo(
@@ -369,8 +419,9 @@ export default function Logistique() {
     return [...cadreursRoster].sort((a, b) => rank(a) - rank(b));
   }, [cadreursRoster, plannedCadreurs]);
   const addPlannedToEquipe = (role, nom) => {
-    if (seanceForm.equipe.some((m) => (m.nom || '').trim().toLowerCase() === nom.toLowerCase())) return;
-    setSeanceForm({ ...seanceForm, equipe: [...seanceForm.equipe, { role, nom }] });
+    const clean = canonName(nom);
+    if (seanceForm.equipe.some((m) => nomKey(m.nom) === nomKey(clean))) return;
+    setSeanceForm({ ...seanceForm, equipe: [...seanceForm.equipe, { role, nom: clean }] });
   };
   // Observations : écrites par les régisseurs (+ Admin / Super Admin).
   const canWriteObservations =
@@ -780,11 +831,21 @@ export default function Logistique() {
     }
     setSeanceSubmitting(true);
     try {
+      // Noms toujours au bon format à l'enregistrement.
+      const payload = {
+        ...seanceForm,
+        superviseur: canonName(seanceForm.superviseur),
+        equipe: (seanceForm.equipe || []).map((m) => ({
+          ...m,
+          role: (m.role || '').trim().toUpperCase().slice(0, 1) === (m.role || '').trim().toUpperCase() ? (m.role || '').trim().toUpperCase() : m.role,
+          nom: canonName(m.nom),
+        })),
+      };
       if (seanceEditingId) {
-        await axios.put(`${API}/regisseur-seances/${seanceEditingId}`, seanceForm);
+        await axios.put(`${API}/regisseur-seances/${seanceEditingId}`, payload);
         toast.success('Culte modifié');
       } else {
-        await axios.post(`${API}/regisseur-seances`, seanceForm);
+        await axios.post(`${API}/regisseur-seances`, payload);
         toast.success('Culte enregistré');
       }
       setSeanceDialogOpen(false);
@@ -1806,6 +1867,7 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                   list={`equipe-noms-${idx}`}
                                   value={m.nom}
                                   onChange={(e) => updateEquipeMembre(idx, 'nom', e.target.value)}
+                                  onBlur={() => m.nom && updateEquipeMembre(idx, 'nom', canonName(m.nom))}
                                 />
                                 {/* Liste déroulante selon le rôle de la ligne : C / A =
 cadreurs, R = régisseurs, autre = tout l'effectif. */}
@@ -2112,7 +2174,7 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                                         )}
                                       </div>
                                     </TableCell>
-                                    <TableCell className="align-top">{s.superviseur || <span className="text-muted-foreground">—</span>}</TableCell>
+                                    <TableCell className="align-top">{s.superviseur ? canonName(s.superviseur) : <span className="text-muted-foreground">—</span>}</TableCell>
                                     <TableCell className="align-top">
                                       {(s.equipe || []).filter((m) => (m.nom || '').trim()).length > 0 ? (
                                         <div className="flex flex-wrap gap-1">
@@ -2127,7 +2189,7 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                                                 {m.role && (
                                                   <span className="font-bold text-primary">{(m.role || '').trim().toUpperCase().slice(0, 1)}</span>
                                                 )}
-                                                {m.nom}
+                                                {canonName(m.nom)}
                                               </span>
                                             ))}
                                         </div>

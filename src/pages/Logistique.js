@@ -927,7 +927,8 @@ export default function Logistique() {
   };
   const sortedSeances = [...seances]
     .filter((s) => seanceMatchesSearch(s, seanceSearch))
-    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    // Ordre chronologique croissant (années, mois puis jours) ; les fiches sans date à la fin.
+    .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
 
   // Index poste -> années présentes, et poste+année -> mois présents (avec
   // leur "ouvert par défaut"), utilisé pour l'accordéon (toggleYear/

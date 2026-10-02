@@ -77,7 +77,7 @@ const POSTES_CAM = ['Caméra 1', 'Caméra 2', 'Caméra 3', 'Caméra 4', 'Caméra
 const FREQUENCE_OPTIONS = ['Ponctuel', 'Récurrent'];
 
 export default function Logistique() {
-  const { canManage, isAdmin, isSuperAdmin } = useAuth();
+  const { canManage, isAdmin, isSuperAdmin, user } = useAuth();
   const [subTab, setSubTab] = useState('dashboard');
   const [exportingXlsx, setExportingXlsx] = useState(false); // #578
   const [exportingPdf, setExportingPdf] = useState(false); // #578
@@ -236,19 +236,37 @@ export default function Logistique() {
   const [incidents, setIncidents] = useState([]);
   // Roster (utilisé pour les suggestions de signature ci-dessous).
   const [regisseursRoster, setRegisseursRoster] = useState([]);
+  // Effectif complet (nom + poste) : les cadreurs ne sont pas dans la branche
+  // « Régisseurs », la liste des cadreurs doit donc venir de tout l'effectif.
+  const [fullRoster, setFullRoster] = useState([]);
   // Sous-liste des cadreurs (ceux qui signent réellement les fiches
   // Entrées/Sorties, demande 28/09/2026) pour les boutons "1 clic".
   const cadreursRoster = useMemo(
     () =>
-      regisseursRoster.filter((t) => {
+      fullRoster.filter((t) => {
         const hay = [t.poste_principal, t.organigramme_label, ...(t.sous_branches || [])]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
         return hay.includes('cadreur');
       }),
-    [regisseursRoster]
+    [fullRoster]
   );
+  const namesForRole = (role) => {
+    const r = (role || '').trim().toUpperCase();
+    const base =
+      r === 'R' || r.startsWith('REG')
+        ? regisseursRoster
+        : r === 'C' || r === 'A' || r.startsWith('CAD') || r.startsWith('ASS')
+          ? cadreursRoster
+          : fullRoster;
+    return Array.from(new Set(base.map((t) => (t.nom || '').trim()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, 'fr')
+    );
+  };
+  // Observations : écrites par les régisseurs (+ Admin / Super Admin).
+  const canWriteObservations =
+    isAdmin() || isSuperAdmin() || (user?.branches || []).includes('Régisseurs');
   const initialesFromNom = (nom) =>
     (nom || '')
       .split(/[\s-]+/)
@@ -297,6 +315,7 @@ export default function Logistique() {
       setSeances(seancesRes.data || []);
       setContacts(contactsRes.data || []);
       setIncidents(incidentsRes.data || []);
+      setFullRoster(rosterRes.data || []);
       setRegisseursRoster(
         (rosterRes.data || []).filter((t) => (t.branches || []).includes('Régisseurs')),
       );
@@ -1541,10 +1560,18 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                 />
                                 <Input
                                   className="flex-1 min-w-[140px]"
-                                  placeholder="Nom"
+                                  placeholder="Nom (choisir dans la liste ou écrire)"
+                                  list={`equipe-noms-${idx}`}
                                   value={m.nom}
                                   onChange={(e) => updateEquipeMembre(idx, 'nom', e.target.value)}
                                 />
+                                {/* Liste déroulante selon le rôle de la ligne : C / A =
+cadreurs, R = régisseurs, autre = tout l'effectif. */}
+                                <datalist id={`equipe-noms-${idx}`}>
+                                  {namesForRole(m.role).map((n) => (
+                                    <option key={n} value={n} />
+                                  ))}
+                                </datalist>
                                 <Button type="button" size="sm" variant="ghost" onClick={() => removeEquipeMembre(idx)}>
                                   <Trash2 className="w-4 h-4 text-destructive" />
                                 </Button>
@@ -1631,8 +1658,14 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>Observations</Label>
-                          <Textarea value={seanceForm.observations} onChange={(e) => setSeanceForm({ ...seanceForm, observations: e.target.value })} rows={2} />
+                          <Label>Observations (rédigées par les régisseurs)</Label>
+                          <Textarea
+                            value={seanceForm.observations}
+                            onChange={(e) => setSeanceForm({ ...seanceForm, observations: e.target.value })}
+                            rows={2}
+                            disabled={!canWriteObservations}
+                            placeholder={canWriteObservations ? '' : 'Réservé aux régisseurs'}
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label>Interventions</Label>

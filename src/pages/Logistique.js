@@ -164,9 +164,9 @@ const heureFromInput = (value) => {
   return `${parseInt(h, 10)}h${m}`;
 };
 
-export default function Logistique() {
+export default function Logistique({ kioskMode = false }) {
   const { canManage, isAdmin, isSuperAdmin, user } = useAuth();
-  const [subTab, setSubTab] = useState('dashboard');
+  const [subTab, setSubTab] = useState(kioskMode ? 'entrees-sorties' : 'dashboard');
   const [exportingXlsx, setExportingXlsx] = useState(false); // #578
   const [exportingPdf, setExportingPdf] = useState(false); // #578
 
@@ -503,6 +503,24 @@ export default function Logistique() {
 
   const fetchAll = async () => {
     setLoading(true);
+    if (kioskMode) {
+      // Compte tablette : seules les fiches Entrées/Sorties et l'effectif
+      // allégé sont accessibles (le reste est refusé par le serveur).
+      try {
+        const [seancesRes, rosterRes] = await Promise.all([
+          axios.get(`${API}/regisseur-seances`),
+          axios.get(`${API}/techniciens/roster`).catch(() => ({ data: [] })),
+        ]);
+        setSeances(seancesRes.data || []);
+        setFullRoster(rosterRes.data || []);
+        setRegisseursRoster((rosterRes.data || []).filter((t) => (t.branches || []).includes('Régisseurs')));
+      } catch (err) {
+        toast.error('Erreur lors du chargement — vérifiez la connexion');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     try {
       const [matRes, enumsRes, catRes, seancesRes, contactsRes, incidentsRes, rosterRes] = await Promise.all([
         axios.get(`${API}/materiel`),
@@ -1566,6 +1584,8 @@ export default function Logistique() {
 
   return (
     <div className="space-y-6" data-testid="logistique-page">
+      {!kioskMode && (
+      <>
       <div className="flex items-center justify-between gap-4">
       <div>
         <h1 className="text-2xl font-bold">Régisseurs</h1>
@@ -1631,6 +1651,8 @@ export default function Logistique() {
           );
         })}
       </div>
+      </>
+      )}
 
       {loading ? (
         <div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
@@ -2473,6 +2495,12 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                                 {eq.sortie && <Badge variant="outline">Sortie</Badge>}
                                               </div>
                                             ))
+                                          )}
+                                          {s.derniere_modif_par && (
+                                            <p className="text-xs text-muted-foreground mt-2">
+                                              Dernière modification par <span className="font-medium text-foreground">{s.derniere_modif_par}</span>
+                                              {s.updated_at ? ` · ${new Date(s.updated_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}
+                                            </p>
                                           )}
                                           {s.observations && <p className="text-xs text-muted-foreground italic mt-2">Obs: {s.observations}</p>}
                                           {s.interventions && <p className="text-xs text-muted-foreground italic mt-2">Interventions: {s.interventions}</p>}

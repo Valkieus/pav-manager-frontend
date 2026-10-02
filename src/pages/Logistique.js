@@ -858,6 +858,9 @@ export default function Logistique({ kioskMode = false }) {
     if ([3, 4].includes(camNumForm)) return /disque\s*dur|ventilat|ventilo/.test(n);
     return false;
   };
+  // Lignes disque dur / carte SD : surlignées en rouge pâle dans les fiches.
+  const isStorageLine = (eqNom) => /disque\s*dur|cartes?\s*sd/i.test(eqNom || '');
+  const STORAGE_ROW = 'bg-red-100 hover:bg-red-100 dark:bg-red-950/30';
   const eligibleEquipements = () => seanceForm.equipements.filter((eq) => !isAutoCheckExcluded(eq.nom));
   const hasEligible = eligibleEquipements().length > 0;
 
@@ -2144,7 +2147,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                               </TableHeader>
                               <TableBody>
                                 {seanceForm.equipements.map((eq, idx) => (
-                                  <TableRow key={idx}>
+                                  <TableRow key={idx} className={isStorageLine(eq.nom) ? STORAGE_ROW : ''}>
                                     <TableCell className="p-1">
                                       <Input
                                         className="h-8"
@@ -2518,7 +2521,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                                 </thead>
                                                 <tbody>
                                                   {(s.equipements || []).map((eq, i) => (
-                                                    <tr key={i} className="border-t">
+                                                    <tr key={i} className={`border-t ${isStorageLine(eq.nom) ? STORAGE_ROW : ''}`}>
                                                       <td className="pr-3 py-1 font-medium">{eq.nom}</td>
                                                       {['C', 'A', 'R'].map((rc) => (
                                                         <>
@@ -2533,7 +2536,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                             </div>
                                           ) : (
                                             (s.equipements || []).map((eq, i) => (
-                                              <div key={i} className="flex gap-4 text-sm">
+                                              <div key={i} className={`flex gap-4 text-sm ${isStorageLine(eq.nom) ? `${STORAGE_ROW} rounded px-1` : ''}`}>
                                                 <span className="font-medium">{eq.nom}</span>
                                                 <span className="text-muted-foreground">{eq.personne}</span>
                                                 {eq.entree && <Badge variant="outline">Entrée</Badge>}

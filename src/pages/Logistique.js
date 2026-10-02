@@ -253,6 +253,9 @@ export default function Logistique({ kioskMode = false }) {
       return next;
     });
   const CURRENT_MONTH_STR = String(new Date().getMonth() + 1).padStart(2, '0');
+  // Seul le mois en cours (de l'année en cours) est ouvert par défaut : tous les
+  // autres mois sont repliés et s'ouvrent d'un clic sur leur titre.
+  const monthDefaultOpenFor = (year, month) => year === CURRENT_YEAR_STR && month === CURRENT_MONTH_STR;
   // Même logique d'accordéon que toggleYear, mais au niveau mois, limitée
   // aux mois de la même année/poste.
   const toggleMonth = (poste, year, month) => {
@@ -993,7 +996,7 @@ export default function Logistique({ kioskMode = false }) {
       const months = Array.from(new Set(gy.map((s) => (s.date || '').slice(5, 7) || '00')));
       const monthDefs = months.map((month) => {
         const gm = gy.filter((s) => (s.date || '').slice(5, 7) === month);
-        const defaultOpen = month === CURRENT_MONTH_STR || gm.some((s) => !isSeanceVide(s));
+        const defaultOpen = monthDefaultOpenFor(year, month);
         return { month, defaultOpen };
       });
       monthsByPosteYear.set(`${poste}__${year}`, monthDefs);
@@ -2367,8 +2370,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     const monthKey = `${poste}__${currentYear}__${monthNum}`;
                                     const monthGroupItems = group.filter((g) => (g.date || '').slice(0, 4) === currentYear && (g.date || '').slice(5, 7) === monthNum);
                                     const monthCount = monthGroupItems.length;
-                                    const monthHasReal = monthGroupItems.some((g) => !isSeanceVide(g));
-                                    const monthDefaultOpen = monthNum === CURRENT_MONTH_STR || monthHasReal;
+                                    const monthDefaultOpen = monthDefaultOpenFor(currentYear, monthNum);
                                     const monthOpen = isMonthOpen(monthKey, monthDefaultOpen);
                                     const monthLabel = MOIS_NOMS_FR[parseInt(monthNum, 10) - 1] || monthNum;
                                     rows.push(
@@ -2384,8 +2386,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     );
                                   }
                                   const monthKey = `${poste}__${currentYear}__${currentMonth}`;
-                                  const curMonthGroupItems = group.filter((g) => (g.date || '').slice(0, 4) === currentYear && (g.date || '').slice(5, 7) === currentMonth);
-                                  const curMonthDefaultOpen = currentMonth === CURRENT_MONTH_STR || curMonthGroupItems.some((g) => !isSeanceVide(g));
+                                  const curMonthDefaultOpen = monthDefaultOpenFor(currentYear, currentMonth);
                                   if (!isMonthOpen(monthKey, curMonthDefaultOpen)) return;
                                   const vide = isSeanceVide(s);
                                   rows.push(

@@ -57,6 +57,7 @@ import {
   CheckSquare,
   ArchiveRestore,
   PenLine,
+  X,
   Circle
 } from 'lucide-react';
 import {
@@ -1926,7 +1927,7 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                           : '';
                         return (
                           <div
-                            className="sticky top-0 z-20 -mx-6 -mt-6 flex items-center gap-4 border-b bg-background px-6 py-3 pr-12 shadow-sm"
+                            className="sticky top-0 z-20 -mx-6 -mt-6 flex items-center gap-4 border-b bg-background px-6 py-3 pr-20 shadow-sm"
                             data-testid="fiche-camera-banner"
                           >
                             <div className={`flex h-20 min-w-[5rem] flex-col items-center justify-center rounded-xl px-3 shadow ${camCouleur?.solid || 'bg-primary text-primary-foreground'}`}>
@@ -1939,6 +1940,15 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                 <p className="truncate text-sm font-medium capitalize text-muted-foreground">{jour}</p>
                               )}
                             </div>
+                            <button
+                              type="button"
+                              aria-label="Fermer la fiche"
+                              onClick={() => { setSeanceDialogOpen(false); resetSeanceForm(); }}
+                              className="touch-manipulation absolute right-3 top-3 flex h-12 w-12 items-center justify-center rounded-full border-2 bg-background text-foreground shadow hover:bg-muted"
+                              data-testid="fiche-close-btn"
+                            >
+                              <X className="h-7 w-7" />
+                            </button>
                           </div>
                         );
                       })()}

@@ -77,6 +77,25 @@ const CONTACT_TYPES = ['Fournisseur', 'Location', 'Réparation'];
 const POSTES_CAM = ['Caméra 1', 'Caméra 2', 'Caméra 3', 'Caméra 4', 'Caméra 5', 'Caméra 6', 'Caméra 7'];
 const FREQUENCE_OPTIONS = ['Ponctuel', 'Récurrent'];
 
+// Heures de la fiche d'un culte : saisie avec un vrai sélecteur d'heure
+// (<input type="time">, "HH:MM"), enregistrée au format français déjà utilisé
+// partout (« 8h30 », « 15h12 »). Les anciennes saisies libres lisibles
+// (« 8h30 », « 8h », « 15:12 ») sont reprises ; une saisie illisible est
+// conservée telle quelle tant qu'on ne choisit pas une nouvelle heure.
+const heureToInput = (raw) => {
+  const m = String(raw || '').trim().toLowerCase().match(/^(\d{1,2})\s*(?:h|:)\s*(\d{0,2})$/);
+  if (!m) return '';
+  const h = parseInt(m[1], 10);
+  const min = m[2] === '' ? 0 : parseInt(m[2], 10);
+  if (h > 23 || min > 59) return '';
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+};
+const heureFromInput = (value) => {
+  if (!value) return '';
+  const [h, m] = value.split(':');
+  return `${parseInt(h, 10)}h${m}`;
+};
+
 export default function Logistique() {
   const { canManage, isAdmin, isSuperAdmin, user } = useAuth();
   const [subTab, setSubTab] = useState('dashboard');
@@ -1738,11 +1757,31 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Heure sortie</Label>
-                            <Input value={seanceForm.horaire_debut} onChange={(e) => setSeanceForm({ ...seanceForm, horaire_debut: e.target.value })} placeholder="ex: 8h30" />
+                            <Input
+                              type="time"
+                              step={60}
+                              value={heureToInput(seanceForm.horaire_debut)}
+                              onChange={(e) => setSeanceForm({ ...seanceForm, horaire_debut: heureFromInput(e.target.value) })}
+                              className="max-w-[160px]"
+                              data-testid="heure-sortie"
+                            />
+                            {seanceForm.horaire_debut && !heureToInput(seanceForm.horaire_debut) && (
+                              <p className="text-xs text-muted-foreground">Ancienne saisie : « {seanceForm.horaire_debut} » — choisissez l'heure pour la remplacer.</p>
+                            )}
                           </div>
                           <div className="space-y-2">
                             <Label>Heure entrée</Label>
-                            <Input value={seanceForm.horaire_fin} onChange={(e) => setSeanceForm({ ...seanceForm, horaire_fin: e.target.value })} placeholder="ex: 15h12" />
+                            <Input
+                              type="time"
+                              step={60}
+                              value={heureToInput(seanceForm.horaire_fin)}
+                              onChange={(e) => setSeanceForm({ ...seanceForm, horaire_fin: heureFromInput(e.target.value) })}
+                              className="max-w-[160px]"
+                              data-testid="heure-entree"
+                            />
+                            {seanceForm.horaire_fin && !heureToInput(seanceForm.horaire_fin) && (
+                              <p className="text-xs text-muted-foreground">Ancienne saisie : « {seanceForm.horaire_fin} » — choisissez l'heure pour la remplacer.</p>
+                            )}
                           </div>
                         </div>
                         <div className="space-y-2">

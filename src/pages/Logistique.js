@@ -375,15 +375,24 @@ export default function Logistique() {
       }),
     [fullRoster]
   );
-  const namesForRole = (role) => {
-    const r = (role || '').trim().toUpperCase();
+  // Régisseurs uniquement (poste principal / libellé d'organigramme) : la
+  // branche « Régisseurs » contient aussi des cadreurs, elle ne suffit pas.
+  const regisseursOnly = useMemo(() => {
+    const list = fullRoster.filter((t) =>
+      nomKey([t.poste_principal, t.organigramme_label].filter(Boolean).join(' ')).includes('regisseur')
+    );
+    return list.length > 0 ? list : regisseursRoster;
+  }, [fullRoster, regisseursRoster]);
+  const namesForRole = (role, roleCode) => {
+    // Rôle normalisé sans accents : « Régisseur » / « RÉGISSEUR » / « R » -> REG / R.
+    const r = nomKey(role || roleCode).toUpperCase();
+    const isRegisseurRole = r === 'R' || r.startsWith('REG');
     const isCadreurRole = r === 'C' || r === 'A' || r.startsWith('CAD') || r.startsWith('ASS');
-    const base =
-      r === 'R' || r.startsWith('REG')
-        ? regisseursRoster
-        : isCadreurRole
-          ? cadreursRoster
-          : fullRoster;
+    const base = isRegisseurRole
+      ? regisseursOnly
+      : isCadreurRole
+        ? cadreursRoster
+        : fullRoster;
     const sorted = Array.from(new Set(base.map((t) => (t.nom || '').trim()).filter(Boolean))).sort((a, b) =>
       a.localeCompare(b, 'fr')
     );
@@ -1900,7 +1909,7 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                 {/* Liste déroulante selon le rôle de la ligne : C / A =
 cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                 <datalist id={`equipe-noms-${idx}`}>
-                                  {namesForRole(m.role).map((n) => (
+                                  {namesForRole(m.role, m.role_code).map((n) => (
                                     <option key={n} value={n} label={camLabelFor(n) || undefined} />
                                   ))}
                                 </datalist>

@@ -1933,9 +1933,11 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead>Date</TableHead>
+                                <TableHead className="whitespace-nowrap">Date</TableHead>
                                 <TableHead>Superviseur</TableHead>
-                                <TableHead className="text-center">Équipements</TableHead>
+                                <TableHead>Cadreurs</TableHead>
+                                <TableHead className="min-w-[200px]">Commentaire</TableHead>
+                                <TableHead className="text-center">Éq.</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -1955,7 +1957,7 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                                     const open = isYearOpen(yearKey, year);
                                     rows.push(
                                       <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted cursor-pointer" onClick={() => toggleYear(poste, year)}>
-                                        <TableCell colSpan={4} className="py-2">
+                                        <TableCell colSpan={6} className="py-2">
                                           <div className="flex items-center gap-2 font-semibold text-sm">
                                             {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                                             {year}
@@ -1981,7 +1983,7 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                                     const monthLabel = MOIS_NOMS_FR[parseInt(monthNum, 10) - 1] || monthNum;
                                     rows.push(
                                       <TableRow key={`month-${monthKey}`} className="bg-muted/25 hover:bg-muted/40 cursor-pointer" onClick={() => toggleMonth(poste, currentYear, monthNum)}>
-                                        <TableCell colSpan={4} className="py-1.5 pl-6">
+                                        <TableCell colSpan={6} className="py-1.5 pl-6">
                                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                             {monthOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                                             {monthLabel}
@@ -1999,18 +2001,53 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                                   rows.push(
                                 <Fragment key={s.id}>
                                   <TableRow onClick={() => canManage() && handleEditSeance(s)} className={canManage() ? "cursor-pointer hover:bg-muted/50" : ""}>
-                                    <TableCell className="font-medium">
-                                      <div className="flex items-center gap-2">
-                                        {s.date}
+                                    <TableCell className="font-medium align-top">
+                                      <div className="flex flex-col gap-1">
+                                        <span className="whitespace-nowrap">
+                                          {s.date
+                                            ? new Date(`${s.date}T00:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
+                                            : '-'}
+                                        </span>
                                         {vide ? (
-                                          <Badge variant="outline" className="font-normal text-muted-foreground">Vide</Badge>
+                                          <Badge variant="outline" className="font-normal text-muted-foreground w-fit">Vide</Badge>
                                         ) : (
-                                          <Badge className="font-normal bg-emerald-100 text-emerald-800 hover:bg-emerald-100">Rempli</Badge>
+                                          <Badge className="font-normal bg-emerald-100 text-emerald-800 hover:bg-emerald-100 w-fit">Rempli</Badge>
                                         )}
                                       </div>
                                     </TableCell>
-                                    <TableCell>{s.superviseur || '-'}</TableCell>
-                                    <TableCell className="text-center">{(s.equipements || []).length}</TableCell>
+                                    <TableCell className="align-top">{s.superviseur || <span className="text-muted-foreground">—</span>}</TableCell>
+                                    <TableCell className="align-top">
+                                      {(s.equipe || []).filter((m) => (m.nom || '').trim()).length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {(s.equipe || [])
+                                            .filter((m) => (m.nom || '').trim())
+                                            .map((m, i) => (
+                                              <span
+                                                key={i}
+                                                className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-xs"
+                                                title={ROLE_LABELS_FULL[(m.role || '').trim().toUpperCase()] || m.role || ''}
+                                              >
+                                                {m.role && (
+                                                  <span className="font-bold text-primary">{(m.role || '').trim().toUpperCase().slice(0, 1)}</span>
+                                                )}
+                                                {m.nom}
+                                              </span>
+                                            ))}
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground">—</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="align-top">
+                                      {s.observations ? (
+                                        <p className="text-sm whitespace-pre-wrap break-words line-clamp-3" title={s.observations}>
+                                          {s.observations}
+                                        </p>
+                                      ) : (
+                                        <span className="text-muted-foreground">—</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-center align-top text-muted-foreground">{(s.equipements || []).length}</TableCell>
                                     <TableCell className="text-right">
                                       <div className="flex justify-end gap-1">
                                         <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setExpandedSeance(expandedSeance === s.id ? null : s.id); }}>
@@ -2031,7 +2068,7 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                                   </TableRow>
                                   {expandedSeance === s.id && (
                                     <TableRow key={`${s.id}-detail`}>
-                                      <TableCell colSpan={4} className="bg-muted/30">
+                                      <TableCell colSpan={6} className="bg-muted/30">
                                         <div className="space-y-1 py-2">
                                           {(s.equipe || []).length > 0 && (
                                             <div className="flex flex-wrap gap-3 mb-2">

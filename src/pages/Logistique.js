@@ -55,7 +55,9 @@ import {
   FileText,
   Calendar,
   CheckSquare,
-  ArchiveRestore
+  ArchiveRestore,
+  PenLine,
+  Circle
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -216,30 +218,20 @@ export default function Logistique({ kioskMode = false }) {
   // par défaut) et on ajoute une recherche libre (date, superviseur, nom
   // d'équipe, signature) qui traverse tous les postes/années d'un coup.
   const [seanceSearch, setSeanceSearch] = useState('');
-  const [expandedYears, setExpandedYears] = useState(new Set());
+  // Ouverture/fermeture explicite par clé (true/false) ; sans entrée, valeur par défaut.
+  const [yearOv, setYearOv] = useState({});
   const CURRENT_YEAR_STR = String(new Date().getFullYear());
   const isYearOpen = (key, year) =>
-    expandedYears.has(key) ? year !== CURRENT_YEAR_STR : year === CURRENT_YEAR_STR;
-  // Fix 28/09/2026 (demande : "si je clique sur un mois ou une année, le
-  // collapse s'applique sur les autres qui étaient ouverts") : cliquer sur
-  // une année referme les autres années ouvertes du même poste (tableau),
-  // comme un accordéon. yearsByPoste/monthsByPosteYear (calculés plus bas,
-  // juste après sortedSeances) donnent la liste des frères/soeurs à fermer.
+    key in yearOv ? yearOv[key] : year === CURRENT_YEAR_STR;
+  // Un clic ouvre/ferme l'année ; en ouvrant, les autres années du même poste
+  // se referment (accordéon).
   const toggleYear = (poste, year) => {
     const key = `${poste}__${year}`;
     const siblings = (yearsByPoste.get(poste) || []).filter((y) => y !== year);
-    setExpandedYears((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      siblings.forEach((y) => {
-        const k = `${poste}__${y}`;
-        // Pour forcer une année fermée : si elle est ouverte par défaut
-        // (l'année en cours), il faut que la clé soit présente dans le Set
-        // (isYearOpen l'inverse) ; sinon il faut qu'elle soit absente.
-        if (y === CURRENT_YEAR_STR) next.add(k);
-        else next.delete(k);
-      });
+    setYearOv((prev) => {
+      const cur = key in prev ? prev[key] : year === CURRENT_YEAR_STR;
+      const next = { ...prev, [key]: !cur };
+      if (!cur) siblings.forEach((y) => { next[`${poste}__${y}`] = false; });
       return next;
     });
   };
@@ -251,7 +243,7 @@ export default function Logistique({ kioskMode = false }) {
   // dizaines de fiches auto-générées encore vides ne donnent plus
   // l'impression que les vraies données (import Excel) ont disparu.
   const MOIS_NOMS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-  const [expandedMonths, setExpandedMonths] = useState(new Set());
+  const [monthOv, setMonthOv] = useState({});
   // Cartes « Caméra N » repliables d'un clic sur leur titre.
   const [collapsedPostes, setCollapsedPostes] = useState(new Set());
   const togglePoste = (poste) =>
@@ -266,17 +258,12 @@ export default function Logistique({ kioskMode = false }) {
   // aux mois de la même année/poste.
   const toggleMonth = (poste, year, month) => {
     const key = `${poste}__${year}__${month}`;
-    const posteYearKey = `${poste}__${year}`;
-    const siblings = (monthsByPosteYear.get(posteYearKey) || []).filter((m) => m.month !== month);
-    setExpandedMonths((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      siblings.forEach(({ month: m2, defaultOpen }) => {
-        const k = `${poste}__${year}__${m2}`;
-        if (defaultOpen) next.add(k);
-        else next.delete(k);
-      });
+    const defs = monthsByPosteYear.get(`${poste}__${year}`) || [];
+    const defOf = (m) => (defs.find((d) => d.month === m) || {}).defaultOpen || false;
+    setMonthOv((prev) => {
+      const cur = key in prev ? prev[key] : defOf(month);
+      const next = { ...prev, [key]: !cur };
+      if (!cur) defs.filter((d) => d.month !== month).forEach((d) => { next[`${poste}__${year}__${d.month}`] = false; });
       return next;
     });
   };
@@ -287,7 +274,7 @@ export default function Logistique({ kioskMode = false }) {
   // de l'Excel (ex: Août 2026) restaient repliées et invisibles au premier
   // coup d'œil, plusieurs mois avant le mois en cours.
   const isMonthOpen = (key, defaultOpen) =>
-    expandedMonths.has(key) ? !defaultOpen : defaultOpen;
+    key in monthOv ? monthOv[key] : defaultOpen;
   const isSeanceVide = (s) => {
     const hasEquipe = (s.equipe || []).some((m) => (m.nom || '').trim());
     const hasChecks = (s.equipements || []).some((e) => e.sortie || e.entree || (e.checks && Object.values(e.checks).some((c) => c.sortie || c.entree)));
@@ -307,6 +294,8 @@ export default function Logistique({ kioskMode = false }) {
     signature: '',
     signature_sortie: '',
     signature_entree: '',
+    signature_sortie_par: '',
+    signature_entree_par: '',
     equipements: [],
     equipe: []
   });
@@ -789,7 +778,7 @@ export default function Logistique({ kioskMode = false }) {
 
   // ================= SEANCES (Entrees / Sorties) =================
   const resetSeanceForm = () => {
-    setSeanceForm({ date: '', poste: '', superviseur: '', horaire_debut: '', horaire_fin: '', observations: '', interventions: '', signature: '', signature_sortie: '', signature_entree: '', equipements: [], equipe: [] });
+    setSeanceForm({ date: '', poste: '', superviseur: '', horaire_debut: '', horaire_fin: '', observations: '', interventions: '', signature: '', signature_sortie: '', signature_entree: '', signature_sortie_par: '', signature_entree_par: '', equipements: [], equipe: [] });
     setSeanceEditingId(null);
   };
 
@@ -805,6 +794,8 @@ export default function Logistique({ kioskMode = false }) {
       signature: s.signature || '',
       signature_sortie: s.signature_sortie || '',
       signature_entree: s.signature_entree || '',
+      signature_sortie_par: s.signature_sortie_par || '',
+      signature_entree_par: s.signature_entree_par || '',
       equipements: (s.equipements || []).map((eq) => ({ nom: eq.nom || '', checks: { ...emptyChecks(), ...(eq.checks || {}) } })),
       equipe: s.equipe || []
     });
@@ -1009,30 +1000,19 @@ export default function Logistique({ kioskMode = false }) {
     });
   });
   const setAllSeanceYearsOpen = (open) => {
-    setExpandedYears((prev) => {
-      const next = new Set(prev);
+    setYearOv((prev) => {
+      const next = { ...prev };
       yearsByPoste.forEach((years, poste) => {
-        years.forEach((year) => {
-          const k = `${poste}__${year}`;
-          const defaultOpen = year === CURRENT_YEAR_STR;
-          const shouldBeInSet = open ? !defaultOpen : defaultOpen;
-          if (shouldBeInSet) next.add(k);
-          else next.delete(k);
-        });
+        years.forEach((year) => { next[`${poste}__${year}`] = open ? true : false; });
       });
       return next;
     });
   };
   const setAllSeanceMonthsOpen = (open) => {
-    setExpandedMonths((prev) => {
-      const next = new Set(prev);
+    setMonthOv((prev) => {
+      const next = { ...prev };
       monthsByPosteYear.forEach((months, posteYearKey) => {
-        months.forEach(({ month, defaultOpen }) => {
-          const k = `${posteYearKey}__${month}`;
-          const shouldBeInSet = open ? !defaultOpen : defaultOpen;
-          if (shouldBeInSet) next.add(k);
-          else next.delete(k);
-        });
+        months.forEach(({ month }) => { next[`${posteYearKey}__${month}`] = open ? true : false; });
       });
       return next;
     });
@@ -2241,6 +2221,39 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                   value={isDrawnSig(value) ? value : ''}
                                   onChange={(v) => setSeanceForm((f) => ({ ...f, [field]: v }))}
                                 />
+                                {(() => {
+                                  const parField = `${field}_par`;
+                                  const parVal = seanceForm[parField] || '';
+                                  const suggestions = Array.from(new Set([
+                                    ...(seanceForm.equipe || []).map((m) => canonName(m.nom)),
+                                    canonName(seanceForm.superviseur),
+                                  ].filter(Boolean)));
+                                  return (
+                                    <div className="space-y-1.5">
+                                      <Label className="text-xs text-muted-foreground">Signé par (nom)</Label>
+                                      <Input
+                                        value={parVal}
+                                        onChange={(e) => setSeanceForm((f) => ({ ...f, [parField]: e.target.value }))}
+                                        placeholder="Nom du signataire"
+                                        data-testid={`signataire-${key}`}
+                                      />
+                                      {suggestions.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {suggestions.map((n) => (
+                                            <button
+                                              key={n}
+                                              type="button"
+                                              onClick={() => setSeanceForm((f) => ({ ...f, [parField]: n }))}
+                                              className={`rounded-full border px-3 py-1 text-sm ${parVal === n ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'}`}
+                                            >
+                                              {n}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             );
                           })}
@@ -2307,6 +2320,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                 <TableHead>Superviseur</TableHead>
                                 <TableHead>Cadreurs</TableHead>
                                 <TableHead className="min-w-[200px]">Commentaire</TableHead>
+                                <TableHead className="whitespace-nowrap">Horaires</TableHead>
                                 <TableHead className="text-center">Éq.</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                               </TableRow>
@@ -2327,7 +2341,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     const open = isYearOpen(yearKey, year);
                                     rows.push(
                                       <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted cursor-pointer" onClick={() => toggleYear(poste, year)}>
-                                        <TableCell colSpan={6} className="py-3">
+                                        <TableCell colSpan={7} className="py-3">
                                           <div className="flex items-center gap-2 font-bold text-lg">
                                             {open ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                                             {year}
@@ -2353,7 +2367,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     const monthLabel = MOIS_NOMS_FR[parseInt(monthNum, 10) - 1] || monthNum;
                                     rows.push(
                                       <TableRow key={`month-${monthKey}`} className="bg-muted/40 hover:bg-muted/60 cursor-pointer" onClick={() => toggleMonth(poste, currentYear, monthNum)}>
-                                        <TableCell colSpan={6} className="py-3 pl-6">
+                                        <TableCell colSpan={7} className="py-3 pl-6">
                                           <div className="flex items-center gap-2 text-base font-semibold text-foreground">
                                             {monthOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                                             {monthLabel}
@@ -2418,6 +2432,18 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                         <span className="text-muted-foreground">—</span>
                                       )}
                                     </TableCell>
+                                    <TableCell className="align-top whitespace-nowrap text-sm">
+                                      {[['Sortie', s.horaire_debut, s.signature_sortie, s.signature_sortie_par], ['Entrée', s.horaire_fin, s.signature_entree, s.signature_entree_par]].map(([lab, h, sig, par]) => {
+                                        const signed = !!sig;
+                                        return (
+                                          <div key={lab} className="flex items-center gap-1.5" title={signed ? `${lab} signée${par ? ` par ${par}` : ''}` : `${lab} non signée`}>
+                                            <span className="w-11 text-xs text-muted-foreground">{lab}</span>
+                                            <span className="font-medium tabular-nums">{h || '—'}</span>
+                                            {signed ? <PenLine className="w-4 h-4 text-green-600" /> : <Circle className="w-4 h-4 text-muted-foreground/40" />}
+                                          </div>
+                                        );
+                                      })}
+                                    </TableCell>
                                     <TableCell className="text-center align-top text-muted-foreground">{(s.equipements || []).length}</TableCell>
                                     <TableCell className="text-right">
                                       <div className="flex justify-end gap-1">
@@ -2439,7 +2465,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                   </TableRow>
                                   {expandedSeance === s.id && (
                                     <TableRow key={`${s.id}-detail`}>
-                                      <TableCell colSpan={6} className="bg-muted/30">
+                                      <TableCell colSpan={7} className="bg-muted/30">
                                         <div className="space-y-1 py-2">
                                           {(s.equipe || []).length > 0 && (
                                             <div className="flex flex-wrap gap-3 mb-2">
@@ -2514,6 +2540,9 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                                       <img src={v} alt={`Signature ${lab.toLowerCase()}`} className="h-10 rounded border bg-white" />
                                                     ) : (
                                                       <span className="font-medium text-foreground">{v}</span>
+                                                    )}
+                                                    {(lab === 'Entrée' ? s.signature_entree_par : s.signature_sortie_par) && (
+                                                      <span className="font-medium text-foreground">— {lab === 'Entrée' ? s.signature_entree_par : s.signature_sortie_par}</span>
                                                     )}
                                                   </div>
                                                 ) : null

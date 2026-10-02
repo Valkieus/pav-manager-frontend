@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { OfflineProvider } from "./contexts/OfflineContext";
 import { Layout } from "./components/Layout";
+
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { Toaster } from "./components/ui/sonner";
 
@@ -19,6 +20,8 @@ const Planning = lazy(() => import("./pages/PlanningHub"));
 const MonEspace = lazy(() => import("./pages/MonEspace"));
 const Effectif = lazy(() => import("./pages/Effectif"));
 const Logistique = lazy(() => import("./pages/Logistique"));
+// Écran du compte tablette « Régisseurs iPad » — chargé seulement pour ce compte.
+const KioskShell = lazy(() => import("./components/KioskShell"));
 const Devis = lazy(() => import("./pages/Devis"));
 const Formations = lazy(() => import("./pages/Formations"));
 const Salles = lazy(() => import("./pages/Salles"));
@@ -35,7 +38,7 @@ const PageLoader = () => (
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
 
   if (loading) {
     return (
@@ -47,6 +50,12 @@ const ProtectedRoute = ({ children }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Compte tablette « Régisseurs iPad » : uniquement la vue Entrées/Sorties,
+  // quelle que soit l'adresse ouverte (pas de menu, pas de déconnexion).
+  if (user?.kiosk_mode) {
+    return <KioskShell />;
   }
 
   return <Layout>{children}</Layout>;

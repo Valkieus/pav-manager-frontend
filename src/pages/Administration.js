@@ -993,6 +993,27 @@ export default function Administration() {
     currentUser?.niveau_acces === "Coordination" ? "groups" : "users",
   );
   const [users, setUsers] = useState([]);
+  // Compte tablette « Régisseurs iPad » (Super Admin) : session permanente,
+  // uniquement la vue Entrées/Sorties.
+  const [kioskDialogOpen, setKioskDialogOpen] = useState(false);
+  const [kioskForm, setKioskForm] = useState({ username: "regisseurs-ipad", password: "" });
+  const [kioskSubmitting, setKioskSubmitting] = useState(false);
+  const createKioskAccount = async () => {
+    setKioskSubmitting(true);
+    try {
+      const res = await axios.post(`${API}/admin/kiosk-account`, kioskForm);
+      toast.success(
+        `Compte tablette créé : ${res.data.username} (groupe ${res.data.group})`,
+      );
+      setKioskDialogOpen(false);
+      setKioskForm({ username: "regisseurs-ipad", password: "" });
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Erreur lors de la création");
+    } finally {
+      setKioskSubmitting(false);
+    }
+  };
   const [userSearch, setUserSearch] = useState("");
   const [userLevelFilter, setUserLevelFilter] = useState("all");
   const [userDetailOpen, setUserDetailOpen] = useState(null);
@@ -2896,7 +2917,58 @@ inchangés pour ce rôle. */}
         {(canViewReadOnlyTabs || isGestionnaireOnly) && (
           <TabsContent value="users" className="space-y-4">
             {!isReadOnlyAdmin && (
-              <div className="flex justify-end">
+              <div className="flex flex-wrap justify-end gap-2">
+                {isSuperAdmin() && (
+                  <Dialog open={kioskDialogOpen} onOpenChange={setKioskDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" data-testid="add-kiosk-account-btn">
+                        <Plus className="w-4 h-4 mr-2" /> Compte tablette iPad
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Compte « Régisseurs iPad »</DialogTitle>
+                        <DialogDescription>
+                          Compte partagé de la tablette des régisseurs : la
+                          session ne se déconnecte jamais et seule la vue
+                          Entrées / Sorties est accessible. Au démarrage, la
+                          tablette demande quel régisseur l'utilise.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label>Identifiant</Label>
+                          <Input
+                            value={kioskForm.username}
+                            onChange={(e) =>
+                              setKioskForm({ ...kioskForm, username: e.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Mot de passe (8 caractères minimum)</Label>
+                          <Input
+                            type="password"
+                            value={kioskForm.password}
+                            onChange={(e) =>
+                              setKioskForm({ ...kioskForm, password: e.target.value })
+                            }
+                          />
+                        </div>
+                        <Button
+                          className="w-full"
+                          onClick={createKioskAccount}
+                          disabled={kioskSubmitting || kioskForm.password.length < 8}
+                        >
+                          {kioskSubmitting && (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          )}
+                          Créer le compte tablette
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
                 <Dialog
                   open={userDialogOpen}
                   onOpenChange={(open) => {
@@ -3126,6 +3198,11 @@ même limite pour éviter un 403 après coup. */}
                                     <span className="font-medium">
                                       {u.username}
                                     </span>
+                                    {u.kiosk_mode && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Tablette
+                                      </Badge>
+                                    )}
                                     {u.id === currentUser?.id && (
                                       <Badge
                                         variant="outline"

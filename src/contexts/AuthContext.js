@@ -12,6 +12,27 @@ const AuthContext = createContext(null);
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Compte tablette (kiosk_mode) : la session ne doit JAMAIS sauter à cause d'une
+// coupure réseau passagère. Le profil est mémorisé sur la tablette et réutilisé
+// si le serveur est injoignable ; seule une vraie réponse 401 déconnecte.
+const KIOSK_USER_KEY = "kiosk_user";
+const rememberKioskUser = (u) => {
+  try {
+    if (u && u.kiosk_mode) localStorage.setItem(KIOSK_USER_KEY, JSON.stringify(u));
+    else localStorage.removeItem(KIOSK_USER_KEY);
+  } catch (e) {
+    // stockage indisponible : sans conséquence
+  }
+};
+const readKioskUser = () => {
+  try {
+    const raw = localStorage.getItem(KIOSK_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const { syncThemeFromServer } = useTheme();
   const [user, setUser] = useState(null);
@@ -24,12 +45,19 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await axios.get(`${API}/auth/me`);
       setUser(res.data);
+      rememberKioskUser(res.data);
       syncThemeFromServer(res.data.theme_preference);
       setMustChangePassword(res.data.must_change_password || false);
       setOnboardingSeen(res.data.onboarding_seen !== false);
     } catch (err) {
       console.error("Auth error:", err);
-      logout();
+      const cached = readKioskUser();
+      if (cached && err?.response?.status !== 401) {
+        // Tablette hors ligne / serveur injoignable : on garde la session.
+        setUser(cached);
+      } else {
+        logout();
+      }
     } finally {
       setLoading(false);
     }
@@ -51,6 +79,7 @@ export const AuthProvider = ({ children }) => {
     axios.defaults.headers.common["Authorization"] = `Bearer ${access_token}`;
     setToken(access_token);
     setUser(userData);
+    rememberKioskUser(userData);
     syncThemeFromServer(userData.theme_preference);
     setMustChangePassword(userData.must_change_password || false);
     setOnboardingSeen(userData.onboarding_seen !== false);
@@ -59,6 +88,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem("token");
+    rememberKioskUser(null);
     delete axios.defaults.headers.common["Authorization"];
     setToken(null);
     setUser(null);

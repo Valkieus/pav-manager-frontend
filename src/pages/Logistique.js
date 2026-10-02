@@ -103,6 +103,17 @@ const formatNom = (raw) => {
     .join(' ');
 };
 
+// Couleur d'une fiche selon le jour du culte : vendredi = violet, dimanche = bleu.
+const jourCouleur = (dateStr) => {
+  if (!dateStr) return null;
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  const wd = d.getDay();
+  if (wd === 5) return { nom: 'Vendredi', row: 'bg-violet-500/10 hover:bg-violet-500/15', cell: 'border-l-4 border-l-violet-500', text: 'text-violet-700 dark:text-violet-300', badge: 'bg-violet-500/15 text-violet-700 dark:text-violet-300' };
+  if (wd === 0) return { nom: 'Dimanche', row: 'bg-blue-500/10 hover:bg-blue-500/15', cell: 'border-l-4 border-l-blue-500', text: 'text-blue-700 dark:text-blue-300', badge: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' };
+  return null;
+};
+
 // Heures de la fiche d'un culte : saisie avec un vrai sélecteur d'heure
 // (<input type="time">, "HH:MM"), enregistrée au format français déjà utilisé
 // partout (« 8h30 », « 15h12 »). Les anciennes saisies libres lisibles
@@ -1748,6 +1759,13 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                 <Button type="button" variant="outline" size="sm" onClick={collapseAllSeances}>
                   Tout fermer
                 </Button>
+                {/* Légende des couleurs : une couleur par jour de culte */}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-500/15 px-2.5 py-1 text-xs font-medium text-violet-700 dark:text-violet-300">
+                  <span className="h-2 w-2 rounded-full bg-violet-500" />Vendredi
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/15 px-2.5 py-1 text-xs font-medium text-blue-700 dark:text-blue-300">
+                  <span className="h-2 w-2 rounded-full bg-blue-500" />Dimanche
+                </span>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2202,10 +2220,13 @@ dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                                   const vide = isSeanceVide(s);
                                   rows.push(
                                 <Fragment key={s.id}>
-                                  <TableRow onClick={() => canManage() && handleEditSeance(s)} className={canManage() ? "cursor-pointer hover:bg-muted/50" : ""}>
-                                    <TableCell className="font-medium align-top">
+                                  <TableRow
+                                    onClick={() => canManage() && handleEditSeance(s)}
+                                    className={`${jourCouleur(s.date)?.row || 'hover:bg-muted/50'} ${canManage() ? 'cursor-pointer' : ''}`}
+                                  >
+                                    <TableCell className={`font-medium align-top ${jourCouleur(s.date)?.cell || ''}`}>
                                       <div className="flex flex-col gap-1">
-                                        <span className="whitespace-nowrap">
+                                        <span className={`whitespace-nowrap ${jourCouleur(s.date)?.text || ''}`}>
                                           {s.date
                                             ? new Date(`${s.date}T00:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
                                             : '-'}

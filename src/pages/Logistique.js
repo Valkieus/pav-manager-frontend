@@ -2371,13 +2371,12 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     const yearCount = group.filter((g) => (g.date || '').slice(0, 4) === year).length;
                                     const open = isYearOpen(yearKey, year);
                                     rows.push(
-                                      <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted">
-                                        <TableCell colSpan={7} className="p-0">
+                                      <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted cursor-pointer touch-manipulation" onClick={(e) => toggleYear(poste, year, e.currentTarget)}>
+                                        <TableCell colSpan={7} className="p-0 cursor-pointer">
                                           {/* Vrai bouton (et non clic sur la ligne) : fiable au toucher sur iPad. */}
                                           <button
                                             type="button"
                                             aria-expanded={open}
-                                            onClick={(e) => toggleYear(poste, year, e.currentTarget)}
                                             className="flex w-full touch-manipulation items-center gap-2 px-4 py-4 text-left text-lg font-bold"
                                           >
                                             {open ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
@@ -2402,12 +2401,11 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     const monthOpen = isMonthOpen(monthKey, monthDefaultOpen);
                                     const monthLabel = MOIS_NOMS_FR[parseInt(monthNum, 10) - 1] || monthNum;
                                     rows.push(
-                                      <TableRow key={`month-${monthKey}`} className="bg-muted/40 hover:bg-muted/60">
-                                        <TableCell colSpan={7} className="p-0">
+                                      <TableRow key={`month-${monthKey}`} className="bg-muted/40 hover:bg-muted/60 cursor-pointer touch-manipulation" onClick={(e) => toggleMonth(poste, currentYear, monthNum, e.currentTarget)}>
+                                        <TableCell colSpan={7} className="p-0 cursor-pointer">
                                           <button
                                             type="button"
                                             aria-expanded={monthOpen}
-                                            onClick={(e) => toggleMonth(poste, currentYear, monthNum, e.currentTarget)}
                                             className="flex w-full touch-manipulation items-center gap-2 py-4 pl-8 pr-4 text-left text-base font-semibold text-foreground"
                                           >
                                             {monthOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}

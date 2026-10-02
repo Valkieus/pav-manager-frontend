@@ -136,6 +136,17 @@ const weekendParite = (dateStr) => {
   return Math.floor(fridayEpochDay / 7) % 2;
 };
 
+// Couleurs du Planning PAV : vendredi = bleu planning, dimanche = orange.
+const jourCouleurStyle = (dateStr) => {
+  if (!dateStr) return null;
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const wd = new Date(y, m - 1, d).getDay();
+  if (wd === 5) return { background: '#A6C8EB', color: '#1F4E78', borderColor: '#1F4E78' };
+  if (wd === 0) return { background: '#FCE4D6', color: '#C55A11', borderColor: '#C55A11' };
+  return null;
+};
+
 // Signatures (sortie / entrée) : initiales (texte) ou dessin (image PNG).
 const isDrawnSig = (v) => typeof v === 'string' && v.startsWith('data:image');
 const sigText = (v) => (!v ? '' : isDrawnSig(v) ? '(signature dessinée)' : v);
@@ -1937,7 +1948,7 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                             <div className="min-w-0">
                               <p className="truncate text-xl font-bold">{seanceForm.poste}</p>
                               {jour && (
-                                <p className="truncate text-sm font-medium capitalize text-muted-foreground">{jour}</p>
+                                <p className="w-fit max-w-full truncate rounded-md border px-2 py-0.5 text-sm font-bold capitalize text-muted-foreground" style={jourCouleurStyle(seanceForm.date) || undefined}>{jour}</p>
                               )}
                             </div>
                             <button
@@ -2449,7 +2460,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                   >
                                     <TableCell className={`font-medium align-top border-l-8 ${cameraCouleur(s.poste)?.border || 'border-l-transparent'}`}>
                                       <div className="flex flex-col gap-1">
-                                        <span className="whitespace-nowrap">
+                                        <span className="w-fit whitespace-nowrap rounded-md border px-2 py-1 font-bold" style={jourCouleurStyle(s.date) || undefined}>
                                           {s.date
                                             ? new Date(`${s.date}T00:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
                                             : '-'}

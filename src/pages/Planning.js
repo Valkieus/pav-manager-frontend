@@ -34,6 +34,8 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
@@ -2024,7 +2026,39 @@ export default function Planning() {
   // droit d'éditer) ; sauve d'abord le planning courant pour ne pas perdre
   // des saisies en cours, puis appelle l'endpoint dédié.
   const [duplicating, setDuplicating] = useState(false);
-  const handleDuplicateLastMonth = async () => {
+  // Contrôle total : on choisit QUELLES sections dupliquer, en voyant qui les
+  // a modifiées en dernier (section_last_edit). Sans contrôle total : le
+  // comportement historique (périmètre du groupe, simple confirmation).
+  const [duplicateDialog, setDuplicateDialog] = useState(false);
+  const [duplicateChoice, setDuplicateChoice] = useState({});
+  const duplicateSectionNames = useMemo(() => {
+    const names = [];
+    Object.values(sections || {}).forEach((tables) =>
+      Object.values(tables || {}).forEach((secs) =>
+        (Array.isArray(secs) ? secs : []).forEach((sec) => {
+          if (sec?.name && !names.includes(sec.name)) names.push(sec.name);
+        }),
+      ),
+    );
+    return names;
+  }, [sections]);
+  const openDuplicate = () => {
+    if (!planning?.id) {
+      toast.error(
+        "Enregistrez d'abord ce planning avant de dupliquer le mois précédent.",
+      );
+      return;
+    }
+    if (planningScope.grid_full) {
+      const init = {};
+      duplicateSectionNames.forEach((n) => (init[n] = true));
+      setDuplicateChoice(init);
+      setDuplicateDialog(true);
+    } else {
+      handleDuplicateLastMonth();
+    }
+  };
+  const handleDuplicateLastMonth = async (chosenSections) => {
     if (!planning?.id) {
       toast.error(
         "Enregistrez d'abord ce planning avant de dupliquer le mois précédent.",
@@ -2032,6 +2066,7 @@ export default function Planning() {
       return;
     }
     if (
+      !chosenSections &&
       !window.confirm(
         `Remplir les cases vides de ${MOIS_NOMS[currentMonth - 1]} ${currentYear} avec les affectations du mois précédent ?\n\n` +
           `Seules les cases actuellement vides et dans votre périmètre seront complétées — rien n'est écrasé.`,
@@ -2043,6 +2078,7 @@ export default function Planning() {
       await handleSave();
       const res = await axios.post(
         `${API}/planning/${planning.id}/duplicate-last-month`,
+        chosenSections ? { sections: chosenSections } : undefined,
       );
       setPlanning(res.data.planning);
       const { filled_count, skipped_out_of_scope } = res.data;
@@ -3486,7 +3522,7 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           {canManage() && planningEditMode && planning?.id && (
             <Button
               variant="outline"
-              onClick={handleDuplicateLastMonth}
+              onClick={openDuplicate}
               disabled={duplicating || saving}
               data-testid="duplicate-last-month-btn"
               className="flex-1 sm:flex-none"
@@ -4332,6 +4368,103 @@ tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
       </Dialog>
 
       {/* Copier Dimanche <-> Vendredi (demande Nathalie 22/08/2026) */}
+      {/* Duplication du mois précédent — contrôle total : choix des sections,
+          avec le nom de la dernière personne ayant modifié chacune. */}
+      <Dialog open={duplicateDialog} onOpenChange={setDuplicateDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Dupliquer le mois dernier</DialogTitle>
+            <DialogDescription>
+              Choisissez les sections à remplir avec les affectations du mois
+              précédent. Seules les cases vides sont complétées, rien n'est
+              écrasé.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5 max-h-[50vh] overflow-y-auto">
+            {duplicateSectionNames.map((name) => {
+              const last = planning?.section_last_edit?.[name];
+              return (
+                <label
+                  key={name}
+                  className="flex items-center gap-3 rounded-md border px-3 py-2 cursor-pointer hover:bg-muted/50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!duplicateChoice[name]}
+                    onChange={(e) =>
+                      setDuplicateChoice((c) => ({
+                        ...c,
+                        [name]: e.target.checked,
+                      }))
+                    }
+                  />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-medium">{name}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {last
+                        ? `Dernière modification : ${last.user_name} · ${new Date(
+                            last.at,
+                          ).toLocaleDateString("fr-FR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}`
+                        : "Aucune modification enregistrée"}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  setDuplicateChoice(
+                    Object.fromEntries(
+                      duplicateSectionNames.map((n) => [n, true]),
+                    ),
+                  )
+                }
+              >
+                Tout cocher
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  setDuplicateChoice(
+                    Object.fromEntries(
+                      duplicateSectionNames.map((n) => [n, false]),
+                    ),
+                  )
+                }
+              >
+                Tout décocher
+              </Button>
+            </div>
+            <Button
+              disabled={
+                duplicating ||
+                !duplicateSectionNames.some((n) => duplicateChoice[n])
+              }
+              onClick={() => {
+                const chosen = duplicateSectionNames.filter(
+                  (n) => duplicateChoice[n],
+                );
+                setDuplicateDialog(false);
+                handleDuplicateLastMonth(chosen);
+              }}
+            >
+              Dupliquer ({duplicateSectionNames.filter((n) => duplicateChoice[n]).length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={copyDaysDialog} onOpenChange={setCopyDaysDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>

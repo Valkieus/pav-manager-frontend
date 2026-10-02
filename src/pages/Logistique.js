@@ -321,6 +321,27 @@ export default function Logistique() {
     ].flatMap((p) => p.names.map((n) => n.nom));
     return Array.from(new Set([...planned, ...sorted]));
   };
+  // Numéro de caméra prévu au planning pour chaque cadreur (date du culte).
+  const cameraByName = useMemo(() => {
+    const map = {};
+    plannedCadreurs.forEach((p) =>
+      p.names.forEach((n) => {
+        const key = n.nom.toLowerCase();
+        map[key] = [...(map[key] || []), p.num != null ? `Cam ${p.num}` : p.label];
+      })
+    );
+    return map;
+  }, [plannedCadreurs]);
+  const camLabelFor = (nom) => (cameraByName[(nom || '').trim().toLowerCase()] || []).join(' / ');
+  // Cadreurs de la signature : ceux prévus ce jour-là d'abord, dans l'ordre des caméras.
+  const cadreursOrdered = useMemo(() => {
+    const rank = (t) => {
+      const key = (t.nom || '').trim().toLowerCase();
+      const found = plannedCadreurs.findIndex((p) => p.names.some((n) => n.nom.toLowerCase() === key));
+      return found < 0 ? 999 : found;
+    };
+    return [...cadreursRoster].sort((a, b) => rank(a) - rank(b));
+  }, [cadreursRoster, plannedCadreurs]);
   const addPlannedToEquipe = (role, nom) => {
     if (seanceForm.equipe.some((m) => (m.nom || '').trim().toLowerCase() === nom.toLowerCase())) return;
     setSeanceForm({ ...seanceForm, equipe: [...seanceForm.equipe, { role, nom }] });
@@ -1664,9 +1685,14 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
 cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                 <datalist id={`equipe-noms-${idx}`}>
                                   {namesForRole(m.role).map((n) => (
-                                    <option key={n} value={n} />
+                                    <option key={n} value={n} label={camLabelFor(n) || undefined} />
                                   ))}
                                 </datalist>
+                                {camLabelFor(m.nom) && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-primary border-primary/40">
+                                    {camLabelFor(m.nom)}
+                                  </Badge>
+                                )}
                                 <Button type="button" size="sm" variant="ghost" onClick={() => removeEquipeMembre(idx)}>
                                   <Trash2 className="w-4 h-4 text-destructive" />
                                 </Button>
@@ -1775,17 +1801,21 @@ régisseurs — ils écrivent leurs initiales). Rangée de boutons
 dans le champ, éditable ensuite si besoin (utile sur téléphone). */}
                           {cadreursRoster.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mb-1">
-                              {cadreursRoster.map((t) => (
-                                <button
-                                  key={t.id}
-                                  type="button"
-                                  onClick={() => setSeanceForm({ ...seanceForm, signature: initialesFromNom(t.nom) })}
-                                  className="px-2 py-1 rounded-md border border-border bg-muted/40 hover:bg-primary/10 hover:border-primary/50 text-xs font-medium transition-colors"
-                                  title={t.nom}
-                                >
-                                  {initialesFromNom(t.nom)}
-                                </button>
-                              ))}
+                              {cadreursOrdered.map((t) => {
+                                const cam = camLabelFor(t.nom);
+                                return (
+                                  <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => setSeanceForm({ ...seanceForm, signature: initialesFromNom(t.nom) })}
+                                    className={`px-2 py-1 rounded-md border text-xs font-medium transition-colors hover:bg-primary/10 hover:border-primary/50 ${cam ? 'border-primary/40 bg-primary/5' : 'border-border bg-muted/40'}`}
+                                    title={cam ? `${t.nom} — ${cam}` : t.nom}
+                                  >
+                                    {initialesFromNom(t.nom)}
+                                    {cam && <span className="ml-1 text-[10px] text-primary">{cam}</span>}
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
                           <Input

@@ -280,6 +280,8 @@ export default function Logistique({ kioskMode = false }) {
     return !s.superviseur && !s.signature && !s.signature_sortie && !s.signature_entree && !hasEquipe && !hasChecks && !s.observations && !s.interventions;
   };
   const ROLE_CODES = ['C', 'A', 'R'];
+  // « Tout cocher / décocher » ne concerne que Cadreur et Assistant, jamais Régisseur.
+  const AUTO_ROLE_CODES = ['C', 'A'];
   const ROLE_LABELS_FULL = { C: 'Cadreur', A: 'Assistant', R: 'Régisseur' };
   const emptyChecks = () => ({ C: { sortie: false, entree: false }, A: { sortie: false, entree: false }, R: { sortie: false, entree: false } });
   const [seanceForm, setSeanceForm] = useState({
@@ -857,12 +859,12 @@ export default function Logistique({ kioskMode = false }) {
   const hasEligible = eligibleEquipements().length > 0;
 
   // 1 clic : coche (ou décoche si déjà tout coché) la case Sortie — ou Entrée —
-  // de TOUS les membres (C / A / R) sur les lignes d'équipement concernées.
+  // des cadreurs et assistants (C / A, pas les régisseurs) sur les lignes d'équipement concernées.
   const allChecked = (field) => {
     const eligible = eligibleEquipements();
     return (
       eligible.length > 0 &&
-      eligible.every((eq) => ROLE_CODES.every((rc) => !!eq.checks?.[rc]?.[field]))
+      eligible.every((eq) => AUTO_ROLE_CODES.every((rc) => !!eq.checks?.[rc]?.[field]))
     );
   };
   const toggleAllChecks = (field) => {
@@ -874,7 +876,7 @@ export default function Logistique({ kioskMode = false }) {
     const eqs = seanceForm.equipements.map((eq) => {
       if (isAutoCheckExcluded(eq.nom)) return eq;
       const checks = { ...emptyChecks(), ...eq.checks };
-      ROLE_CODES.forEach((rc) => {
+      AUTO_ROLE_CODES.forEach((rc) => {
         checks[rc] = { ...checks[rc], [field]: value };
       });
       return { ...eq, checks };

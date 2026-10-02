@@ -104,25 +104,33 @@ const formatNom = (raw) => {
     .join(' ');
 };
 
-// Couleur d'une fiche : UNE COULEUR PAR WEEK-END (le vendredi et le dimanche
-// qui suivent partagent la même couleur, le week-end suivant en change).
-const WEEKEND_COULEURS = [
-  { nom: 'violet', dot: 'bg-violet-500', row: 'bg-violet-500/10 hover:bg-violet-500/15', cell: 'border-l-4 border-l-violet-500', text: 'text-violet-700 dark:text-violet-300' },
-  { nom: 'bleu', dot: 'bg-blue-500', row: 'bg-blue-500/10 hover:bg-blue-500/15', cell: 'border-l-4 border-l-blue-500', text: 'text-blue-700 dark:text-blue-300' },
-  { nom: 'vert', dot: 'bg-emerald-500', row: 'bg-emerald-500/10 hover:bg-emerald-500/15', cell: 'border-l-4 border-l-emerald-500', text: 'text-emerald-700 dark:text-emerald-300' },
-  { nom: 'orange', dot: 'bg-amber-500', row: 'bg-amber-500/10 hover:bg-amber-500/15', cell: 'border-l-4 border-l-amber-500', text: 'text-amber-700 dark:text-amber-300' },
-  { nom: 'rose', dot: 'bg-rose-500', row: 'bg-rose-500/10 hover:bg-rose-500/15', cell: 'border-l-4 border-l-rose-500', text: 'text-rose-700 dark:text-rose-300' },
-  { nom: 'turquoise', dot: 'bg-cyan-500', row: 'bg-cyan-500/10 hover:bg-cyan-500/15', cell: 'border-l-4 border-l-cyan-500', text: 'text-cyan-700 dark:text-cyan-300' },
-];
-const jourCouleur = (dateStr) => {
+// Couleur d'une fiche = couleur de sa CAMÉRA (1 rouge, 2 jaune, 3 vert, 4 bleu,
+// 5 gris, 6 mauve, 7 violet foncé).
+const CAMERA_COULEURS = {
+  1: { nom: 'rouge', solid: 'bg-red-500 text-white', soft: 'bg-red-500/10', border: 'border-l-red-500', dot: 'bg-red-500' },
+  2: { nom: 'jaune', solid: 'bg-yellow-400 text-yellow-950', soft: 'bg-yellow-400/15', border: 'border-l-yellow-400', dot: 'bg-yellow-400' },
+  3: { nom: 'vert', solid: 'bg-green-500 text-white', soft: 'bg-green-500/10', border: 'border-l-green-500', dot: 'bg-green-500' },
+  4: { nom: 'bleu', solid: 'bg-blue-500 text-white', soft: 'bg-blue-500/10', border: 'border-l-blue-500', dot: 'bg-blue-500' },
+  5: { nom: 'gris', solid: 'bg-gray-500 text-white', soft: 'bg-gray-500/10', border: 'border-l-gray-500', dot: 'bg-gray-500' },
+  6: { nom: 'mauve', solid: 'bg-purple-300 text-purple-950', soft: 'bg-purple-300/20', border: 'border-l-purple-300', dot: 'bg-purple-300' },
+  7: { nom: 'violet foncé', solid: 'bg-violet-800 text-white', soft: 'bg-violet-800/10', border: 'border-l-violet-800', dot: 'bg-violet-800' },
+};
+const cameraCouleur = (poste) => {
+  const n = parseInt((String(poste || '').match(/\d+/) || [''])[0], 10);
+  return CAMERA_COULEURS[n] || null;
+};
+// Week-end : un week-end blanc, le suivant gris (alternance). Le vendredi et le
+// dimanche d'un même week-end ont le même fond. Retourne 0 (blanc), 1 (gris)
+// ou null pour un jour qui n'est ni vendredi ni dimanche.
+const weekendParite = (dateStr) => {
   if (!dateStr) return null;
   const [y, m, d] = String(dateStr).split('-').map(Number);
   if (!y || !m || !d) return null;
   const wd = new Date(y, m - 1, d).getDay();
-  if (wd !== 5 && wd !== 0) return null; // vendredi ou dimanche seulement
+  if (wd !== 5 && wd !== 0) return null;
   // Jour (époque) du VENDREDI du week-end : le dimanche remonte de 2 jours.
   const fridayEpochDay = Math.floor(Date.UTC(y, m - 1, d) / 86400000) - (wd === 0 ? 2 : 0);
-  return WEEKEND_COULEURS[Math.floor(fridayEpochDay / 7) % WEEKEND_COULEURS.length];
+  return Math.floor(fridayEpochDay / 7) % 2;
 };
 
 // Signatures (sortie / entrée) : initiales (texte) ou dessin (image PNG).
@@ -1781,14 +1789,22 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                 <Button type="button" variant="outline" size="sm" onClick={collapseAllSeances}>
                   Tout fermer
                 </Button>
-                {/* Légende : une couleur par week-end (vendredi + dimanche) */}
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                  <span className="flex -space-x-1">
-                    {WEEKEND_COULEURS.slice(0, 3).map((c) => (
-                      <span key={c.nom} className={`h-2.5 w-2.5 rounded-full ring-1 ring-background ${c.dot}`} />
-                    ))}
-                  </span>
-                  1 couleur = 1 week-end (vendredi + dimanche)
+                {/* Légende : couleur = caméra ; fond blanc / gris en alternance = week-end */}
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1">
+                  {Object.entries(CAMERA_COULEURS).map(([n, c]) => (
+                    <span
+                      key={n}
+                      title={`Caméra ${n} : ${c.nom}`}
+                      className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${c.solid}`}
+                    >
+                      {n}
+                    </span>
+                  ))}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  <span className="h-3.5 w-5 rounded border bg-background" />
+                  <span className="h-3.5 w-5 rounded border bg-muted-foreground/25" />
+                  week-ends en alternance
                 </span>
               </div>
 
@@ -1831,7 +1847,7 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                           ne pas se tromper de fiche. */}
                       {seanceForm.poste && (() => {
                         const camNum = (seanceForm.poste.match(/\d+/) || [null])[0];
-                        const couleur = jourCouleur(seanceForm.date);
+                        const camCouleur = cameraCouleur(seanceForm.poste);
                         const jour = seanceForm.date
                           ? new Date(`${seanceForm.date}T00:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
                           : '';
@@ -1840,14 +1856,14 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                             className="sticky top-0 z-20 -mx-6 -mt-6 flex items-center gap-4 border-b bg-background px-6 py-3 pr-12 shadow-sm"
                             data-testid="fiche-camera-banner"
                           >
-                            <div className="flex h-20 min-w-[5rem] flex-col items-center justify-center rounded-xl bg-primary px-3 text-primary-foreground shadow">
+                            <div className={`flex h-20 min-w-[5rem] flex-col items-center justify-center rounded-xl px-3 shadow ${camCouleur?.solid || 'bg-primary text-primary-foreground'}`}>
                               <span className="text-[10px] font-semibold uppercase leading-none tracking-widest opacity-80">Caméra</span>
                               <span className="text-5xl font-black leading-none">{camNum || '•'}</span>
                             </div>
                             <div className="min-w-0">
                               <p className="truncate text-xl font-bold">{seanceForm.poste}</p>
                               {jour && (
-                                <p className={`truncate text-sm font-medium capitalize ${couleur?.text || 'text-muted-foreground'}`}>{jour}</p>
+                                <p className="truncate text-sm font-medium capitalize text-muted-foreground">{jour}</p>
                               )}
                             </div>
                           </div>
@@ -2186,7 +2202,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                   return (
                     <Card key={poste}>
                       <CardHeader
-                        className="py-3 border-b cursor-pointer select-none hover:bg-muted/40 transition-colors"
+                        className={`py-3 border-b cursor-pointer select-none hover:bg-muted/40 transition-colors ${cameraCouleur(poste)?.soft || ''}`}
                         onClick={() => togglePoste(poste)}
                         role="button"
                         aria-expanded={!collapsedPostes.has(poste)}
@@ -2194,6 +2210,11 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                       >
                         <CardTitle className="text-xl flex items-center gap-2">
                           {collapsedPostes.has(poste) ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+                          {cameraCouleur(poste) && (
+                            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-base font-black ${cameraCouleur(poste).solid}`}>
+                              {parseInt((poste.match(/\d+/) || [''])[0], 10)}
+                            </span>
+                          )}
                           {poste || 'Non classé'}
                           <Badge variant="secondary" className="font-normal">{group.length}</Badge>
                         </CardTitle>
@@ -2277,11 +2298,11 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                 <Fragment key={s.id}>
                                   <TableRow
                                     onClick={() => canManage() && handleEditSeance(s)}
-                                    className={`${jourCouleur(s.date)?.row || 'hover:bg-muted/50'} ${canManage() ? 'cursor-pointer' : ''}`}
+                                    className={`${weekendParite(s.date) === 1 ? 'bg-muted/70 hover:bg-muted' : 'bg-background hover:bg-muted/40'} ${canManage() ? 'cursor-pointer' : ''}`}
                                   >
-                                    <TableCell className={`font-medium align-top ${jourCouleur(s.date)?.cell || ''}`}>
+                                    <TableCell className={`font-medium align-top border-l-8 ${cameraCouleur(s.poste)?.border || 'border-l-transparent'}`}>
                                       <div className="flex flex-col gap-1">
-                                        <span className={`whitespace-nowrap ${jourCouleur(s.date)?.text || ''}`}>
+                                        <span className="whitespace-nowrap">
                                           {s.date
                                             ? new Date(`${s.date}T00:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
                                             : '-'}

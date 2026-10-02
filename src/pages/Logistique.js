@@ -107,13 +107,13 @@ const formatNom = (raw) => {
 // Couleur d'une fiche = couleur de sa CAMÉRA (1 rouge, 2 jaune, 3 vert, 4 bleu,
 // 5 gris, 6 mauve, 7 violet foncé).
 const CAMERA_COULEURS = {
-  1: { nom: 'rouge', solid: 'bg-red-500 text-white', soft: 'bg-red-500/10', border: 'border-l-red-500', dot: 'bg-red-500' },
-  2: { nom: 'jaune', solid: 'bg-yellow-400 text-yellow-950', soft: 'bg-yellow-400/15', border: 'border-l-yellow-400', dot: 'bg-yellow-400' },
-  3: { nom: 'vert', solid: 'bg-green-500 text-white', soft: 'bg-green-500/10', border: 'border-l-green-500', dot: 'bg-green-500' },
-  4: { nom: 'bleu', solid: 'bg-blue-500 text-white', soft: 'bg-blue-500/10', border: 'border-l-blue-500', dot: 'bg-blue-500' },
-  5: { nom: 'gris', solid: 'bg-gray-500 text-white', soft: 'bg-gray-500/10', border: 'border-l-gray-500', dot: 'bg-gray-500' },
-  6: { nom: 'mauve', solid: 'bg-purple-300 text-purple-950', soft: 'bg-purple-300/20', border: 'border-l-purple-300', dot: 'bg-purple-300' },
-  7: { nom: 'violet foncé', solid: 'bg-violet-800 text-white', soft: 'bg-violet-800/10', border: 'border-l-violet-800', dot: 'bg-violet-800' },
+  1: { edge: 'border-red-500', nom: 'rouge', solid: 'bg-red-500 text-white', soft: 'bg-red-500/10', border: 'border-l-red-500', dot: 'bg-red-500' },
+  2: { edge: 'border-yellow-400', nom: 'jaune', solid: 'bg-yellow-400 text-yellow-950', soft: 'bg-yellow-400/15', border: 'border-l-yellow-400', dot: 'bg-yellow-400' },
+  3: { edge: 'border-green-500', nom: 'vert', solid: 'bg-green-500 text-white', soft: 'bg-green-500/10', border: 'border-l-green-500', dot: 'bg-green-500' },
+  4: { edge: 'border-blue-500', nom: 'bleu', solid: 'bg-blue-500 text-white', soft: 'bg-blue-500/10', border: 'border-l-blue-500', dot: 'bg-blue-500' },
+  5: { edge: 'border-gray-500', nom: 'gris', solid: 'bg-gray-500 text-white', soft: 'bg-gray-500/10', border: 'border-l-gray-500', dot: 'bg-gray-500' },
+  6: { edge: 'border-purple-300', nom: 'mauve', solid: 'bg-purple-300 text-purple-950', soft: 'bg-purple-300/20', border: 'border-l-purple-300', dot: 'bg-purple-300' },
+  7: { edge: 'border-violet-800', nom: 'violet foncé', solid: 'bg-violet-800 text-white', soft: 'bg-violet-800/10', border: 'border-l-violet-800', dot: 'bg-violet-800' },
 };
 const cameraCouleur = (poste) => {
   const n = parseInt((String(poste || '').match(/\d+/) || [''])[0], 10);
@@ -1748,27 +1748,34 @@ export default function Logistique() {
 l'ouvrir. Si aujourd'hui n'est pas un jour de service, propose de
 créer une fiche "événement" pour la date du jour. */}
               {(() => {
-                const todayStr = new Date().toISOString().slice(0, 10);
-                const todayDow = new Date().getDay(); // 0=dim, 5=ven
+                const nowLocal = new Date();
+                const todayStr = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`;
+                const todayDow = nowLocal.getDay(); // 0=dim, 5=ven
                 const isServiceDay = todayDow === 0 || todayDow === 5;
                 const todaysFiches = sortedSeances.filter((s) => s.date === todayStr);
                 if (isServiceDay) {
                   return (
-                    <Card className="border-primary/30 bg-primary/[0.03]">
+                    <Card>
                       <CardHeader className="py-3">
                         <CardTitle className="text-sm flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-primary" />
+                          <Calendar className="w-4 h-4 text-muted-foreground" />
                           Fiches du jour — {todayStr}
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="pt-0 pb-4 flex flex-wrap gap-2">
                         {POSTES_CAM.map((poste) => {
                           const fiche = todaysFiches.find((s) => s.poste === poste);
+                          const cam = cameraCouleur(poste);
                           return (
-                            <Button
+                            <button
                               key={poste}
-                              size="sm"
-                              variant={fiche ? 'default' : 'outline'}
+                              type="button"
+                              title={fiche ? `Ouvrir la fiche de ${poste}` : `Créer la fiche de ${poste}`}
+                              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold shadow-sm transition hover:brightness-95 ${
+                                fiche
+                                  ? cam?.solid || 'bg-primary text-primary-foreground'
+                                  : `border-2 bg-background text-foreground ${cam?.edge || 'border-border'}`
+                              }`}
                               onClick={() => {
                                 if (fiche) {
                                   handleEditSeance(fiche);
@@ -1780,7 +1787,7 @@ créer une fiche "événement" pour la date du jour. */}
                               }}
                             >
                               {poste}
-                            </Button>
+                            </button>
                           );
                         })}
                       </CardContent>
@@ -1935,7 +1942,7 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                         </div>
                         {plannedCadreurs.length > 0 && (
                           <div className="rounded-lg border overflow-hidden" data-testid="planned-cadreurs">
-                            <div className="bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
+                            <div className="bg-muted px-3 py-1.5 text-xs font-semibold text-foreground">
                               Cadreurs prévus au planning ce jour-là — cliquer sur un nom pour l'ajouter à l'équipe
                             </div>
                             <Table>
@@ -1965,10 +1972,10 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                     );
                                   };
                                   return (
-                                    <TableRow key={p.label} className={isCurrent ? 'bg-primary/10 hover:bg-primary/10' : ''}>
+                                    <TableRow key={p.label} className={isCurrent ? `${cameraCouleur(p.label)?.soft || 'bg-muted'} hover:brightness-95` : ''}>
                                       <TableCell className="py-1.5">
                                         <span className="inline-flex items-center gap-2 font-medium text-sm">
-                                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${cameraCouleur(p.label)?.solid || 'bg-primary text-primary-foreground'}`}>
                                             {p.num ?? '•'}
                                           </span>
                                           {p.label}

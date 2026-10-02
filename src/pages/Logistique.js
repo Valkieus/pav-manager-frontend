@@ -2038,6 +2038,11 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                   value={m.role}
                                   onChange={(e) => updateEquipeMembre(idx, 'role', e.target.value)}
                                 />
+                                {ROLE_LABELS_FULL[(m.role || '').trim().toUpperCase()] && (
+                                  <span className="text-sm font-bold">
+                                    {(m.role || '').trim().toUpperCase()} - {ROLE_LABELS_FULL[(m.role || '').trim().toUpperCase()]}
+                                  </span>
+                                )}
                                 <Input
                                   className="flex-1 min-w-[140px]"
                                   placeholder="Nom (choisir dans la liste ou écrire)"
@@ -2106,7 +2111,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                   <TableHead rowSpan={2} className="min-w-[170px] align-middle">Équipement</TableHead>
                                   {ROLE_CODES.map((rc) => (
                                     <TableHead key={rc} colSpan={2} className="text-center border-l h-8">
-                                      {rc} — {ROLE_LABELS_FULL[rc]}
+                                      <span className="font-bold">{rc} - {ROLE_LABELS_FULL[rc]}</span>
                                     </TableHead>
                                   ))}
                                   <TableHead rowSpan={2} className="w-10" />
@@ -2470,7 +2475,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                           {(s.equipe || []).length > 0 && (
                                             <div className="flex flex-wrap gap-3 mb-2">
                                               {(s.equipe || []).map((m, i) => (
-                                                <span key={i} className="text-sm"><span className="font-medium">{m.role}:</span> {m.nom}</span>
+                                                <span key={i} className="text-sm"><span className="font-bold">{ROLE_LABELS_FULL[(m.role || '').trim().toUpperCase()] ? `${(m.role || '').trim().toUpperCase()} - ${ROLE_LABELS_FULL[(m.role || '').trim().toUpperCase()]}` : m.role}</span> : {m.nom}</span>
                                               ))}
                                             </div>
                                           )}
@@ -2484,7 +2489,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                                   <tr>
                                                     <th className="text-left pr-3 pb-1">Équipement</th>
                                                     {['C', 'A', 'R'].map((rc) => (
-                                                      <th key={rc} className="px-2 pb-1 text-center" colSpan={2}>{rc}</th>
+                                                      <th key={rc} className="px-2 pb-1 text-center font-bold" colSpan={2}>{rc} - {ROLE_LABELS_FULL[rc]}</th>
                                                     ))}
                                                   </tr>
                                                   <tr className="text-muted-foreground">

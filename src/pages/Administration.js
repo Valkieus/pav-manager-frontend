@@ -5474,7 +5474,7 @@ même limite pour éviter un 403 après coup. */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       <Input
                         className="h-8 text-sm"
-                        placeholder="Nom du cloud"
+                        placeholder="Nom du cloud (« Cloud name », pas le nom de la clé)"
                         value={cloudinaryForm.cloud}
                         onChange={(e) => setCloudinaryForm({ ...cloudinaryForm, cloud: e.target.value })}
                       />

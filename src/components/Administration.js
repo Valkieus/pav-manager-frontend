@@ -139,6 +139,7 @@ const PERMISSION_CATEGORIES = {
   Effectif: ["effectif.read", "effectif.write", "effectif.delete"],
   Planning: ["planning.read", "planning.write", "planning.delete"],
   Logistique: ["logistique.read", "logistique.write", "logistique.delete"],
+  "Éléments LED": ["led.read", "led.write"],
   Devis: ["devis.read", "devis.write", "devis.validate", "devis.delete"],
   Formations: [
     "formations.read",
@@ -1709,6 +1710,7 @@ export default function Administration() {
                             devis: "Devis",
                             formations: "Formations",
                             logistique: "Logistique / Matériel",
+                            led: "Éléments LED",
                             salles: "Salles",
                             admin: "Supervision & Maintenance",
                           };

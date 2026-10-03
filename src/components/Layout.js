@@ -61,6 +61,7 @@ import {
   Share,
   PlusSquare,
   ArrowDown,
+  Lightbulb,
 } from "lucide-react";
 import {
   isPushSupported,
@@ -183,6 +184,14 @@ const navItems = [
     label: "Régisseurs",
     minRole: "Responsable",
     groupPerms: ["logistique.read", "logistique.write"],
+  },
+  {
+    path: "/elements-led",
+    icon: Lightbulb,
+    label: "Éléments LED",
+    minRole: "Technicien",
+    // Opt-in via Groupes & Droits : Visualisation (led.read) ou Admin RW (led.write)
+    groupPerms: ["led.read", "led.write"],
   },
   {
     path: "/devis",
@@ -525,7 +534,7 @@ export const Layout = ({ children }) => {
     }
     if (
       item.groupPerms &&
-      ["Responsable", "Coordination"].includes(user.niveau_acces)
+      ["Technicien", "Responsable", "Coordination"].includes(user.niveau_acces)
     ) {
       const perms = user.module_permissions || [];
       return item.groupPerms.some((p) => perms.includes(p));

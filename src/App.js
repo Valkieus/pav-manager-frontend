@@ -20,6 +20,7 @@ const Planning = lazy(() => import("./pages/PlanningHub"));
 const MonEspace = lazy(() => import("./pages/MonEspace"));
 const Effectif = lazy(() => import("./pages/Effectif"));
 const Logistique = lazy(() => import("./pages/Logistique"));
+const ElementsLED = lazy(() => import("./pages/ElementsLED"));
 // Écran du compte tablette « Régisseurs iPad » — chargé seulement pour ce compte.
 const KioskShell = lazy(() => import("./components/KioskShell"));
 const Devis = lazy(() => import("./pages/Devis"));
@@ -97,6 +98,7 @@ function AppRoutes() {
       <Route path="/mon-espace" element={<ProtectedRoute><MonEspace /></ProtectedRoute>} />
       <Route path="/effectif" element={<ProtectedRoute><Effectif /></ProtectedRoute>} />
       <Route path="/logistique" element={<ProtectedRoute><Logistique /></ProtectedRoute>} />
+      <Route path="/elements-led" element={<ProtectedRoute><ElementsLED /></ProtectedRoute>} />
       <Route path="/devis" element={<ProtectedRoute><Devis /></ProtectedRoute>} />
       <Route path="/formations" element={<ProtectedRoute><Formations /></ProtectedRoute>} />
       <Route path="/salles" element={<ProtectedRoute><Salles /></ProtectedRoute>} />

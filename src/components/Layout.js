@@ -39,7 +39,7 @@ import {
   Moon,
   LogOut,
   ChevronRight,
-  ChevronDown,
+  Plus,
   Building2,
   X,
   Loader2,
@@ -909,15 +909,28 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
                   >
                     <FolderIcon className="w-5 h-5 shrink-0" />
                     <span className="flex-1 truncate text-left">{node.folder}</span>
-                    <ChevronDown
-                      className={`w-4 h-4 shrink-0 transition-transform ${isOpen ? "" : "-rotate-90"}`}
-                    />
+                    {/* Compteur + pastille « + » qui pivote en « × » à l'ouverture */}
+                    <span className="rounded-full bg-muted px-1.5 text-[11px] font-semibold text-muted-foreground">
+                      {items.length}
+                    </span>
+                    <span
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all duration-200 ${isOpen ? "rotate-45 border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </span>
                   </button>
-                  {isOpen && (
-                    <div className="ml-4 pl-2 border-l border-border space-y-1 mt-1">
-                      {items.map((item) => renderLink(item, true))}
+                  {/* Ouverture / fermeture animée en douceur */}
+                  <div
+                    className={`grid transition-all duration-200 ease-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+                    aria-hidden={!isOpen}
+                    {...(!isOpen ? { inert: "" } : {})}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="ml-4 pl-2 border-l-2 border-primary/30 space-y-1 mt-1">
+                        {items.map((item) => renderLink(item, true))}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })}

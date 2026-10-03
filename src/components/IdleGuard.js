@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
 // Verrouillage sur inactivité (hors compte tablette) : après 15 min sans
-// activité on demande « Êtes-vous toujours là ? » ; sans réponse sous 60 s la
+// activité on demande « Êtes-vous toujours là ? » ; sans réponse sous 30 s la
 // session est fermée et la connexion est redemandée.
 const IDLE_MS = 15 * 60 * 1000;
-const GRACE_S = 60;
+const GRACE_S = 30;
 const KEY = "pav_last_activity";
 const EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
 

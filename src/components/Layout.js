@@ -39,6 +39,7 @@ import {
   Moon,
   LogOut,
   ChevronRight,
+  ChevronDown,
   Building2,
   X,
   Loader2,
@@ -224,6 +225,21 @@ const navItems = [
     minRole: "Coordination",
   },
 ];
+
+// Organisation du menu en grands dossiers. Les droits restent portés par
+// navItems (minRole/groupPerms, voir hasAccess) : un dossier n'affiche que les
+// entrées accessibles, disparaît s'il est vide, et se comporte comme un simple
+// lien s'il ne lui en reste qu'une. Un élément "path" seul reste au premier niveau.
+const NAV_STRUCTURE = [
+  { path: "/" },
+  { folder: "Planning & lieux", icon: CalendarDays, paths: ["/planning", "/mon-espace", "/salles"] },
+  { path: "/logistique" }, // Régisseurs : inchangé, au premier niveau
+  { folder: "Ressources humaines", icon: Users, paths: ["/effectif", "/formations"] },
+  { folder: "Matériel & achats", icon: Package, paths: ["/elements-led", "/devis"] },
+  { folder: "Communication", icon: MessageSquare, paths: ["/actualites", "/communication", "/documents"] },
+  { path: "/administration" },
+];
+const NAV_FOLDERS_KEY = "nav_open_folders";
 
 const ROLE_HIERARCHY = {
   Technicien: 1,
@@ -545,6 +561,36 @@ export const Layout = ({ children }) => {
   // Filter nav items based on user role
   const filteredNavItems = navItems.filter((item) => hasAccess(item));
 
+  // Menu groupé : chaque entrée du premier niveau est soit un lien, soit un dossier.
+  const navTree = (() => {
+    const byPath = new Map(filteredNavItems.map((i) => [i.path, i]));
+    const used = new Set();
+    const tree = [];
+    for (const node of NAV_STRUCTURE) {
+      if (node.path) {
+        const item = byPath.get(node.path);
+        if (item) { tree.push({ type: "link", item }); used.add(node.path); }
+        continue;
+      }
+      const items = node.paths.map((p) => byPath.get(p)).filter(Boolean);
+      node.paths.forEach((p) => used.add(p));
+      if (items.length === 1) tree.push({ type: "link", item: items[0] });
+      else if (items.length > 1) tree.push({ type: "folder", node, items });
+    }
+    // Filet de sécurité : une future entrée non classée reste visible.
+    filteredNavItems.filter((i) => !used.has(i.path)).forEach((item) => tree.push({ type: "link", item }));
+    return tree;
+  })();
+
+  const [openFolders, setOpenFolders] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(NAV_FOLDERS_KEY) || "[]"); } catch { return []; }
+  });
+  const toggleFolder = (name) => setOpenFolders((prev) => {
+    const next = prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name];
+    try { localStorage.setItem(NAV_FOLDERS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+    return next;
+  });
+
   // Maintenance impacts the roles chosen by Super Admin when activating it.
   // If no specific roles were chosen (legacy behavior), it impacts everyone
   // below Super Admin (Technicien, Coordination, Responsable, Admin) — Super
@@ -809,32 +855,63 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
 
           {/* Navigation */}
           <nav className="flex-1 p-3 sm:p-4 space-y-1 overflow-y-auto">
-            {filteredNavItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
-              const isUnderMaintenance = maintenanceEntries.some(
-                (e) =>
-                  e.scope === "page" &&
-                  e.page_path === item.path &&
-                  entryAppliesToUser(e),
-              );
+            {navTree.map((entry) => {
+              const renderLink = (item, nested = false) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                const isUnderMaintenance = maintenanceEntries.some(
+                  (e) =>
+                    e.scope === "page" &&
+                    e.page_path === item.path &&
+                    entryAppliesToUser(e),
+                );
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`sidebar-link ${isActive ? "active" : ""} ${nested ? "text-sm" : ""}`}
+                    data-testid={`nav-${item.path.replace("/", "") || "dashboard"}`}
+                    title={isUnderMaintenance ? "Page en maintenance" : undefined}
+                  >
+                    <Icon className="w-5 h-5 shrink-0" />
+                    <span className="flex-1 truncate">{item.label}</span>
+                    {isUnderMaintenance && (
+                      <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" />
+                    )}
+                    {isActive && !isUnderMaintenance && (
+                      <ChevronRight className="w-4 h-4 text-white/90 shrink-0" />
+                    )}
+                  </Link>
+                );
+              };
+
+              if (entry.type === "link") return renderLink(entry.item);
+
+              const { node, items } = entry;
+              const FolderIcon = node.icon;
+              const hasActive = items.some((i) => location.pathname === i.path);
+              const isOpen = hasActive || openFolders.includes(node.folder);
               return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`sidebar-link ${isActive ? "active" : ""}`}
-                  data-testid={`nav-${item.path.replace("/", "") || "dashboard"}`}
-                  title={isUnderMaintenance ? "Page en maintenance" : undefined}
-                >
-                  <Icon className="w-5 h-5 shrink-0" />
-                  <span className="flex-1 truncate">{item.label}</span>
-                  {isUnderMaintenance && (
-                    <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" />
+                <div key={node.folder}>
+                  <button
+                    type="button"
+                    onClick={() => toggleFolder(node.folder)}
+                    className="sidebar-link w-full"
+                    aria-expanded={isOpen}
+                    data-testid={`nav-folder-${node.folder}`}
+                  >
+                    <FolderIcon className="w-5 h-5 shrink-0" />
+                    <span className="flex-1 truncate text-left">{node.folder}</span>
+                    <ChevronDown
+                      className={`w-4 h-4 shrink-0 transition-transform ${isOpen ? "" : "-rotate-90"}`}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="ml-4 pl-2 border-l border-border space-y-1 mt-1">
+                      {items.map((item) => renderLink(item, true))}
+                    </div>
                   )}
-                  {isActive && !isUnderMaintenance && (
-                    <ChevronRight className="w-4 h-4 text-white/90 shrink-0" />
-                  )}
-                </Link>
+                </div>
               );
             })}
           </nav>

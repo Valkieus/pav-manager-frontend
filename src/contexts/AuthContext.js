@@ -16,9 +16,11 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // coupure réseau passagère. Le profil est mémorisé sur la tablette et réutilisé
 // si le serveur est injoignable ; seule une vraie réponse 401 déconnecte.
 const KIOSK_USER_KEY = "kiosk_user";
+// Le profil de TOUS les comptes est mémorisé : une coupure réseau ou une
+// erreur serveur passagère ne déconnecte plus personne (seul un 401 le fait).
 const rememberKioskUser = (u) => {
   try {
-    if (u && u.kiosk_mode) localStorage.setItem(KIOSK_USER_KEY, JSON.stringify(u));
+    if (u) localStorage.setItem(KIOSK_USER_KEY, JSON.stringify(u));
     else localStorage.removeItem(KIOSK_USER_KEY);
   } catch (e) {
     // stockage indisponible : sans conséquence
@@ -44,6 +46,16 @@ export const AuthProvider = ({ children }) => {
   const fetchUser = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/auth/me`);
+      // Session glissante : le serveur renvoie un jeton neuf à chaque ouverture.
+      const fresh = res.headers?.["x-refreshed-token"];
+      if (fresh) {
+        try {
+          localStorage.setItem("token", fresh);
+        } catch (e) {
+          // stockage indisponible : on garde le jeton actuel
+        }
+        axios.defaults.headers.common["Authorization"] = `Bearer ${fresh}`;
+      }
       setUser(res.data);
       rememberKioskUser(res.data);
       syncThemeFromServer(res.data.theme_preference);
@@ -53,7 +65,7 @@ export const AuthProvider = ({ children }) => {
       console.error("Auth error:", err);
       const cached = readKioskUser();
       if (cached && err?.response?.status !== 401) {
-        // Tablette hors ligne / serveur injoignable : on garde la session.
+        // Hors ligne / serveur injoignable ou en redémarrage : on garde la session.
         setUser(cached);
       } else {
         logout();

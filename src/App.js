@@ -13,6 +13,7 @@ import { Toaster } from "./components/ui/sonner";
 // bundling every page into the initial load (faster first paint, especially on mobile).
 const Login = lazy(() => import("./pages/Login"));
 const SsoLed = lazy(() => import("./pages/SsoLed"));
+const SsoAcademy = lazy(() => import("./pages/SsoAcademy"));
 const Register = lazy(() => import("./pages/Register"));
 const Confidentialite = lazy(() => import("./pages/Confidentialite"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -76,9 +77,9 @@ const PublicRoute = ({ children }) => {
   }
 
   if (isAuthenticated) {
-    // Retour vers l'entrée SSO du site LED si la connexion venait de là.
+    // Retour vers l'entrée SSO (site LED ou PAV Academy) si la connexion venait de là.
     const next = sessionStorage.getItem("post_login_next");
-    return <Navigate to={next === "/sso-led" ? "/sso-led" : "/"} replace />;
+    return <Navigate to={["/sso-led", "/sso-academy"].includes(next) ? next : "/"} replace />;
   }
 
   return children;
@@ -91,6 +92,7 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/sso-led" element={<SsoLed />} />
+      <Route path="/sso-academy" element={<SsoAcademy />} />
       <Route path="/inscription" element={<PublicRoute><Register /></PublicRoute>} />
       <Route path="/reservation/:token" element={<PublicReservation />} />
       <Route path="/confidentialite" element={<Confidentialite />} />

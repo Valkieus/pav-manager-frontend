@@ -61,6 +61,7 @@ import {
   Share,
   PlusSquare,
   ArrowDown,
+  Lightbulb,
 } from "lucide-react";
 import {
   isPushSupported,
@@ -183,6 +184,12 @@ const navItems = [
     label: "Régisseurs",
     minRole: "Responsable",
     groupPerms: ["logistique.read", "logistique.write"],
+  },
+  {
+    path: "/elements-led",
+    icon: Lightbulb,
+    label: "Éléments LED",
+    minRole: "Responsable",
   },
   {
     path: "/devis",

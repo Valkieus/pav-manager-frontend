@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
 import { toast } from 'sonner';
-import { Upload, Search, Loader2, FileText, Film, Archive, Lightbulb, FolderOpen, Plus, Trash2 } from 'lucide-react';
+import { Upload, Search, Loader2, FileText, Film, Archive, Lightbulb, FolderOpen, Plus, Trash2, ExternalLink } from 'lucide-react';
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND}/api`;
@@ -272,13 +272,32 @@ export default function ElementsLED() {
     }
   };
 
+  // Ouvre le site LED séparé, déjà connecté (SSO : jeton à usage unique, 2 min).
+  // La fenêtre est ouverte tout de suite (clic utilisateur) pour éviter le blocage popup.
+  const openLedSite = async () => {
+    const win = window.open('', '_blank');
+    try {
+      const res = await axios.post(`${API}/led/sso-handoff`);
+      if (win) win.location.href = res.data.redirect_url;
+      else window.location.href = res.data.redirect_url;
+    } catch (err) {
+      if (win) win.close();
+      toast.error(err.response?.data?.detail || "Impossible d'ouvrir le site LED");
+    }
+  };
+
   const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
     <div className="space-y-6" data-testid="elements-led-page">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Lightbulb className="w-6 h-6" /> Éléments LED</h1>
-        <p className="text-muted-foreground">Recherche et bibliothèque d'éléments LED importés depuis Telegram</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Lightbulb className="w-6 h-6" /> Éléments LED</h1>
+          <p className="text-muted-foreground">Recherche et bibliothèque d'éléments LED importés depuis Telegram</p>
+        </div>
+        <Button variant="outline" onClick={openLedSite} data-testid="open-led-site">
+          <ExternalLink className="w-4 h-4 mr-2" /> Ouvrir le site LED
+        </Button>
       </div>
 
       <Card>

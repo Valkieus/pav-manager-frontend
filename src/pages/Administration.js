@@ -202,7 +202,7 @@ const PERMISSION_CATEGORIES = {
   Effectif: ["effectif.read", "effectif.write", "effectif.delete"],
   Planning: ["planning.read", "planning.write", "planning.delete"],
   Logistique: ["logistique.read", "logistique.write", "logistique.delete"],
-  "Éléments LED": ["led.read", "led.write"],
+  "Éléments LED": ["led.read", "led.write", "led.download"],
   Devis: ["devis.read", "devis.write", "devis.validate", "devis.delete"],
   Formations: [
     "formations.read",
@@ -245,7 +245,12 @@ const PERMISSION_MATRIX_MODULES = [
   { label: "Effectif", prefix: "effectif" },
   { label: "Planning", prefix: "planning" },
   { label: "Logistique", prefix: "logistique" },
-  { label: "Éléments LED", prefix: "led", noDelete: true },
+  {
+    label: "Éléments LED",
+    prefix: "led",
+    noDelete: true,
+    special: { key: "led.download", label: "Télécharger" },
+  },
   {
     label: "Devis",
     prefix: "devis",

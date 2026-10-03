@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
 import { toast } from 'sonner';
-import { Upload, Search, Loader2, FileText, Film, Archive, Lightbulb, FolderOpen, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { Upload, Search, Loader2, FileText, Film, Lightbulb, FolderOpen, Plus, Trash2, ExternalLink } from 'lucide-react';
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND}/api`;
@@ -260,10 +260,10 @@ export default function ElementsLED() {
     }
   };
 
-  const archiveSelected = async () => {
-    if (!window.confirm('Archiver cet élément ?')) return;
+  const deleteSelected = async () => {
+    if (!window.confirm(`Supprimer définitivement « ${selected.titre} » et ses fichiers ? Cette action est irréversible.`)) return;
     try {
-      await axios.put(`${API}/led-elements/${selected.id}/archive`);
+      await axios.delete(`${API}/led-elements/${selected.id}`);
       setElements((els) => els.filter((e) => e.id !== selected.id));
       setSelected(null);
       fetchCategories();
@@ -491,7 +491,7 @@ export default function ElementsLED() {
                 </div>
               </div>
               <div className="flex justify-between">
-                <Button variant="outline" onClick={archiveSelected}><Archive className="w-4 h-4 mr-2" />Archiver</Button>
+                <Button variant="outline" className="text-destructive border-destructive" onClick={deleteSelected}><Trash2 className="w-4 h-4 mr-2" />Supprimer</Button>
                 <Button onClick={saveSelected}>Enregistrer</Button>
               </div>
             </>

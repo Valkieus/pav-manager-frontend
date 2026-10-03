@@ -38,7 +38,6 @@ import {
   Building2,
   Calendar,
   Palette,
-  ShieldCheck,
   Clock,
   ArrowRight,
   CalendarOff,
@@ -781,18 +780,6 @@ export default function Dashboard() {
       ? techniciens.filter(BRANCH_MEMBER_MATCH[selectedNode.name])
       : [];
 
-  // Is this user able to act somewhere in the Formations approval chain, or
-  // is otherwise entitled to see the pipeline summary (Admins always do)?
-  const isCoordination =
-    isAdminOrReadOnly() ||
-    (["Coordination", "Responsable"].includes(user?.niveau_acces) &&
-      (user?.branches || []).includes("Coordination"));
-  const isDirection =
-    isAdminOrReadOnly() ||
-    (user?.niveau_acces === "Responsable" &&
-      (!user?.branches || user.branches.length === 0));
-  const showPipeline = isCoordination || isDirection;
-
   // "Tu seras de service prochainement le vendredi 3 et le dimanche 19" —
   // joins the upcoming shifts found by the backend (name-matched against
   // this month's/next month's Planning) into a single readable sentence.
@@ -1434,78 +1421,6 @@ Régisseurs, puisque les devis matériel le concernent directement
                   <div className="w-12 h-12 rounded-xl bg-rose-500/10 flex items-center justify-center">
                     <AlertTriangle className="w-6 h-6 text-rose-500" />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
-
-
-      {/* À traiter — Formations & Devis pipeline. Only surfaced to people who
-can actually act on one of these stages, so it reads as a worklist
-rather than noise for everyone else. */}
-      {showPipeline && (
-        <div className="animate-fadeIn">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-            À traiter
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {isCoordination && (
-              <Card
-                className="card-hover cursor-pointer border-amber-200 dark:border-amber-900"
-                onClick={() => navigate("/formations")}
-              >
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Formations — Coordination
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {stats?.formations_en_attente_coordination ?? 0}
-                    </p>
-                  </div>
-                  <div className="w-11 h-11 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-amber-600" />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            {isDirection && (
-              <Card
-                className="card-hover cursor-pointer border-violet-200 dark:border-violet-900"
-                onClick={() => navigate("/formations")}
-              >
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Formations — Validation finale
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {stats?.formations_en_attente_validation_finale ?? 0}
-                    </p>
-                  </div>
-                  <div className="w-11 h-11 rounded-xl bg-violet-500/10 flex items-center justify-center">
-                    <ShieldCheck className="w-5 h-5 text-violet-600" />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            <Card
-              className="card-hover cursor-pointer"
-              onClick={() => navigate("/devis")}
-            >
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Devis en attente
-                  </p>
-                  <p className="text-2xl font-bold">
-                    {stats?.devis_en_attente ?? 0}
-                  </p>
-                </div>
-                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-primary" />
                 </div>
               </CardContent>
             </Card>

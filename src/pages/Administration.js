@@ -3254,6 +3254,23 @@ même limite pour éviter un 403 après coup. */}
                           >
                             <Key className="w-4 h-4 mr-1" /> Définir le mot de passe
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleToggleUserStatus(u)}
+                            data-testid="kiosk-toggle-active"
+                          >
+                            {u.is_active ? "Désactiver" : "Activer"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive"
+                            onClick={() => handleDeleteUser(u.id)}
+                            data-testid="kiosk-delete"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" /> Supprimer
+                          </Button>
                           <Badge
                             className={
                               u.is_active

@@ -24,7 +24,7 @@ export default function Login() {
 
     try {
       await login(username, password);
-      navigate('/');
+      navigate(sessionStorage.getItem('post_login_next') === '/sso-led' ? '/sso-led' : '/');
     } catch (err) {
       setError(err.response?.data?.detail || 'Erreur de connexion');
     } finally {

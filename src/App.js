@@ -12,6 +12,7 @@ import { Toaster } from "./components/ui/sonner";
 // Pages — lazy-loaded so each route only downloads its own JS chunk instead of
 // bundling every page into the initial load (faster first paint, especially on mobile).
 const Login = lazy(() => import("./pages/Login"));
+const SsoLed = lazy(() => import("./pages/SsoLed"));
 const Register = lazy(() => import("./pages/Register"));
 const Confidentialite = lazy(() => import("./pages/Confidentialite"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -75,7 +76,9 @@ const PublicRoute = ({ children }) => {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    // Retour vers l'entrée SSO du site LED si la connexion venait de là.
+    const next = sessionStorage.getItem("post_login_next");
+    return <Navigate to={next === "/sso-led" ? "/sso-led" : "/"} replace />;
   }
 
   return children;
@@ -87,6 +90,7 @@ function AppRoutes() {
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/sso-led" element={<SsoLed />} />
       <Route path="/inscription" element={<PublicRoute><Register /></PublicRoute>} />
       <Route path="/reservation/:token" element={<PublicReservation />} />
       <Route path="/confidentialite" element={<Confidentialite />} />

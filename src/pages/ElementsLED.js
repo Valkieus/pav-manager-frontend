@@ -62,6 +62,19 @@ const pickChats = (json) => {
 
 const mediaUrl = (u) => (u?.startsWith('http') ? u : `${BACKEND}${u}`);
 
+// Image de couverture d'un élément : sa photo, ou la vignette de sa première vidéo
+// (vignette enregistrée, ou dérivée par Cloudinary pour les fichiers hébergés chez eux).
+const cldUrl = (m, transform, ext) => `https://res.cloudinary.com/${m.cloud}/${m.resource_type === 'image' ? 'image' : 'video'}/upload/${transform}/${m.public_id}${ext ? `.${ext}` : ''}`;
+const coverOf = (el) => {
+  for (const m of el.medias || []) {
+    if (m.storage === 'cloudinary') return m.resource_type === 'video' ? cldUrl(m, 'so_1,w_480,c_limit,q_auto', 'jpg') : cldUrl(m, 'c_limit,w_480,q_auto,f_auto');
+    if (m.kind === 'image') return m.direct_url || mediaUrl(m.url);
+    if (m.kind === 'video' && m.poster_data) return m.poster_data;
+    if (m.kind === 'video' && m.poster) return mediaUrl(m.poster);
+  }
+  return null;
+};
+
 // --- Page -----------------------------------------------------------------
 
 export default function ElementsLED() {
@@ -415,7 +428,7 @@ export default function ElementsLED() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {elements.map((el) => {
-            const img = el.medias?.find((m) => m.kind === 'image');
+            const cover = coverOf(el);
             return (
               <Card key={el.id} className="cursor-pointer overflow-hidden" onClick={() => setSelected(el)}>
                 <div className="aspect-video bg-muted flex items-center justify-center relative">
@@ -426,9 +439,16 @@ export default function ElementsLED() {
                     onChange={() => toggleChecked(el.id)}
                     aria-label="Sélectionner"
                   />
-                  {img ? <img src={mediaUrl(img.url)} alt={el.titre} loading="lazy" className="w-full h-full object-cover" />
+                  {cover ? <img src={cover} alt={el.titre} loading="lazy" className="w-full h-full object-cover" />
                     : el.medias?.[0]?.kind === 'video' ? <Film className="w-8 h-8 text-muted-foreground" />
                     : <FileText className="w-8 h-8 text-muted-foreground" />}
+                  {el.medias?.some((m) => m.kind === 'video') && cover && (
+                    <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span className="w-10 h-10 rounded-full bg-black/55 flex items-center justify-center">
+                        <Film className="w-5 h-5 text-white" />
+                      </span>
+                    </span>
+                  )}
                 </div>
                 <CardContent className="p-3 space-y-1">
                   <p className="font-medium text-sm line-clamp-2">{el.titre}</p>

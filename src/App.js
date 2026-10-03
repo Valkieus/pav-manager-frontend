@@ -8,6 +8,7 @@ import { Layout } from "./components/Layout";
 
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { Toaster } from "./components/ui/sonner";
+import IdleGuard from "./components/IdleGuard";
 
 // Pages — lazy-loaded so each route only downloads its own JS chunk instead of
 // bundling every page into the initial load (faster first paint, especially on mobile).
@@ -61,7 +62,12 @@ const ProtectedRoute = ({ children }) => {
     return <KioskShell />;
   }
 
-  return <Layout>{children}</Layout>;
+  return (
+    <>
+      <IdleGuard />
+      <Layout>{children}</Layout>
+    </>
+  );
 };
 
 // Public Route Component

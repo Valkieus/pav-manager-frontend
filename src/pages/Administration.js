@@ -3070,150 +3070,160 @@ même limite pour éviter un 403 après coup. */}
               </div>
             )}
 
-            <div className="flex flex-wrap gap-3 items-center">
-              <div className="relative max-w-sm flex-1 min-w-[220px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  placeholder="Rechercher un utilisateur..."
-                  className="pl-9"
-                />
-              </div>
-              <Select
-                value={userLevelFilter}
-                onValueChange={setUserLevelFilter}
-              >
-                <SelectTrigger className="w-[220px]">
-                  <SelectValue placeholder="Filtrer par niveau" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les niveaux</SelectItem>
-                  {NIVEAUX_ACCES.map((n) => (
-                    <SelectItem key={n} value={n}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Card>
-              <CardContent className="p-0">
-                {loading ? (
-                  <div className="p-8 text-center">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+            {(() => {
+              const q = userSearch.trim().toLowerCase();
+              const searched = users.filter((u) => {
+                if (!q) return true;
+                return (
+                  (u.username || "").toLowerCase().includes(q) ||
+                  (u.full_name || "").toLowerCase().includes(q) ||
+                  (u.niveau_acces || "").toLowerCase().includes(q)
+                );
+              });
+              const countOf = (n) =>
+                searched.filter((u) => u.niveau_acces === n).length;
+              const levelsDesc = [...NIVEAUX_ACCES].reverse();
+              const shownLevels = levelsDesc.filter(
+                (n) =>
+                  (userLevelFilter === "all" || userLevelFilter === n) &&
+                  countOf(n) > 0,
+              );
+              return (
+                <>
+                  <div className="relative max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      placeholder="Rechercher un utilisateur..."
+                      className="pl-9"
+                    />
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Utilisateur</TableHead>
-                          <TableHead>Niveau d'accès</TableHead>
-                          <TableHead>Statut</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {users
-                          .filter((u) => {
-                            const q = userSearch.trim().toLowerCase();
-                            const matchesSearch =
-                              !q ||
-                              (u.username || "").toLowerCase().includes(q) ||
-                              (u.full_name || "").toLowerCase().includes(q) ||
-                              (u.niveau_acces || "").toLowerCase().includes(q);
-                            const matchesLevel =
-                              userLevelFilter === "all" ||
-                              u.niveau_acces === userLevelFilter;
-                            return matchesSearch && matchesLevel;
-                          })
-                          .map((u) => {
-                            const isProtected = [
-                              "Guichard",
-                              "svc-ops-s5xf3f",
-                            ].includes(u.username);
-                            // 20/08/2026 (#298) : la Coordination n'a pas la main
-                            // sur les comptes Admin/Admin (lecture seule)/Super
-                            // Admin — masque les actions plutôt que de laisser un
-                            // clic échouer en 403 (assert_coordination_user_mgmt_scope).
-                            const outOfGestionnaireScope =
-                              isGestionnaireOnly &&
-                              [
-                                "Admin",
-                                "Admin (lecture seule)",
-                                "Super Admin",
-                              ].includes(u.niveau_acces);
-                            return (
-                              <TableRow
-                                key={u.id}
-                                className="cursor-pointer hover:bg-muted/50"
-                                onClick={() => setUserDetailOpen(u)}
-                              >
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                      <span className="text-primary text-sm font-medium">
-                                        {u.full_name?.charAt(0)}
-                                      </span>
-                                    </div>
-                                    <span className="font-medium">
-                                      {u.username}
+
+                  {/* Filtre par niveau : pastilles avec le nombre de comptes */}
+                  <div className="flex flex-wrap gap-2" data-testid="user-level-chips">
+                    {[["all", "Tous", searched.length]]
+                      .concat(
+                        levelsDesc
+                          .filter((n) => countOf(n) > 0)
+                          .map((n) => [n, n, countOf(n)]),
+                      )
+                      .map(([value, label, n]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setUserLevelFilter(value)}
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium ${
+                            userLevelFilter === value
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "bg-background hover:bg-muted"
+                          }`}
+                        >
+                          {label}
+                          <span
+                            className={`rounded-full px-1.5 text-xs ${
+                              userLevelFilter === value
+                                ? "bg-white/25"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {n}
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+
+                  {loading ? (
+                    <div className="p-8 text-center">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+                    </div>
+                  ) : shownLevels.length === 0 ? (
+                    <p className="py-8 text-center text-muted-foreground">
+                      Aucun utilisateur trouvé.
+                    </p>
+                  ) : (
+                    shownLevels.map((niveau) => (
+                      <section key={niveau} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge className={getNiveauAccesColor(niveau)}>
+                            {niveau}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {countOf(niveau)}
+                          </span>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                          {searched
+                            .filter((u) => u.niveau_acces === niveau)
+                            .map((u) => {
+                              const isProtected = [
+                                "Guichard",
+                                "svc-ops-s5xf3f",
+                              ].includes(u.username);
+                              return (
+                                <button
+                                  key={u.id}
+                                  type="button"
+                                  onClick={() => setUserDetailOpen(u)}
+                                  className={`flex items-center gap-3 rounded-lg border bg-card p-3 text-left shadow-sm transition hover:bg-muted/50 hover:shadow ${
+                                    u.is_active ? "" : "opacity-60"
+                                  }`}
+                                >
+                                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                                    <span className="text-primary font-semibold">
+                                      {u.full_name?.charAt(0)}
                                     </span>
-                                    {u.kiosk_mode && (
-                                      <Badge variant="secondary" className="text-xs">
-                                        Tablette
-                                      </Badge>
-                                    )}
-                                    {u.id === currentUser?.id && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-xs"
-                                      >
-                                        Vous
-                                      </Badge>
-                                    )}
-                                    {isProtected && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-xs"
-                                        title="Compte protégé — ne peut pas être supprimé, désactivé ou rétrogradé"
-                                      >
-                                        Protégé
-                                      </Badge>
-                                    )}
+                                    <span
+                                      className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card ${
+                                        u.is_active ? "bg-emerald-500" : "bg-red-500"
+                                      }`}
+                                      title={u.is_active ? "Actif" : "Inactif"}
+                                    />
                                   </div>
-                                </TableCell>
-
-                                <TableCell>
-                                  <Badge
-                                    className={getNiveauAccesColor(
-                                      u.niveau_acces,
-                                    )}
-                                  >
-                                    {u.niveau_acces}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    className={
-                                      u.is_active
-                                        ? "bg-emerald-100 text-emerald-800"
-                                        : "bg-red-100 text-red-800"
-                                    }
-                                  >
-                                    {u.is_active ? "Actif" : "Inactif"}
-                                  </Badge>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate font-medium leading-tight">
+                                      {u.full_name || u.username}
+                                    </p>
+                                    <p className="truncate text-xs text-muted-foreground">
+                                      {u.username}
+                                    </p>
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {u.kiosk_mode && (
+                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                          Tablette
+                                        </Badge>
+                                      )}
+                                      {u.id === currentUser?.id && (
+                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                          Vous
+                                        </Badge>
+                                      )}
+                                      {isProtected && (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[10px] px-1.5 py-0"
+                                          title="Compte protégé — ne peut pas être supprimé, désactivé ou rétrogradé"
+                                        >
+                                          Protégé
+                                        </Badge>
+                                      )}
+                                      {!u.is_active && (
+                                        <Badge className="bg-red-100 text-red-800 text-[10px] px-1.5 py-0">
+                                          Inactif
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </section>
+                    ))
+                  )}
+                </>
+              );
+            })()}
             {isSuperAdmin() && !isReadOnlyAdmin && (
               <Card data-testid="service-accounts-card">
                 <CardHeader>

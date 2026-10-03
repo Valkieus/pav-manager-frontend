@@ -177,6 +177,32 @@ const heureFromInput = (value) => {
   return `${parseInt(h, 10)}h${m}`;
 };
 
+// Photo / logo d'une fiche : si l'image ne charge pas (fichier manquant), on
+// affiche une pastille avec l'icône plutôt qu'une image cassée avec son texte.
+function PhotoTile({ url, alt, contain, Icon }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [url]);
+  if (!url || failed) {
+    return (
+      <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center" title={url ? `${alt} : image indisponible` : undefined}>
+        <Icon className="w-5 h-5 text-muted-foreground/40" />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={`${process.env.REACT_APP_BACKEND_URL}${url}`}
+      alt={alt}
+      width={48}
+      height={48}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className={`w-12 h-12 rounded border ${contain ? 'object-contain bg-white' : 'object-cover'}`}
+    />
+  );
+}
+
 export default function Logistique({ kioskMode = false }) {
   const { canManage, isAdmin, isSuperAdmin, user } = useAuth();
   const [subTab, setSubTab] = useState(kioskMode ? 'entrees-sorties' : 'dashboard');
@@ -2910,21 +2936,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                         {sortedMateriel.map((m) => (
                           <TableRow key={m.id} onClick={() => !m.is_archived && handleEdit(m)} className={m.is_archived ? 'opacity-80' : 'cursor-pointer hover:bg-muted/50'}>
                             <TableCell>
-                              {m.photo_url ? (
-                                <img
-                                  src={`${process.env.REACT_APP_BACKEND_URL}${m.photo_url}`}
-                                  alt={m.nom}
-                                  width={48}
-                                  height={48}
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="w-12 h-12 object-cover rounded border"
-                                />
-                              ) : (
-                                <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center">
-                                  <Package className="w-5 h-5 text-muted-foreground/40" />
-                                </div>
-                              )}
+                              <PhotoTile url={m.photo_url} alt={m.nom} Icon={Package} />
                             </TableCell>
                             <TableCell className="font-medium">{m.nom}</TableCell>
                             <TableCell><Badge variant="outline">{m.categorie}</Badge></TableCell>
@@ -3170,21 +3182,7 @@ classeur plutôt que de choisir dans une liste. */}
                             {group.map((c) => (
                               <TableRow key={c.id} onClick={() => handleEditContact(c)} className="cursor-pointer hover:bg-muted/50">
                                 <TableCell>
-                                  {c.photo_url ? (
-                                    <img
-                                      src={`${process.env.REACT_APP_BACKEND_URL}${c.photo_url}`}
-                                      alt={c.nom}
-                                      width={48}
-                                      height={48}
-                                      loading="lazy"
-                                      decoding="async"
-                                      className="w-12 h-12 object-contain rounded border bg-white"
-                                    />
-                                  ) : (
-                                    <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center">
-                                      <Contact2 className="w-5 h-5 text-muted-foreground/40" />
-                                    </div>
-                                  )}
+                                  <PhotoTile url={c.photo_url} alt={c.nom} contain Icon={Contact2} />
                                 </TableCell>
                                 <TableCell className="font-medium">{c.nom}</TableCell>
                                 <TableCell className="text-muted-foreground">

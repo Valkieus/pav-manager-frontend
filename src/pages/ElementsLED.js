@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
 import { toast } from 'sonner';
-import { Upload, Search, Loader2, FileText, Film, Archive, Lightbulb, FolderOpen } from 'lucide-react';
+import { Upload, Search, Loader2, FileText, Film, Archive, Lightbulb, FolderOpen, Plus, Trash2 } from 'lucide-react';
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND}/api`;
@@ -70,6 +70,14 @@ export default function ElementsLED() {
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState(null);
 
+  // catégories
+  const [categories, setCategories] = useState([]);
+  const [sansCat, setSansCat] = useState(0);
+  const [filterCat, setFilterCat] = useState('all'); // 'all' | '__none__' | nom
+  const [importCat, setImportCat] = useState('__none__');
+  const [checked, setChecked] = useState(new Set());
+  const [bulkCat, setBulkCat] = useState('');
+
   // import
   const [filesMap, setFilesMap] = useState(null); // chemin relatif -> File
   const [chats, setChats] = useState([]);
@@ -81,9 +89,22 @@ export default function ElementsLED() {
   const cancelRef = useRef(false);
   const inputRef = useRef(null);
 
-  const fetchElements = useCallback(async (query = '') => {
+  const fetchCategories = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/led-elements`, { params: query ? { q: query } : {} });
+      const res = await axios.get(`${API}/led-categories`);
+      setCategories(res.data.categories);
+      setSansCat(res.data.sans_categorie);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur lors du chargement des catégories');
+    }
+  }, []);
+
+  const fetchElements = useCallback(async (query = '', cat = 'all') => {
+    try {
+      const params = {};
+      if (query) params.q = query;
+      if (cat !== 'all') params.categorie = cat;
+      const res = await axios.get(`${API}/led-elements`, { params });
       setElements(res.data);
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur lors du chargement');
@@ -93,9 +114,58 @@ export default function ElementsLED() {
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => fetchElements(q), 250);
+    const t = setTimeout(() => fetchElements(q, filterCat), 250);
     return () => clearTimeout(t);
-  }, [q, fetchElements]);
+  }, [q, filterCat, fetchElements]);
+
+  useEffect(() => { fetchCategories(); }, [fetchCategories]);
+
+  const addCategory = async () => {
+    const nom = window.prompt('Nom de la nouvelle catégorie (ex : Modules P3, Alimentations, Contrôleurs)');
+    if (!nom || !nom.trim()) return;
+    try {
+      await axios.post(`${API}/led-categories`, { nom });
+      await fetchCategories();
+      toast.success('Catégorie créée');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    }
+  };
+
+  const deleteCategory = async (cat) => {
+    if (!window.confirm(`Supprimer la catégorie « ${cat.nom} » ? Ses éléments seront conservés, sans catégorie.`)) return;
+    try {
+      await axios.delete(`${API}/led-categories/${cat.id}`);
+      setFilterCat('all');
+      if (importCat === cat.nom) setImportCat('__none__');
+      await fetchCategories();
+      fetchElements(q, 'all');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    }
+  };
+
+  const applyBulk = async () => {
+    if (!checked.size || !bulkCat) return;
+    try {
+      await axios.put(`${API}/led-elements/bulk-categorie`, {
+        ids: Array.from(checked), categorie: bulkCat === '__none__' ? '' : bulkCat,
+      });
+      toast.success(`${checked.size} élément(s) classé(s)`);
+      setChecked(new Set());
+      setBulkCat('');
+      await fetchCategories();
+      fetchElements(q, filterCat);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    }
+  };
+
+  const toggleChecked = (id) => setChecked((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   const items = useMemo(() => {
     const chat = chats[Number(chatIdx)];
@@ -142,6 +212,7 @@ export default function ElementsLED() {
     form.append('meta', JSON.stringify({
       tg_key: item.tgKey, tg_chat: item.chatName, tg_message_ids: item.ids,
       date: item.date, auteur: item.author, texte: item.text,
+      categorie: importCat === '__none__' ? '' : importCat,
     }));
     const res = await axios.post(`${API}/led-elements/import`, form);
     return res.data.status;
@@ -172,15 +243,17 @@ export default function ElementsLED() {
     }
     setRunning(false);
     toast.success(cancelRef.current ? 'Import interrompu (reprenable)' : 'Import terminé');
-    fetchElements(q);
+    fetchCategories();
+    fetchElements(q, filterCat);
   };
 
   const saveSelected = async () => {
     try {
-      const { titre, notes, reference, fournisseur, prix, tags } = selected;
-      const res = await axios.put(`${API}/led-elements/${selected.id}`, { titre, notes, reference, fournisseur, prix, tags });
-      setElements((els) => els.map((e) => (e.id === res.data.id ? res.data : e)));
+      const { titre, notes, reference, fournisseur, prix, tags, categorie } = selected;
+      const res = await axios.put(`${API}/led-elements/${selected.id}`, { titre, notes, reference, fournisseur, prix, tags, categorie: categorie || '' });
       setSelected(null);
+      await fetchCategories();
+      fetchElements(q, filterCat);
       toast.success('Élément enregistré');
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
@@ -193,6 +266,7 @@ export default function ElementsLED() {
       await axios.put(`${API}/led-elements/${selected.id}/archive`);
       setElements((els) => els.filter((e) => e.id !== selected.id));
       setSelected(null);
+      fetchCategories();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Erreur');
     }
@@ -235,6 +309,16 @@ export default function ElementsLED() {
                   </SelectContent>
                 </Select>
               )}
+              <div className="flex items-center gap-2 text-sm">
+                <span>Catégorie des éléments importés :</span>
+                <Select value={importCat} onValueChange={setImportCat} disabled={running}>
+                  <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sans catégorie</SelectItem>
+                    {categories.map((c) => <SelectItem key={c.id} value={c.nom}>{c.nom}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={includeTextOnly} onChange={(e) => setIncludeTextOnly(e.target.checked)} disabled={running} />
                 Inclure aussi les messages sans photo/fichier
@@ -267,6 +351,39 @@ export default function ElementsLED() {
         </CardContent>
       </Card>
 
+      <div className="flex flex-wrap items-center gap-2" data-testid="led-categories">
+        <Button size="sm" variant={filterCat === 'all' ? 'default' : 'outline'} onClick={() => setFilterCat('all')}>Toutes</Button>
+        {categories.map((c) => (
+          <Button key={c.id} size="sm" variant={filterCat === c.nom ? 'default' : 'outline'} onClick={() => setFilterCat(c.nom)}>
+            {c.nom} ({c.count})
+          </Button>
+        ))}
+        <Button size="sm" variant={filterCat === '__none__' ? 'default' : 'outline'} onClick={() => setFilterCat('__none__')}>
+          Sans catégorie ({sansCat})
+        </Button>
+        <Button size="sm" variant="ghost" onClick={addCategory}><Plus className="w-4 h-4 mr-1" />Nouvelle catégorie</Button>
+        {categories.find((c) => c.nom === filterCat) && (
+          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteCategory(categories.find((c) => c.nom === filterCat))}>
+            <Trash2 className="w-4 h-4 mr-1" />Supprimer « {filterCat} »
+          </Button>
+        )}
+      </div>
+
+      {checked.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 p-3 rounded border bg-muted">
+          <span className="text-sm">{checked.size} sélectionné(s) →</span>
+          <Select value={bulkCat} onValueChange={setBulkCat}>
+            <SelectTrigger className="w-56"><SelectValue placeholder="Classer dans…" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Sans catégorie</SelectItem>
+              {categories.map((c) => <SelectItem key={c.id} value={c.nom}>{c.nom}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={applyBulk} disabled={!bulkCat}>Appliquer</Button>
+          <Button size="sm" variant="ghost" onClick={() => setChecked(new Set())}>Annuler</Button>
+        </div>
+      )}
+
       <div className="relative max-w-md">
         <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
         <Input className="pl-9" placeholder="Rechercher (titre, texte, tag, référence…)" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -282,7 +399,14 @@ export default function ElementsLED() {
             const img = el.medias?.find((m) => m.kind === 'image');
             return (
               <Card key={el.id} className="cursor-pointer overflow-hidden" onClick={() => setSelected(el)}>
-                <div className="aspect-video bg-muted flex items-center justify-center">
+                <div className="aspect-video bg-muted flex items-center justify-center relative">
+                  <input
+                    type="checkbox" className="absolute top-2 left-2 w-4 h-4 z-10"
+                    checked={checked.has(el.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => toggleChecked(el.id)}
+                    aria-label="Sélectionner"
+                  />
                   {img ? <img src={mediaUrl(img.url)} alt={el.titre} loading="lazy" className="w-full h-full object-cover" />
                     : el.medias?.[0]?.kind === 'video' ? <Film className="w-8 h-8 text-muted-foreground" />
                     : <FileText className="w-8 h-8 text-muted-foreground" />}
@@ -290,6 +414,7 @@ export default function ElementsLED() {
                 <CardContent className="p-3 space-y-1">
                   <p className="font-medium text-sm line-clamp-2">{el.titre}</p>
                   <p className="text-xs text-muted-foreground">{el.date?.slice(0, 10)}{el.medias?.length > 1 ? ` · ${el.medias.length} médias` : ''}</p>
+                  {el.categorie && <Badge>{el.categorie}</Badge>}
                   <div className="flex flex-wrap gap-1">{(el.tags || []).map((t) => <Badge key={t} variant="secondary">{t}</Badge>)}</div>
                 </CardContent>
               </Card>
@@ -318,6 +443,16 @@ export default function ElementsLED() {
               </div>
               {selected.texte && <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{selected.texte}</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1 sm:col-span-2">
+                  <Label>Catégorie</Label>
+                  <Select value={selected.categorie || '__none__'} onValueChange={(v) => setSelected({ ...selected, categorie: v === '__none__' ? '' : v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Sans catégorie</SelectItem>
+                      {categories.map((c) => <SelectItem key={c.id} value={c.nom}>{c.nom}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
                 {[['titre', 'Titre'], ['reference', 'Référence'], ['fournisseur', 'Fournisseur'], ['prix', 'Prix']].map(([k, label]) => (
                   <div key={k} className="space-y-1">
                     <Label>{label}</Label>

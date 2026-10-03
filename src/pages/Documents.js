@@ -42,6 +42,7 @@ import {
   Trash2,
   FolderOpen,
   ExternalLink,
+  Eye,
   FileImage,
   File,
   FileSpreadsheet,
@@ -90,6 +91,16 @@ const colorForCategory = (catId, categories) => {
   return CATEGORY_COLORS[idx % CATEGORY_COLORS.length] || "border-l-border";
 };
 
+// Type d'aperçu d'un document : image, pdf, bureautique (Office Online) ou autre.
+const previewKind = (doc) => {
+  const raw = String(doc.file_url || "").split("?")[0].toLowerCase();
+  const ext = (raw.includes(".") ? raw.split(".").pop() : "") || String(doc.file_type || "").toLowerCase();
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "image";
+  if (ext === "pdf") return "pdf";
+  if (["doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext)) return "office";
+  return "other";
+};
+
 export default function Documents() {
   const { canManage, isAdmin, isSuperAdmin, user } = useAuth();
   const [documents, setDocuments] = useState([]);
@@ -102,6 +113,7 @@ export default function Documents() {
   const [editingCategoryId, setEditingCategoryId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -647,8 +659,9 @@ document est automatiquement cantonné à sa/ses propre(s)
                         </div>
                         <div className="min-w-0 flex-1">
                           <p
-                            className="font-semibold truncate"
+                            className="font-semibold truncate cursor-pointer hover:underline"
                             title={doc.titre}
+                            onClick={() => setPreview(doc)}
                           >
                             {doc.titre}
                           </p>
@@ -683,6 +696,15 @@ document est automatiquement cantonné à sa/ses propre(s)
                           {new Date(doc.created_at).toLocaleDateString("fr-FR")}
                         </span>
                         <div className="flex items-center gap-0.5 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            onClick={() => setPreview(doc)}
+                            title="Visualiser"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -891,6 +913,42 @@ Coordination/Responsable pour éviter un 403 muet. */}
           </TabsContent>
         )}
       </Tabs>
+
+      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-4 gap-3">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="pr-8 truncate">{preview?.titre}</DialogTitle>
+            <DialogDescription>
+              <a
+                href={preview?.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-primary underline"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> Ouvrir dans un nouvel onglet
+              </a>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 rounded-md border border-border bg-muted/30 overflow-auto">
+            {preview && previewKind(preview) === "image" && (
+              <img src={preview.file_url} alt={preview.titre} className="max-w-full max-h-full mx-auto object-contain" />
+            )}
+            {preview && previewKind(preview) === "pdf" && (
+              <iframe title={preview.titre} src={preview.file_url} className="w-full h-full border-0" />
+            )}
+            {preview && previewKind(preview) === "office" && (
+              <iframe
+                title={preview.titre}
+                src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(preview.file_url)}`}
+                className="w-full h-full border-0"
+              />
+            )}
+            {preview && previewKind(preview) === "other" && (
+              <iframe title={preview.titre} src={preview.file_url} className="w-full h-full border-0 bg-white" />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

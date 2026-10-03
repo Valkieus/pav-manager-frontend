@@ -249,8 +249,8 @@ export default function ElementsLED() {
 
   const saveSelected = async () => {
     try {
-      const { titre, notes, reference, fournisseur, prix, tags, categorie } = selected;
-      const res = await axios.put(`${API}/led-elements/${selected.id}`, { titre, notes, reference, fournisseur, prix, tags, categorie: categorie || '' });
+      const { titre, notes, reference, tags, categorie } = selected;
+      const res = await axios.put(`${API}/led-elements/${selected.id}`, { titre, notes, reference, tags, categorie: categorie || '' });
       setSelected(null);
       await fetchCategories();
       fetchElements(q, filterCat);
@@ -472,7 +472,7 @@ export default function ElementsLED() {
                     </SelectContent>
                   </Select>
                 </div>
-                {[['titre', 'Titre'], ['reference', 'Référence'], ['fournisseur', 'Fournisseur'], ['prix', 'Prix']].map(([k, label]) => (
+                {[['titre', 'Titre'], ['reference', 'Référence']].map(([k, label]) => (
                   <div key={k} className="space-y-1">
                     <Label>{label}</Label>
                     <Input value={selected[k] || ''} onChange={(e) => setSelected({ ...selected, [k]: e.target.value })} />

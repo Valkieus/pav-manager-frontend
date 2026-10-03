@@ -1267,6 +1267,8 @@ export default function Administration() {
   const [cloudinaryCfg, setCloudinaryCfg] = useState(null);
   const [cloudinaryForm, setCloudinaryForm] = useState({ cloud: "", api_key: "", api_secret: "" });
   const [cloudinarySaving, setCloudinarySaving] = useState(false);
+  const [ledMigration, setLedMigration] = useState(null);
+  const [ledMigrating, setLedMigrating] = useState(false);
   const [b2LimitInputs, setB2LimitInputs] = useState({
     primary: "",
     backup: "",
@@ -1367,6 +1369,28 @@ export default function Administration() {
       setCloudinaryCfg(res.data);
     } catch (err) {
       setCloudinaryCfg(null);
+    }
+  };
+
+  const fetchLedMigration = async () => {
+    try {
+      const res = await axios.get(`${API}/led/migration-status`);
+      setLedMigration(res.data);
+    } catch (err) {
+      setLedMigration(null);
+    }
+  };
+
+  const handleStartLedMigration = async () => {
+    setLedMigrating(true);
+    try {
+      await axios.post(`${API}/led/migrate-to-cloudinary`);
+      toast.success("Migration lancée en arrière-plan");
+      setTimeout(fetchLedMigration, 1500);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Impossible de lancer la migration");
+    } finally {
+      setLedMigrating(false);
     }
   };
 
@@ -1947,12 +1971,20 @@ export default function Administration() {
   };
 
   useEffect(() => {
+    if (activeTab !== "supervision" || !ledMigration?.running) return undefined;
+    const t = setInterval(fetchLedMigration, 15000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line
+  }, [activeTab, ledMigration?.running]);
+
+  useEffect(() => {
     if (activeTab !== "supervision" || !canViewReadOnlyTabs) return;
     fetchSystemStatus();
     fetchInfraStatus();
     fetchB2Status();
     fetchCloudinaryStatus();
     fetchCloudinaryConfig();
+    fetchLedMigration();
     if (isSuperAdmin()) {
       fetchCanPurgeAllLogs();
       if (isOwnerAccount && !logPurgeAllowlist) {
@@ -5527,6 +5559,36 @@ même limite pour éviter un 403 après coup. */}
                       </div>
                     )}
                   </>
+                )}
+                {cloudinaryCfg?.configured && ledMigration && (
+                  <div className="p-3 rounded-lg border border-border space-y-2">
+                    <p className="text-xs font-medium">Migration des fichiers B2 vers Cloudinary</p>
+                    <p className="text-xs text-muted-foreground">
+                      {ledMigration.running
+                        ? `En cours : ${ledMigration.done ?? 0} migré(s) sur ${ledMigration.total ?? "?"}`
+                        : ledMigration.remaining > 0
+                          ? `${ledMigration.remaining} fichier(s) encore sur B2`
+                          : "Tous les fichiers sont chez Cloudinary"}
+                      {ledMigration.message && !ledMigration.running ? ` · ${ledMigration.message}` : ""}
+                    </p>
+                    {ledMigration.errors?.length > 0 && (
+                      <ul className="text-[11px] text-amber-600 dark:text-amber-500 list-disc pl-4 space-y-0.5">
+                        {ledMigration.errors.slice(0, 5).map((e, i) => (
+                          <li key={i}>{e}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {isSuperAdmin() && ledMigration.remaining > 0 && (
+                      <Button size="sm" variant="outline" onClick={handleStartLedMigration} disabled={ledMigrating || ledMigration.running}>
+                        {(ledMigrating || ledMigration.running) && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                        {ledMigration.running ? "Migration en cours…" : "Lancer / reprendre la migration"}
+                      </Button>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">
+                      Reprend toute seule : les fichiers que B2 refuse de lire (plafond quotidien) sont retentés plus tard. Les vidéos de plus
+                      de 100 Mo restent sur B2 (limite de l'offre gratuite Cloudinary).
+                    </p>
+                  </div>
                 )}
               </CardContent>
             </Card>

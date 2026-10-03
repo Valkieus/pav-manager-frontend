@@ -1263,6 +1263,10 @@ export default function Administration() {
   const [b2Status, setB2Status] = useState(null);
   const [b2StatusLoading, setB2StatusLoading] = useState(false);
   const [b2StatusUpdatedAt, setB2StatusUpdatedAt] = useState(null);
+  const [cloudinaryStatus, setCloudinaryStatus] = useState(null);
+  const [cloudinaryCfg, setCloudinaryCfg] = useState(null);
+  const [cloudinaryForm, setCloudinaryForm] = useState({ cloud: "", api_key: "", api_secret: "" });
+  const [cloudinarySaving, setCloudinarySaving] = useState(false);
   const [b2LimitInputs, setB2LimitInputs] = useState({
     primary: "",
     backup: "",
@@ -1354,6 +1358,51 @@ export default function Administration() {
       if (!silent) toast.error("Erreur lors du chargement du stockage B2");
     } finally {
       if (!silent) setB2StatusLoading(false);
+    }
+  };
+
+  const fetchCloudinaryConfig = async () => {
+    try {
+      const res = await axios.get(`${API}/admin/infra/cloudinary-config`);
+      setCloudinaryCfg(res.data);
+    } catch (err) {
+      setCloudinaryCfg(null);
+    }
+  };
+
+  const handleSaveCloudinary = async () => {
+    setCloudinarySaving(true);
+    try {
+      const res = await axios.put(`${API}/admin/infra/cloudinary-config`, cloudinaryForm);
+      toast.success(`Cloudinary connecté (réglage d'envoi ${res.data.preset_state})`);
+      setCloudinaryForm({ cloud: "", api_key: "", api_secret: "" });
+      await fetchCloudinaryConfig();
+      await fetchCloudinaryStatus();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Enregistrement impossible");
+    } finally {
+      setCloudinarySaving(false);
+    }
+  };
+
+  const handleDeleteCloudinary = async () => {
+    if (!window.confirm("Déconnecter Cloudinary ? Les nouveaux envois du site LED reviendront au stockage B2. Les fichiers déjà chez Cloudinary restent affichés.")) return;
+    try {
+      await axios.delete(`${API}/admin/infra/cloudinary-config`);
+      toast.success("Cloudinary déconnecté");
+      await fetchCloudinaryConfig();
+      await fetchCloudinaryStatus();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Erreur");
+    }
+  };
+
+  const fetchCloudinaryStatus = async () => {
+    try {
+      const res = await axios.get(`${API}/admin/infra/cloudinary-status`);
+      setCloudinaryStatus(res.data);
+    } catch (err) {
+      setCloudinaryStatus({ configured: true, error: err.response?.data?.detail || "Lecture impossible" });
     }
   };
 
@@ -1902,6 +1951,8 @@ export default function Administration() {
     fetchSystemStatus();
     fetchInfraStatus();
     fetchB2Status();
+    fetchCloudinaryStatus();
+    fetchCloudinaryConfig();
     if (isSuperAdmin()) {
       fetchCanPurgeAllLogs();
       if (isOwnerAccount && !logPurgeAllowlist) {
@@ -5361,6 +5412,118 @@ même limite pour éviter un 403 après coup. */}
                             </>
                           )}
                         </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* STOCKAGE DES ÉLÉMENTS LED (Cloudinary) */}
+            <Card>
+              <CardHeader className="space-y-0">
+                <CardTitle className="flex items-center gap-2">
+                  <Cloud className="w-5 h-5" /> Stockage Éléments LED (Cloudinary)
+                </CardTitle>
+                <CardDescription>
+                  Photos et vidéos du site Éléments LED, hébergées par Cloudinary (offre
+                  gratuite : crédits mensuels partagés entre stockage, bande passante et
+                  transformations).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {isSuperAdmin() && (
+                  <div className="p-3 rounded-lg border border-border space-y-2">
+                    <p className="text-xs font-medium">
+                      {cloudinaryCfg?.configured
+                        ? `Connecté au cloud « ${cloudinaryCfg.cloud} » (clé ${cloudinaryCfg.api_key_hint})`
+                        : "Connecter Cloudinary"}
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <Input
+                        className="h-8 text-sm"
+                        placeholder="Nom du cloud"
+                        value={cloudinaryForm.cloud}
+                        onChange={(e) => setCloudinaryForm({ ...cloudinaryForm, cloud: e.target.value })}
+                      />
+                      <Input
+                        className="h-8 text-sm"
+                        placeholder="Clé API"
+                        value={cloudinaryForm.api_key}
+                        onChange={(e) => setCloudinaryForm({ ...cloudinaryForm, api_key: e.target.value })}
+                      />
+                      <Input
+                        className="h-8 text-sm"
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder={cloudinaryCfg?.has_secret ? "Secret API (laisser vide pour conserver)" : "Secret API"}
+                        value={cloudinaryForm.api_secret}
+                        onChange={(e) => setCloudinaryForm({ ...cloudinaryForm, api_secret: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleSaveCloudinary}
+                        disabled={cloudinarySaving || !cloudinaryForm.cloud || !cloudinaryForm.api_key}
+                      >
+                        {cloudinarySaving && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                        Enregistrer et tester
+                      </Button>
+                      {cloudinaryCfg?.configured && cloudinaryCfg.source === "db" && (
+                        <Button size="sm" variant="outline" onClick={handleDeleteCloudinary}>
+                          Déconnecter
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Le secret est vérifié puis conservé côté serveur uniquement : il n'est jamais renvoyé à l'écran.
+                    </p>
+                  </div>
+                )}
+                {!cloudinaryStatus ? (
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                ) : !cloudinaryStatus.configured ? (
+                  <p className="text-xs text-amber-600 dark:text-amber-500">
+                    {cloudinaryStatus.message}
+                  </p>
+                ) : cloudinaryStatus.error ? (
+                  <p className="text-xs text-red-500">{cloudinaryStatus.error}</p>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Compte{" "}
+                      <span className="font-medium text-foreground">{cloudinaryStatus.cloud}</span>
+                      {cloudinaryStatus.plan ? ` · offre ${cloudinaryStatus.plan}` : ""}
+                      {cloudinaryStatus.last_updated ? ` · données du ${cloudinaryStatus.last_updated}` : ""}
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {[
+                        ["Crédits utilisés", cloudinaryStatus.credits_used != null
+                          ? `${Number(cloudinaryStatus.credits_used).toFixed(2)}${cloudinaryStatus.credits_limit ? ` / ${cloudinaryStatus.credits_limit}` : ""}`
+                          : "—"],
+                        ["Stockage", formatBytes(cloudinaryStatus.storage_bytes)],
+                        ["Bande passante (mois)", formatBytes(cloudinaryStatus.bandwidth_bytes)],
+                        ["Transformations", cloudinaryStatus.transformations != null ? String(cloudinaryStatus.transformations) : "—"],
+                      ].map(([label, value]) => (
+                        <div key={label} className="p-2 rounded-lg bg-muted/50">
+                          <p className="text-[10px] text-muted-foreground">{label}</p>
+                          <p className="text-sm font-bold">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {cloudinaryStatus.credits_percent != null && (
+                      <div className="space-y-1">
+                        <div className="h-2 rounded bg-muted overflow-hidden">
+                          <div
+                            className={`h-full ${cloudinaryStatus.credits_percent >= 90 ? "bg-red-500" : cloudinaryStatus.credits_percent >= 75 ? "bg-amber-500" : "bg-emerald-500"}`}
+                            style={{ width: `${Math.min(100, cloudinaryStatus.credits_percent)}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {cloudinaryStatus.credits_percent}% des crédits du mois
+                          {cloudinaryStatus.resources != null ? ` · ${cloudinaryStatus.resources} fichiers` : ""}
+                        </p>
                       </div>
                     )}
                   </>

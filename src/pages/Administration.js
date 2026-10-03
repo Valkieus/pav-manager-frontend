@@ -1262,6 +1262,8 @@ export default function Administration() {
   const [b2StatusLoading, setB2StatusLoading] = useState(false);
   const [b2StatusUpdatedAt, setB2StatusUpdatedAt] = useState(null);
   const [cloudinaryStatus, setCloudinaryStatus] = useState(null);
+  const [r2Status, setR2Status] = useState(null);
+  const [r2Backing, setR2Backing] = useState(false);
   const [cloudinaryCfg, setCloudinaryCfg] = useState(null);
   const [cloudinaryForm, setCloudinaryForm] = useState({ cloud: "", api_key: "", api_secret: "" });
   const [cloudinarySaving, setCloudinarySaving] = useState(false);
@@ -1376,6 +1378,28 @@ export default function Administration() {
       setLedMigration(res.data);
     } catch (err) {
       setLedMigration(null);
+    }
+  };
+
+  const fetchR2Status = async () => {
+    try {
+      const res = await axios.get(`${API}/admin/infra/r2-status`);
+      setR2Status(res.data);
+    } catch (err) {
+      setR2Status({ enabled: true, error: err.response?.data?.detail || "Lecture impossible" });
+    }
+  };
+
+  const handleR2BackupCloudinary = async () => {
+    setR2Backing(true);
+    try {
+      const res = await axios.post(`${API}/admin/infra/r2-backup-cloudinary`);
+      toast.success(res.data.started ? `Copie lancée (${res.data.total} fichier(s))` : res.data.message);
+      setTimeout(fetchR2Status, 3000);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Impossible de lancer la copie");
+    } finally {
+      setR2Backing(false);
     }
   };
 
@@ -1982,6 +2006,7 @@ export default function Administration() {
     fetchB2Status();
     fetchCloudinaryStatus();
     fetchCloudinaryConfig();
+    fetchR2Status();
     fetchLedMigration();
     if (isSuperAdmin()) {
       fetchCanPurgeAllLogs();
@@ -5649,6 +5674,72 @@ même limite pour éviter un 403 après coup. */}
                       de 100 Mo restent sur B2 (limite de l'offre gratuite Cloudinary).
                     </p>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* PRA / PCA : copie Cloudflare R2 */}
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Cloud className="w-5 h-5" /> Copie de secours PRA/PCA (Cloudflare R2)
+                </CardTitle>
+                <CardDescription>
+                  Troisième fournisseur, indépendant de Backblaze et de Cloudinary (10 Go gratuits, sans frais de téléchargement).
+                  Chaque fichier envoyé sur B2 y est copié automatiquement ; lecture de secours si B2 tombe.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {!r2Status ? (
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                ) : !r2Status.enabled ? (
+                  <p className="text-xs text-amber-600 dark:text-amber-500">{r2Status.message}</p>
+                ) : r2Status.error ? (
+                  <p className="text-xs text-red-500">{r2Status.error}</p>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Connecté au bucket <span className="font-medium text-foreground">{r2Status.bucket}</span>
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2 rounded-lg bg-muted/50">
+                        <p className="text-[10px] text-muted-foreground">Espace utilisé</p>
+                        <p className="text-sm font-bold">{r2Status.used_bytes != null ? `${formatBytes(r2Status.used_bytes)} / 10 Go` : "—"}</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-muted/50">
+                        <p className="text-[10px] text-muted-foreground">Fichiers copiés</p>
+                        <p className="text-sm font-bold">{r2Status.object_count ?? "—"}</p>
+                      </div>
+                    </div>
+                    {r2Status.used_bytes != null && (
+                      <div className="h-2 rounded bg-muted overflow-hidden">
+                        <div
+                          className={`h-full ${r2Status.used_bytes / r2Status.free_bytes >= 0.9 ? "bg-red-500" : r2Status.used_bytes / r2Status.free_bytes >= 0.75 ? "bg-amber-500" : "bg-emerald-500"}`}
+                          style={{ width: `${Math.min(100, (r2Status.used_bytes / r2Status.free_bytes) * 100)}%` }}
+                        />
+                      </div>
+                    )}
+                    {r2Status.backup_cloudinary && (
+                      <p className="text-xs text-muted-foreground">
+                        {r2Status.backup_cloudinary.running
+                          ? `Copie des médias Cloudinary en cours : ${r2Status.backup_cloudinary.done} / ${r2Status.backup_cloudinary.total}`
+                          : r2Status.backup_cloudinary.finished_at
+                            ? `Dernière copie des médias Cloudinary : ${r2Status.backup_cloudinary.copied} nouveau(x) fichier(s)`
+                            : "Médias Cloudinary : pas encore copiés"}
+                      </p>
+                    )}
+                    {r2Status.backup_cloudinary?.errors?.length > 0 && (
+                      <ul className="text-[11px] text-amber-600 dark:text-amber-500 list-disc pl-4 space-y-0.5">
+                        {r2Status.backup_cloudinary.errors.slice(0, 5).map((e, i) => (<li key={i}>{e}</li>))}
+                      </ul>
+                    )}
+                    {isSuperAdmin() && (
+                      <Button size="sm" variant="outline" onClick={handleR2BackupCloudinary} disabled={r2Backing || r2Status.backup_cloudinary?.running}>
+                        {(r2Backing || r2Status.backup_cloudinary?.running) && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                        Copier les médias Cloudinary vers R2
+                      </Button>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

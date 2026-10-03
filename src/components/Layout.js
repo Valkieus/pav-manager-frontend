@@ -585,6 +585,9 @@ export const Layout = ({ children }) => {
   const [openFolders, setOpenFolders] = useState(() => {
     try { return JSON.parse(localStorage.getItem(NAV_FOLDERS_KEY) || "[]"); } catch { return []; }
   });
+  // Survol (souris) : le dossier sous le pointeur s'ouvre tout seul, et se
+  // referme quand on le quitte (sauf s'il a été ouvert d'un clic).
+  const [hoverFolder, setHoverFolder] = useState(null);
   const toggleFolder = (name) => setOpenFolders((prev) => {
     const next = prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name];
     try { localStorage.setItem(NAV_FOLDERS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
@@ -890,9 +893,13 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
               const { node, items } = entry;
               const FolderIcon = node.icon;
               const hasActive = items.some((i) => location.pathname === i.path);
-              const isOpen = hasActive || openFolders.includes(node.folder);
+              const isOpen = hasActive || openFolders.includes(node.folder) || hoverFolder === node.folder;
               return (
-                <div key={node.folder}>
+                <div
+                  key={node.folder}
+                  onMouseEnter={() => setHoverFolder(node.folder)}
+                  onMouseLeave={() => setHoverFolder((cur) => (cur === node.folder ? null : cur))}
+                >
                   <button
                     type="button"
                     onClick={() => toggleFolder(node.folder)}

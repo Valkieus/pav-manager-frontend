@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
-// Verrouillage sur inactivité (hors compte tablette) : après 15 min sans
-// activité on demande « Êtes-vous toujours là ? » ; sans réponse sous 30 s la
+// Verrouillage sur inactivité (hors compte tablette) : après 30 min sans
+// activité on demande « Êtes-vous toujours là ? » ; sans réponse sous 1 min 30 la
 // session est fermée et la connexion est redemandée.
-const IDLE_MS = 15 * 60 * 1000;
-const GRACE_S = 30;
+const IDLE_MS = 30 * 60 * 1000;
+const GRACE_S = 90;
 const KEY = "pav_last_activity";
 const EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
 
@@ -67,7 +67,7 @@ export default function IdleGuard() {
       <div className="bg-background border border-border rounded-xl shadow-xl max-w-sm w-full p-6 text-center space-y-4">
         <p className="text-lg font-semibold">Êtes-vous toujours là ?</p>
         <p className="text-sm text-muted-foreground">
-          Sans réponse, la session sera verrouillée dans {left} s.
+          Sans réponse, la session sera verrouillée dans {left >= 60 ? `${Math.floor(left / 60)} min ${String(left % 60).padStart(2, "0")} s` : `${left} s`}.
         </p>
         <button
           onClick={stay}

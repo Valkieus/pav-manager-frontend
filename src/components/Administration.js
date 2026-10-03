@@ -139,7 +139,7 @@ const PERMISSION_CATEGORIES = {
   Effectif: ["effectif.read", "effectif.write", "effectif.delete"],
   Planning: ["planning.read", "planning.write", "planning.delete"],
   Logistique: ["logistique.read", "logistique.write", "logistique.delete"],
-  "Éléments LED": ["led.read", "led.write"],
+  "Éléments LED": ["led.read", "led.write", "led.download"],
   Devis: ["devis.read", "devis.write", "devis.validate", "devis.delete"],
   Formations: [
     "formations.read",

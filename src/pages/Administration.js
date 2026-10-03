@@ -3080,9 +3080,12 @@ même limite pour éviter un 403 après coup. */}
                   (u.niveau_acces || "").toLowerCase().includes(q)
                 );
               });
+              // Les comptes tablette forment leur propre catégorie (pas « Responsable »).
+              const SERVICE = "Comptes de service";
+              const groupOf = (u) => (u.kiosk_mode ? SERVICE : u.niveau_acces);
               const countOf = (n) =>
-                searched.filter((u) => u.niveau_acces === n).length;
-              const levelsDesc = [...NIVEAUX_ACCES].reverse();
+                searched.filter((u) => groupOf(u) === n).length;
+              const levelsDesc = [...NIVEAUX_ACCES].reverse().concat([SERVICE]);
               const shownLevels = levelsDesc.filter(
                 (n) =>
                   (userLevelFilter === "all" || userLevelFilter === n) &&
@@ -3145,7 +3148,13 @@ même limite pour éviter un 403 après coup. */}
                     shownLevels.map((niveau) => (
                       <section key={niveau} className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <Badge className={getNiveauAccesColor(niveau)}>
+                          <Badge
+                            className={
+                              niveau === SERVICE
+                                ? "bg-slate-200 text-slate-800"
+                                : getNiveauAccesColor(niveau)
+                            }
+                          >
                             {niveau}
                           </Badge>
                           <span className="text-sm text-muted-foreground">
@@ -3154,7 +3163,7 @@ même limite pour éviter un 403 après coup. */}
                         </div>
                         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                           {searched
-                            .filter((u) => u.niveau_acces === niveau)
+                            .filter((u) => groupOf(u) === niveau)
                             .map((u) => {
                               const isProtected = [
                                 "Guichard",
@@ -3408,9 +3417,9 @@ même limite pour éviter un 403 après coup. */}
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Niveau d'accès</span>
                   <Badge
-                    className={getNiveauAccesColor(userDetailOpen.niveau_acces)}
+                    className={userDetailOpen.kiosk_mode ? "bg-slate-200 text-slate-800" : getNiveauAccesColor(userDetailOpen.niveau_acces)}
                   >
-                    {userDetailOpen.niveau_acces}
+                    {userDetailOpen.kiosk_mode ? "Compte de service" : userDetailOpen.niveau_acces}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between text-sm">

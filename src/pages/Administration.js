@@ -202,6 +202,7 @@ const PERMISSION_CATEGORIES = {
   Effectif: ["effectif.read", "effectif.write", "effectif.delete"],
   Planning: ["planning.read", "planning.write", "planning.delete"],
   Logistique: ["logistique.read", "logistique.write", "logistique.delete"],
+  "Éléments LED": ["led.read", "led.write"],
   Devis: ["devis.read", "devis.write", "devis.validate", "devis.delete"],
   Formations: [
     "formations.read",
@@ -244,6 +245,7 @@ const PERMISSION_MATRIX_MODULES = [
   { label: "Effectif", prefix: "effectif" },
   { label: "Planning", prefix: "planning" },
   { label: "Logistique", prefix: "logistique" },
+  { label: "Éléments LED", prefix: "led", noDelete: true },
   {
     label: "Devis",
     prefix: "devis",
@@ -3669,14 +3671,20 @@ même limite pour éviter un 403 après coup. */}
                                     />
                                   </td>
                                   <td className="text-center px-2 py-2">
-                                    <Checkbox
-                                      checked={groupForm.permissions.includes(
-                                        deleteKey,
-                                      )}
-                                      onCheckedChange={() =>
-                                        togglePermission(deleteKey)
-                                      }
-                                    />
+                                    {mod.noDelete ? (
+                                      <span className="text-muted-foreground">
+                                        —
+                                      </span>
+                                    ) : (
+                                      <Checkbox
+                                        checked={groupForm.permissions.includes(
+                                          deleteKey,
+                                        )}
+                                        onCheckedChange={() =>
+                                          togglePermission(deleteKey)
+                                        }
+                                      />
+                                    )}
                                   </td>
                                   <td className="text-center px-2 py-2">
                                     {mod.special ? (
@@ -4225,6 +4233,7 @@ même limite pour éviter un 403 après coup. */}
                             devis: "Devis",
                             formations: "Formations",
                             logistique: "Logistique / Matériel",
+                            led: "Éléments LED",
                             salles: "Salles",
                             admin: "Supervision & Maintenance",
                           };

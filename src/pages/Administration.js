@@ -6137,6 +6137,53 @@ même limite pour éviter un 403 après coup. */}
                             {orphanPreview.count} fichier(s),{" "}
                             {formatBytes(orphanPreview.total_bytes)}
                           </p>
+                          {(orphanPreview.files || []).length > 0 && (
+                            <div className="max-h-72 overflow-y-auto rounded-md border border-border divide-y divide-border">
+                              {orphanPreview.files.map((f) => {
+                                const url = `${process.env.REACT_APP_BACKEND_URL}/api/uploads/${f.id}`;
+                                const isImg = /\.(png|jpe?g|gif|webp)$/i.test(f.id);
+                                return (
+                                  <a
+                                    key={f.id}
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 p-2 hover:bg-muted/50"
+                                  >
+                                    {isImg ? (
+                                      <img
+                                        src={url}
+                                        alt=""
+                                        loading="lazy"
+                                        className="w-10 h-10 rounded object-cover bg-muted shrink-0"
+                                      />
+                                    ) : (
+                                      <span className="w-10 h-10 rounded bg-muted flex items-center justify-center shrink-0">
+                                        <FileArchive className="w-4 h-4" />
+                                      </span>
+                                    )}
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block truncate font-medium">
+                                        {f.name || f.id}
+                                      </span>
+                                      <span className="block text-muted-foreground">
+                                        {formatBytes(f.size || 0)}
+                                        {f.date
+                                          ? ` · ${new Date(f.date).toLocaleDateString("fr-FR")}`
+                                          : ""}
+                                      </span>
+                                    </span>
+                                    <span className="text-primary shrink-0">Voir</span>
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {orphanPreview.count > (orphanPreview.files || []).length && (
+                            <p className="text-muted-foreground">
+                              Liste limitée aux {orphanPreview.files.length} premiers fichiers.
+                            </p>
+                          )}
                           {orphanPreview.count > 0 ? (
                             <div className="flex gap-2">
                               <Button

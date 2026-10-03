@@ -34,8 +34,6 @@ import {
 import {
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
 } from "../components/ui/tabs";
 import {
   Table,
@@ -2546,73 +2544,135 @@ export default function Administration() {
     return <Badge className={s.className + " text-xs"}>{s.label}</Badge>;
   };
 
+  // Centre d'administration : sections regroupées par thème (navigation latérale).
+  const ADMIN_SECTIONS = [
+    {
+      title: "Comptes & accès",
+      items: [
+        { value: "users", label: "Utilisateurs", desc: "Comptes, niveaux, comptes de service", icon: Users, tone: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300", show: canViewReadOnlyTabs || isGestionnaireOnly },
+        { value: "groups", label: "Groupes & Droits", desc: "Groupes, membres, permissions", icon: Shield, tone: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300", show: !isReadOnlyAdmin },
+        { value: "rights", label: "Droits d'accès", desc: "Droits par niveau d'accès", icon: Lock, tone: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300", show: isSuperAdmin() || isAdmin() },
+      ],
+    },
+    {
+      title: "Surveillance",
+      items: [
+        { value: "logs", label: "Logs", desc: "Historique des actions", icon: ScrollText, tone: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300", show: canViewReadOnlyTabs || isGestionnaireOnly },
+        { value: "supervision", label: "Supervision", desc: "État des services en direct", icon: Activity, tone: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300", show: canViewReadOnlyTabs },
+      ],
+    },
+    {
+      title: "Système",
+      items: [
+        { value: "maintenance", label: "Maintenance", desc: "Mode maintenance, redémarrage", icon: AlertTriangle, tone: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300", show: canViewReadOnlyTabs },
+        { value: "notifications", label: "Notifications", desc: "Routage des notifications", icon: Bell, tone: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300", show: isSuperAdmin() },
+      ],
+    },
+  ]
+    .map((sec) => ({ ...sec, items: sec.items.filter((i) => i.show) }))
+    .filter((sec) => sec.items.length > 0);
+  const activeSection = ADMIN_SECTIONS.flatMap((sec) => sec.items).find((i) => i.value === activeTab);
+
   return (
     <div className="space-y-6" data-testid="administration-page">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Administration</h1>
-          <p className="text-muted-foreground">
-            Gestion complète du système PAV
-          </p>
+      {/* Bandeau du centre d'administration */}
+      <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/10 via-background to-violet-500/10 p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
+              <Shield className="h-7 w-7" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold leading-tight">Centre d'administration</h1>
+              <p className="text-muted-foreground">
+                Comptes, droits, surveillance et maintenance du système PAV
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border bg-background/80 px-3 py-1.5 text-sm font-medium">
+              <Users className="h-4 w-4 text-blue-600" />
+              {users.filter((u) => u.is_active).length} comptes actifs
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border bg-background/80 px-3 py-1.5 text-sm font-medium">
+              <Shield className="h-4 w-4 text-violet-600" />
+              {groups.length} groupes
+            </span>
+            {maintenanceEntries.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800">
+                <AlertTriangle className="h-4 w-4" /> Maintenance active
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          {/* 20/08/2026 (#298) : La Coordination voit aussi Utilisateurs — accès
-élargi au-delà de canViewReadOnlyTabs, avec un périmètre plus
-restreint que Admin (pas de gestion des comptes Admin/Admin
-lecture seule/Super Admin, voir plus bas et
-assert_coordination_user_mgmt_scope côté serveur). */}
-          {(canViewReadOnlyTabs || isGestionnaireOnly) && (
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="w-4 h-4" /> Utilisateurs
-            </TabsTrigger>
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]"
+      >
+        {/* Navigation : colonne à gauche sur grand écran, bandeau défilant sur mobile */}
+        <nav
+          aria-label="Sections de l'administration"
+          className="flex gap-2 overflow-x-auto pb-1 lg:sticky lg:top-4 lg:block lg:space-y-5 lg:overflow-visible lg:rounded-2xl lg:border lg:bg-card lg:p-3 lg:shadow-sm"
+          data-testid="admin-nav"
+        >
+          {ADMIN_SECTIONS.map((sec) => (
+            <div key={sec.title} className="flex gap-2 lg:block lg:space-y-1">
+              <p className="hidden px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground lg:block">
+                {sec.title}
+              </p>
+              {sec.items.map((item) => {
+                const Icon = item.icon;
+                const active = activeTab === item.value;
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setActiveTab(item.value)}
+                    aria-current={active ? "page" : undefined}
+                    data-testid={`admin-nav-${item.value}`}
+                    className={`flex shrink-0 items-center gap-3 rounded-xl border px-3 py-2 text-left transition lg:w-full ${
+                      active
+                        ? "border-primary bg-primary text-primary-foreground shadow"
+                        : "border-transparent bg-muted/40 hover:bg-muted lg:bg-transparent"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                        active ? "bg-white/20 text-white" : item.tone
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold leading-tight">
+                        {item.label}
+                      </span>
+                      <span
+                        className={`hidden truncate text-xs lg:block ${
+                          active ? "text-primary-foreground/80" : "text-muted-foreground"
+                        }`}
+                      >
+                        {item.desc}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        <div className="min-w-0 space-y-4">
+          {activeSection && (
+            <div className="hidden items-center gap-2 text-sm text-muted-foreground lg:flex">
+              <span>Administration</span>
+              <span>/</span>
+              <span className="font-semibold text-foreground">{activeSection.label}</span>
+            </div>
           )}
-          {!isReadOnlyAdmin && (
-            <TabsTrigger value="groups" className="flex items-center gap-2">
-              <Shield className="w-4 h-4" /> Groupes & Droits
-            </TabsTrigger>
-          )}
-          {(isSuperAdmin() || isAdmin()) && (
-            <TabsTrigger value="rights" className="flex items-center gap-2">
-              <Lock className="w-4 h-4" /> Droits d'accès
-            </TabsTrigger>
-          )}
-          {/* 20/08/2026 (#299) : La Coordination voit aussi Logs (lecture
-seule) — accès élargi au-delà de canViewReadOnlyTabs
-(Admin/Admin lecture seule), Maintenance/Supervision restent
-inchangés pour ce rôle. */}
-          {(canViewReadOnlyTabs || isGestionnaireOnly) && (
-            <TabsTrigger value="logs" className="flex items-center gap-2">
-              <ScrollText className="w-4 h-4" /> Logs
-            </TabsTrigger>
-          )}
-          {canViewReadOnlyTabs && (
-            <TabsTrigger
-              value="maintenance"
-              className="flex items-center gap-2"
-            >
-              <AlertTriangle className="w-4 h-4" /> Maintenance
-            </TabsTrigger>
-          )}
-          {canViewReadOnlyTabs && (
-            <TabsTrigger
-              value="supervision"
-              className="flex items-center gap-2"
-            >
-              <Activity className="w-4 h-4" /> Supervision
-            </TabsTrigger>
-          )}
-          {isSuperAdmin() && (
-            <TabsTrigger
-              value="notifications"
-              className="flex items-center gap-2"
-            >
-              <Bell className="w-4 h-4" /> Notifications
-            </TabsTrigger>
-          )}
-        </TabsList>
 
         {/* MAINTENANCE TAB */}
         {canViewReadOnlyTabs && (
@@ -6574,6 +6634,7 @@ même limite pour éviter un 403 après coup. */}
             <NotificationRoutingPanel />
           </TabsContent>
         )}
+        </div>
       </Tabs>
 
       {/* Restart server confirmation */}

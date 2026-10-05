@@ -89,7 +89,8 @@ export function ServerLoadCard() {
 export function CloudinaryAccountsCard({ canEdit = false }) {
   const [accounts, setAccounts] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ cloud: "", api_key: "", api_secret: "" });
+  const [form, setForm] = useState({ cloud: "", api_key: "", api_secret: "", skip_verify: false });
+  const [editing, setEditing] = useState(null); // n° du compte dont on saisit les identifiants
   const [saving, setSaving] = useState(false);
   const [browse, setBrowse] = useState(null); // { account, cloud }
   const [rtype, setRtype] = useState("image");
@@ -143,12 +144,14 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
     fetchPage(browse.account, t, null);
   };
 
-  const save2 = async () => {
+  const saveAcc = async (n) => {
     setSaving(true);
     try {
-      await axios.put(`${API}/admin/infra/cloudinary-config-2`, form);
-      toast.success("Second compte Cloudinary connecté");
-      setForm({ cloud: "", api_key: "", api_secret: "" });
+      const url = n === 1 ? `${API}/admin/infra/cloudinary-config` : `${API}/admin/infra/cloudinary-config-2`;
+      await axios.put(url, form);
+      toast.success(`Compte ${n} connecté`);
+      setForm({ cloud: "", api_key: "", api_secret: "", skip_verify: false });
+      setEditing(null);
       await load();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Connexion impossible");
@@ -177,7 +180,10 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
             </CardTitle>
             <Button size="sm" variant="ghost" onClick={load} aria-label="Actualiser"><RefreshCw className="w-4 h-4" /></Button>
           </div>
-          <CardDescription>Usage de chaque compte et visualisation de leurs fichiers (lecture seule).</CardDescription>
+          <CardDescription>
+            Les envois du site LED sont répartis automatiquement entre les deux comptes, selon leurs crédits restants. Un compte à 80 % ou plus
+            ne reçoit plus rien ; quand les deux sont pleins, Backblaze B2 (gratuit) prend le relais. Rien n'est jamais facturé.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {loading ? (
@@ -193,7 +199,11 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
                       {a.configured ? ` — « ${a.cloud} » (clé ${a.api_key_hint})` : " — non connecté"}
                     </p>
                     {a.configured && (
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {a.receives_uploads
+                          ? <Badge className="bg-emerald-600 text-white">Reçoit les envois</Badge>
+                          : <Badge variant="outline" className="border-amber-500 text-amber-600">Complet — envois ailleurs</Badge>}
+                        {canEdit && <Button size="sm" variant="ghost" onClick={() => { setEditing(a.account); setForm({ cloud: "", api_key: "", api_secret: "", skip_verify: false }); }}>Modifier</Button>}
                         <Button size="sm" variant="outline" onClick={() => openBrowse(a)}>
                           <Eye className="mr-2 h-4 w-4" /> Visualiser
                         </Button>
@@ -223,18 +233,19 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
                       </p>
                     </>
                   ))}
-                  {!a.configured && a.account === 2 && canEdit && (
+                  {(editing === a.account || (!a.configured && canEdit)) && canEdit && (
                     <div className="grid gap-2 sm:grid-cols-3">
-                      <Input placeholder="Cloud name" value={form.cloud} onChange={(e) => setForm({ ...form, cloud: e.target.value })} />
-                      <Input placeholder="Clé API" value={form.api_key} onChange={(e) => setForm({ ...form, api_key: e.target.value })} />
-                      <Input type="password" placeholder="Secret API" autoComplete="off" value={form.api_secret} onChange={(e) => setForm({ ...form, api_secret: e.target.value })} />
-                      <Button className="sm:col-span-3" onClick={save2} disabled={saving || !form.cloud || !form.api_key || !form.api_secret}>
-                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Connecter le compte 2
+                      <Input placeholder="Cloud name" value={form.cloud} onChange={(e) => setForm({ ...form, cloud: e.target.value.trim() })} />
+                      <Input placeholder="Clé API" value={form.api_key} onChange={(e) => setForm({ ...form, api_key: e.target.value.trim() })} />
+                      <Input type="password" placeholder="Secret API" autoComplete="off" value={form.api_secret} onChange={(e) => setForm({ ...form, api_secret: e.target.value.trim() })} />
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground sm:col-span-3">
+                        <input type="checkbox" className="h-4 w-4" checked={form.skip_verify} onChange={(e) => setForm({ ...form, skip_verify: e.target.checked })} />
+                        Compte plein : enregistrer sans vérifier (si Cloudinary refuse la vérification)
+                      </label>
+                      <Button className="sm:col-span-3" onClick={() => saveAcc(a.account)} disabled={saving || !form.cloud || !form.api_key || !form.api_secret}>
+                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Connecter le compte {a.account}
                       </Button>
                     </div>
-                  )}
-                  {!a.configured && a.account === 1 && (
-                    <p className="text-xs text-muted-foreground">Le compte 1 se connecte dans « Stockage Éléments LED (Cloudinary) » ci-dessous.</p>
                   )}
                 </div>
               );

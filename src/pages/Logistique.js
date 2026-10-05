@@ -254,12 +254,36 @@ const nextWeekendRefDate = () => {
 
 // Lignes d'office de l'équipe : Cadreur, Assistant, Régisseur (jamais à ajouter à la main).
 const defaultEquipe = () => ['C', 'A', 'R'].map((role) => ({ role, nom: '' }));
+// Code de rôle d'une ligne d'équipe : « C », « Cadreur », « cadreur » → C ; « Assistant » → A ; « Régisseur » → R.
+const roleCode = (r) => {
+  const x = String(r || '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (x === 'C' || x.startsWith('CAD')) return 'C';
+  if (x === 'A' || x.startsWith('ASS')) return 'A';
+  if (x === 'R' || x.startsWith('REG')) return 'R';
+  return null;
+};
+// Une seule ligne d'office par rôle (Cadreur / Assistant / Régisseur) : les anciens libellés sont
+// ramenés au code, les lignes vides en double disparaissent, les manquantes sont ajoutées.
 const withDefaultEquipe = (equipe) => {
-  const eq = (equipe || []).map((m) => ({ ...m }));
-  ['C', 'A', 'R'].forEach((r) => {
-    if (!eq.some((m) => (m.role || '').trim().toUpperCase() === r)) eq.push({ role: r, nom: '' });
+  const rows = (equipe || []).map((m) => { const c = roleCode(m.role); return c ? { ...m, role: c } : { ...m }; });
+  const named = (m) => !!(m.nom || '').trim();
+  const out = [];
+  const keptEmpty = new Set();
+  rows.forEach((m) => {
+    const c = ['C', 'A', 'R'].includes(m.role) ? m.role : null;
+    if (!c || named(m)) { out.push(m); return; }
+    if (rows.some((o) => o.role === c && named(o)) || keptEmpty.has(c)) return; // doublon vide
+    keptEmpty.add(c);
+    out.push(m);
   });
-  return eq;
+  ['C', 'A', 'R'].forEach((r) => {
+    if (!out.some((m) => m.role === r)) out.push({ role: r, nom: '' });
+  });
+  const rank = (m) => ['C', 'A', 'R'].indexOf(m.role);
+  return out.map((m, i) => ({ m, i })).sort((x, y) => {
+    const rx = rank(x.m) < 0 ? 3 : rank(x.m); const ry = rank(y.m) < 0 ? 3 : rank(y.m);
+    return rx - ry || x.i - y.i;
+  }).map((x) => x.m);
 };
 
 // Cadreurs principaux d'office par numéro de caméra (prénoms, résolus dans l'effectif).

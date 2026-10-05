@@ -84,6 +84,21 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token, fetchUser]);
 
+  // Le thème se règle aussi depuis PAV Academy / Éléments LED : on se recale à chaque retour sur l'onglet.
+  useEffect(() => {
+    if (!token) return undefined;
+    const resync = () => {
+      if (document.visibilityState === "hidden") return;
+      axios.get(`${API}/auth/me`).then((res) => syncThemeFromServer(res.data.theme_preference)).catch(() => {});
+    };
+    window.addEventListener("focus", resync);
+    document.addEventListener("visibilitychange", resync);
+    return () => {
+      window.removeEventListener("focus", resync);
+      document.removeEventListener("visibilitychange", resync);
+    };
+  }, [token, syncThemeFromServer]);
+
   const login = async (username, password) => {
     const res = await axios.post(`${API}/auth/login`, { username, password });
     const { access_token, user: userData } = res.data;

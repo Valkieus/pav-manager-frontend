@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { ServerLoadCard, CloudinaryAccountsCard } from "../components/SupervisionExtras";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -5535,6 +5536,9 @@ même limite pour éviter un 403 après coup. */}
                 )}
               </CardContent>
             </Card>
+
+            <ServerLoadCard />
+            <CloudinaryAccountsCard canEdit={isSuperAdmin()} />
 
             {/* STOCKAGE DES ÉLÉMENTS LED (Cloudinary) */}
             <Card>

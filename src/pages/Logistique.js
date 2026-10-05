@@ -2798,14 +2798,24 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                   const isExpanded = expandedSeance === s.id;
                                   // Seul le week-end en cours (le prochain vendredi/dimanche, ou celui d'aujourd'hui) est entouré.
                                   const thisWe = !!wk && wk === weekendKey(nextWeekendRefDate());
+                                  // Cadre épais bleu vif + fond bleuté + bandeau « Ce week-end » : impossible à rater.
                                   const boxClass = thisWe
-                                    ? `[&>td:last-child]:border-r-2 [&>td:last-child]:border-r-blue-600 ${wkFirst ? '[&>td]:border-t-2 [&>td]:border-t-blue-600' : ''} ${wkLast && !isExpanded ? '[&>td]:border-b-2 [&>td]:border-b-blue-600' : ''}`
+                                    ? `[&>td]:bg-blue-100 dark:[&>td]:bg-blue-950/60 [&>td:last-child]:border-r-4 [&>td:last-child]:border-r-blue-600 ${wkLast && !isExpanded ? '[&>td]:border-b-4 [&>td]:border-b-blue-600' : ''}`
                                     : '';
                                   const boxDetailClass = thisWe
-                                    ? `[&>td:last-child]:border-r-2 [&>td:last-child]:border-r-blue-600 ${wkLast ? '[&>td]:border-b-2 [&>td]:border-b-blue-600' : ''}`
+                                    ? `[&>td]:bg-blue-100 dark:[&>td]:bg-blue-950/60 [&>td:last-child]:border-r-4 [&>td:last-child]:border-r-blue-600 ${wkLast ? '[&>td]:border-b-4 [&>td]:border-b-blue-600' : ''}`
                                     : '';
+                                  const weFriday = thisWe ? new Date(`${wk}T00:00:00`) : null;
+                                  if (weFriday) weFriday.setDate(weFriday.getDate() - 2);
                                   rows.push(
                                 <Fragment key={s.id}>
+                                  {thisWe && wkFirst && (
+                                    <TableRow className="hover:bg-transparent">
+                                      <TableCell colSpan={7} className="border-4 border-blue-600 bg-blue-600 px-3 py-1.5 text-sm font-extrabold uppercase tracking-wider text-white">
+                                        ▶ Ce week-end · {weFriday.getDate()}–{new Date(`${wk}T00:00:00`).getDate()} {MOIS_NOMS_FR[new Date(`${wk}T00:00:00`).getMonth()]}
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
                                   <TableRow
                                     onClick={() => canManage() && handleEditSeance(s)}
                                     className={`${weekendParite(s.date) === 1 ? 'bg-slate-300 hover:bg-slate-400/80 dark:bg-slate-700 dark:hover:bg-slate-600' : 'bg-background hover:bg-muted/40'} ${canManage() ? 'cursor-pointer' : ''} ${boxClass}`}

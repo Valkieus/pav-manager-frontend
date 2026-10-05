@@ -177,7 +177,6 @@ const navItems = [
     icon: Building2,
     label: "Salles",
     minRole: "Responsable",
-    groupPerms: ["salles.read", "salles.write", "salles.reservations"],
   },
   {
     path: "/logistique",

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import SignaturePad from '../components/SignaturePad';
+import RegisseurNotes from '../components/RegisseurNotes';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -44,6 +45,7 @@ import {
   Tag,
   LayoutDashboard,
   ArrowRightLeft,
+  StickyNote,
   Boxes,
   Contact2,
   ChevronDown,
@@ -203,11 +205,48 @@ function PhotoTile({ url, alt, contain, Icon }) {
   );
 }
 
+// Cadreurs prévus au planning pour une date : [{ label, num, names: [{ slot, nom }] }].
+const extractPlanned = (pl, date) => {
+  const out = [];
+  ['dimanche', 'vendredi'].forEach((day) => {
+    const dateIdx = ((pl.dates || {})[day] || []).indexOf(date);
+    if (dateIdx < 0) return;
+    const tables = (pl.sections || {})[day] || {};
+    Object.values(tables).forEach((secs) =>
+      (Array.isArray(secs) ? secs : []).forEach((sec) => {
+        if (sec?.name !== 'CADREURS') return;
+        (sec.roles || []).forEach((role) => {
+          const num = parseInt((role.label || '').replace(/\D+/g, ''), 10);
+          const names = [];
+          for (let slot = 0; slot < (role.slots || 1); slot++) {
+            const raw = (pl.affectations || {})[`${role.key}_${slot}`];
+            const val = Array.isArray(raw) ? raw[dateIdx] : raw && raw[dateIdx];
+            if (val && String(val).trim()) names.push({ slot, nom: String(val).trim() });
+          }
+          if (names.length) out.push({ label: role.label, num: Number.isNaN(num) ? null : num, names });
+        });
+      })
+    );
+  });
+  out.sort((a, b) => (a.num ?? 99) - (b.num ?? 99));
+  return out;
+};
+
+// Cadreurs principaux d'office par numéro de caméra (prénoms, résolus dans l'effectif).
+const DEFAULT_PRINCIPAUX = { 5: ['Marc-Arthur', 'Camille'] };
+
 export default function Logistique({ kioskMode = false }) {
   const { canManage, isAdmin, isSuperAdmin, user } = useAuth();
   const [subTab, setSubTab] = useState(kioskMode ? 'entrees-sorties' : 'dashboard');
   const [exportingXlsx, setExportingXlsx] = useState(false); // #578
   const [exportingPdf, setExportingPdf] = useState(false); // #578
+  // Export avec sélection : quoi exporter (sections) et quelle période pour les Entrées/Sorties.
+  const exportScopeRef = useRef(null);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportSel, setExportSel] = useState({
+    format: 'xlsx', year: 'all', month: 'all', poste: 'all',
+    sections: { seances: true, materiel: false, contact: false, incidents: false },
+  });
 
   // ---------- Shared / Materiel state ----------
   const [materiel, setMateriel] = useState([]);
@@ -355,6 +394,7 @@ export default function Logistique({ kioskMode = false }) {
     signature_entree: '',
     signature_sortie_par: '',
     signature_entree_par: '',
+    regisseur_signataire: '',
     equipements: [],
     equipe: []
   });
@@ -375,30 +415,7 @@ export default function Logistique({ kioskMode = false }) {
       .get(`${API}/planning/${y}/${m}`)
       .then((res) => {
         if (cancelled) return;
-        const pl = res.data || {};
-        const out = [];
-        ['dimanche', 'vendredi'].forEach((day) => {
-          const dateIdx = ((pl.dates || {})[day] || []).indexOf(date);
-          if (dateIdx < 0) return;
-          const tables = (pl.sections || {})[day] || {};
-          Object.values(tables).forEach((secs) =>
-            (Array.isArray(secs) ? secs : []).forEach((sec) => {
-              if (sec?.name !== 'CADREURS') return;
-              (sec.roles || []).forEach((role) => {
-                const num = parseInt((role.label || '').replace(/\D+/g, ''), 10);
-                const names = [];
-                for (let slot = 0; slot < (role.slots || 1); slot++) {
-                  const raw = (pl.affectations || {})[`${role.key}_${slot}`];
-                  const val = Array.isArray(raw) ? raw[dateIdx] : raw && raw[dateIdx];
-                  if (val && String(val).trim()) names.push({ slot, nom: String(val).trim() });
-                }
-                if (names.length) out.push({ label: role.label, num: Number.isNaN(num) ? null : num, names });
-              });
-            })
-          );
-        });
-        out.sort((a, b) => (a.num ?? 99) - (b.num ?? 99));
-        setPlannedRaw(out);
+        setPlannedRaw(extractPlanned(res.data || {}, date));
       })
       .catch(() => !cancelled && setPlannedRaw([]));
     return () => {
@@ -837,7 +854,7 @@ export default function Logistique({ kioskMode = false }) {
 
   // ================= SEANCES (Entrees / Sorties) =================
   const resetSeanceForm = () => {
-    setSeanceForm({ date: '', poste: '', superviseur: '', horaire_debut: '', horaire_fin: '', observations: '', interventions: '', signature: '', signature_sortie: '', signature_entree: '', signature_sortie_par: '', signature_entree_par: '', equipements: [], equipe: [] });
+    setSeanceForm({ date: '', poste: '', superviseur: '', horaire_debut: '', horaire_fin: '', observations: '', interventions: '', signature: '', signature_sortie: '', signature_entree: '', signature_sortie_par: '', signature_entree_par: '', regisseur_signataire: '', equipements: [], equipe: [] });
     setSeanceEditingId(null);
   };
 
@@ -851,7 +868,7 @@ export default function Logistique({ kioskMode = false }) {
     }, d));
   };
   const handleEditSeance = (s) => {
-    setSeanceForm({
+    const form = {
       date: s.date || '',
       poste: s.poste || '',
       superviseur: s.superviseur || '',
@@ -864,9 +881,13 @@ export default function Logistique({ kioskMode = false }) {
       signature_entree: s.signature_entree || '',
       signature_sortie_par: s.signature_sortie_par || '',
       signature_entree_par: s.signature_entree_par || '',
+      regisseur_signataire: s.regisseur_signataire || '',
       equipements: (s.equipements || []).map((eq) => ({ nom: eq.nom || '', checks: { ...emptyChecks(), ...(eq.checks || {}) } })),
       equipe: s.equipe || []
-    });
+    };
+    lastSavedRef.current = JSON.stringify(form);
+    setAutoSaveState('');
+    setSeanceForm(form);
     setSeanceEditingId(s.id);
     setSeanceDialogOpen(true);
   };
@@ -878,12 +899,6 @@ export default function Logistique({ kioskMode = false }) {
   const updateEquipeMembre = (idx, field, value) => {
     const eq = [...seanceForm.equipe];
     eq[idx] = { ...eq[idx], [field]: value };
-    setSeanceForm({ ...seanceForm, equipe: eq });
-  };
-
-  const removeEquipeMembre = (idx) => {
-    const eq = [...seanceForm.equipe];
-    eq.splice(idx, 1);
     setSeanceForm({ ...seanceForm, equipe: eq });
   };
 
@@ -972,10 +987,50 @@ export default function Logistique({ kioskMode = false }) {
     setSeanceForm({ ...seanceForm, equipements: eqs });
   };
 
-  const removeEquipementLigne = (idx) => {
-    const eqs = [...seanceForm.equipements];
-    eqs.splice(idx, 1);
-    setSeanceForm({ ...seanceForm, equipements: eqs });
+  // Noms toujours au bon format à l'enregistrement.
+  const buildSeancePayload = (f) => ({
+    ...f,
+    superviseur: canonName(f.superviseur),
+    equipe: (f.equipe || []).map((m) => ({
+      ...m,
+      role: (m.role || '').trim().toUpperCase().slice(0, 1) === (m.role || '').trim().toUpperCase() ? (m.role || '').trim().toUpperCase() : m.role,
+      nom: canonName(m.nom),
+    })),
+  });
+
+  // Enregistrement automatique d'une fiche existante (1,5 s après la dernière modification).
+  const lastSavedRef = useRef('');
+  const [autoSaveState, setAutoSaveState] = useState('');
+  const [autoSavedAt, setAutoSavedAt] = useState(null);
+  const autoSaveSeance = async (f, id) => {
+    if (!f.date || !f.poste) return;
+    const snap = JSON.stringify(f);
+    setAutoSaveState('saving');
+    try {
+      const res = await axios.put(`${API}/regisseur-seances/${id}`, buildSeancePayload(f), { headers: { 'X-Autosave': '1' } });
+      lastSavedRef.current = snap;
+      setSeances((prev) => prev.map((x) => (x.id === id ? res.data : x)));
+      setAutoSavedAt(new Date());
+      setAutoSaveState('saved');
+    } catch (err) {
+      setAutoSaveState('error');
+    }
+  };
+  useEffect(() => {
+    if (!seanceDialogOpen || !seanceEditingId) return undefined;
+    if (JSON.stringify(seanceForm) === lastSavedRef.current) return undefined;
+    const t = setTimeout(() => autoSaveSeance(seanceForm, seanceEditingId), 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seanceForm, seanceDialogOpen, seanceEditingId]);
+  // Fermeture : on enregistre d'abord ce qui n'est pas encore parti.
+  const closeFiche = async () => {
+    if (seanceEditingId && JSON.stringify(seanceForm) !== lastSavedRef.current) {
+      await autoSaveSeance(seanceForm, seanceEditingId);
+    }
+    setSeanceDialogOpen(false);
+    resetSeanceForm();
+    setAutoSaveState('');
   };
 
   const handleSeanceSubmit = async (e) => {
@@ -986,16 +1041,7 @@ export default function Logistique({ kioskMode = false }) {
     }
     setSeanceSubmitting(true);
     try {
-      // Noms toujours au bon format à l'enregistrement.
-      const payload = {
-        ...seanceForm,
-        superviseur: canonName(seanceForm.superviseur),
-        equipe: (seanceForm.equipe || []).map((m) => ({
-          ...m,
-          role: (m.role || '').trim().toUpperCase().slice(0, 1) === (m.role || '').trim().toUpperCase() ? (m.role || '').trim().toUpperCase() : m.role,
-          nom: canonName(m.nom),
-        })),
-      };
+      const payload = buildSeancePayload(seanceForm);
       if (seanceEditingId) {
         await axios.put(`${API}/regisseur-seances/${seanceEditingId}`, payload);
         toast.success('Culte modifié');
@@ -1010,17 +1056,6 @@ export default function Logistique({ kioskMode = false }) {
       toast.error(err.response?.data?.detail || 'Erreur');
     } finally {
       setSeanceSubmitting(false);
-    }
-  };
-
-  const handleDeleteSeance = async (id) => {
-    if (!window.confirm('Supprimer ce culte ?')) return;
-    try {
-      await axios.delete(`${API}/regisseur-seances/${id}`);
-      toast.success('Culte supprimé');
-      fetchAll();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Erreur');
     }
   };
 
@@ -1081,6 +1116,66 @@ export default function Logistique({ kioskMode = false }) {
   const collapseAllSeances = () => {
     setAllSeanceYearsOpen(false);
   };
+
+  // Planning des mois affichés (pour retrouver automatiquement les cadreurs principaux).
+  const [planningCache, setPlanningCache] = useState({});
+  const planningAsked = useRef(new Set());
+  useEffect(() => {
+    if (!seances.length) return;
+    const need = new Set();
+    yearsByPoste.forEach((years, poste) => years.forEach((year) => {
+      const m = selectedMonthFor(poste, year);
+      if (/^\d{4}$/.test(year) && m && m !== '00') need.add(`${year}-${parseInt(m, 10)}`);
+    }));
+    need.forEach((k) => {
+      if (planningAsked.current.has(k)) return;
+      planningAsked.current.add(k);
+      const [y, m] = k.split('-');
+      axios.get(`${API}/planning/${y}/${m}`)
+        .then((r) => setPlanningCache((prev) => ({ ...prev, [k]: r.data || {} })))
+        .catch(() => {});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seances, monthSel]);
+
+  // Prénom -> nom officiel de l'effectif (cadreurs d'abord).
+  const resolveFirstName = (prenom) => {
+    const key = nomKey(prenom);
+    const pool = [...cadreursRoster, ...fullRoster];
+    const hit = pool.find((t) => {
+      const full = nomKey(t.nom || '');
+      return full.startsWith(key) || String(t.nom || '').split(/\s+/).map(nomKey).includes(key);
+    });
+    return hit ? canonName(hit.nom) : formatNom(prenom);
+  };
+  // Cadreurs principaux d'une fiche : ceux saisis (rôle C), sinon d'office
+  // (ex. Caméra 5), sinon le titulaire du poste au planning de la date.
+  const principauxFor = (sc) => {
+    const saisis = (sc.equipe || []).filter((m) => (m.nom || '').trim() && (m.role || '').trim().toUpperCase() === 'C').map((m) => canonName(m.nom));
+    if (saisis.length) return { names: saisis, auto: false };
+    const camNum = parseInt(((sc.poste || '').match(/\d+/) || [''])[0], 10);
+    if (DEFAULT_PRINCIPAUX[camNum]) return { names: DEFAULT_PRINCIPAUX[camNum].map(resolveFirstName), auto: true };
+    const [y, mo] = (sc.date || '').split('-');
+    const pl = planningCache[`${y}-${parseInt(mo, 10)}`];
+    if (pl && sc.date) {
+      const hit = extractPlanned(pl, sc.date).find((p) => p.num === camNum);
+      const nom = hit && hit.names.find((n) => n.slot === 0);
+      if (nom) return { names: [canonName(nom.nom)], auto: true };
+    }
+    return { names: [], auto: true };
+  };
+  // À l'ouverture d'une fiche sans équipe : cadreurs principaux ajoutés d'office.
+  const autoFillRef = useRef('');
+  useEffect(() => {
+    if (!seanceDialogOpen || !seanceForm.poste) return;
+    if ((seanceForm.equipe || []).some((m) => (m.nom || '').trim())) return;
+    const key = `${seanceEditingId || 'new'}|${seanceForm.date}|${seanceForm.poste}`;
+    const { names } = principauxFor({ ...seanceForm, equipe: [] });
+    if (!names.length || autoFillRef.current === key) return;
+    autoFillRef.current = key;
+    setSeanceForm((f) => ({ ...f, equipe: names.map((nom) => ({ role: 'C', nom })) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seanceDialogOpen, seanceForm.poste, seanceForm.date, seanceEditingId, plannedRaw, fullRoster, planningCache]);
 
   // ================= CONTACTS =================
   const resetContactForm = () => {
@@ -1461,12 +1556,32 @@ export default function Logistique({ kioskMode = false }) {
     return ws;
   };
 
+  const exportSeancesList = () => {
+    const sc = exportScopeRef.current;
+    if (!sc) return seances;
+    return seances.filter((x) =>
+      (sc.year === 'all' || (x.date || '').slice(0, 4) === sc.year) &&
+      (sc.month === 'all' || (x.date || '').slice(5, 7) === sc.month) &&
+      (sc.poste === 'all' || x.poste === sc.poste));
+  };
+  const wantSection = (name) => !exportScopeRef.current || !!exportScopeRef.current.sections[name];
+  const exportSuffix = () => {
+    const sc = exportScopeRef.current;
+    if (!sc) return '';
+    const parts = [];
+    if (sc.sections.seances) {
+      if (sc.year !== 'all') parts.push(sc.year);
+      if (sc.month !== 'all') parts.push(sc.month);
+    }
+    return parts.length ? `-${parts.join('-')}` : '-selection';
+  };
+
   const buildSeancesSheet = () => {
     const headers = ['Date', 'Superviseur', 'Horaire début', 'Horaire fin', 'Équipe', 'Signature', 'Observations'];
     const aoa = [];
     const merges = [];
     const bandRows = [];
-    const grouped = groupByKey(seances, (s) => s.poste);
+    const grouped = groupByKey(exportSeancesList(), (s) => s.poste);
     [...grouped.keys()].sort().forEach((poste) => {
       bandRows.push(aoa.length);
       aoa.push([poste, ...Array(headers.length - 1).fill(null)]);
@@ -1494,13 +1609,13 @@ export default function Logistique({ kioskMode = false }) {
     setExportingXlsx(true);
     try {
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, buildMaterielSheet(), 'Stock & Matériel');
-      XLSX.utils.book_append_sheet(wb, buildContactSheet(), 'Contact');
-      XLSX.utils.book_append_sheet(wb, buildIncidentsSheet(), 'Incidents');
-      XLSX.utils.book_append_sheet(wb, buildSeancesSheet(), 'Entrées-Sorties');
+      if (wantSection('materiel')) XLSX.utils.book_append_sheet(wb, buildMaterielSheet(), 'Stock & Matériel');
+      if (wantSection('contact')) XLSX.utils.book_append_sheet(wb, buildContactSheet(), 'Contact');
+      if (wantSection('incidents')) XLSX.utils.book_append_sheet(wb, buildIncidentsSheet(), 'Incidents');
+      if (wantSection('seances')) XLSX.utils.book_append_sheet(wb, buildSeancesSheet(), 'Entrées-Sorties');
       const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
       const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const filename = `regisseurs-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const filename = `regisseurs${exportSuffix()}-${new Date().toISOString().slice(0, 10)}.xlsx`;
       const status = await downloadOrShareFile(blob, filename, { title: filename });
       const msg = status === 'blocked'
         ? "Impossible d'enregistrer le fichier — réessaie"
@@ -1550,24 +1665,24 @@ export default function Logistique({ kioskMode = false }) {
     const matRows = (materiel || []).map((m) => [m.categorie || '', m.nom || '', m.quantite ?? '', m.statut || '']);
     const contactRows = (contacts || []).map((c) => [c.type_contact || '', c.nom || '', c.contact || '', c.telephone || '', c.email || '']);
     const incidentRows = (incidents || []).map((i) => [i.poste || '', i.date || '', i.cadreur_regisseur || '', i.description_probleme || '']);
-    const seanceRows = (seances || []).map((s) => [s.poste || '', s.date || '', s.superviseur || '', sigSummary(s)]);
+    const seanceRows = exportSeancesList().map((s) => [s.poste || '', s.date || '', s.superviseur || '', sigSummary(s)]);
 
     container.innerHTML = `
       <div style="font-family: Arial, sans-serif; padding: 40px; color: #333; box-sizing: border-box; width: 900px;">
         <div style="display:flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px;">
           <div>
             <div style="font-size: 28px; font-weight: bold; color: #2563eb;">PAV Manager</div>
-            <div style="font-size: 12px; color: #666;">Régisseurs — Export complet</div>
+            <div style="font-size: 12px; color: #666;">Régisseurs — ${exportScopeRef.current ? 'Export sélectionné' : 'Export complet'}</div>
           </div>
           <div style="text-align: right;">
             <div style="font-size: 24px; font-weight: bold; color: #1e40af;">RÉGISSEURS</div>
             <div style="color: #666; margin-top: 5px;">Édité le ${new Date().toLocaleDateString('fr-FR')}</div>
           </div>
         </div>
-        ${buildSectionTableHtml('Stock & Matériel', ['Catégorie', 'Nom', 'Quantité', 'Statut'], matRows)}
-        ${buildSectionTableHtml('Contact', ['Type', 'Nom', 'Contact', 'Téléphone', 'Email'], contactRows)}
-        ${buildSectionTableHtml('Incidents', ['Poste', 'Date', 'Cadreur/Régisseur', 'Problème'], incidentRows)}
-        ${buildSectionTableHtml('Entrées / Sorties', ['Poste', 'Date', 'Superviseur', 'Signature'], seanceRows)}
+        ${wantSection('materiel') ? buildSectionTableHtml('Stock & Matériel', ['Catégorie', 'Nom', 'Quantité', 'Statut'], matRows) : ''}
+        ${wantSection('contact') ? buildSectionTableHtml('Contact', ['Type', 'Nom', 'Contact', 'Téléphone', 'Email'], contactRows) : ''}
+        ${wantSection('incidents') ? buildSectionTableHtml('Incidents', ['Poste', 'Date', 'Cadreur/Régisseur', 'Problème'], incidentRows) : ''}
+        ${wantSection('seances') ? buildSectionTableHtml('Entrées / Sorties', ['Poste', 'Date', 'Superviseur', 'Signature'], seanceRows) : ''}
       </div>
     `;
     document.body.appendChild(container);
@@ -1589,7 +1704,7 @@ export default function Logistique({ kioskMode = false }) {
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
         heightLeft -= pageHeight;
       }
-      const filename = `regisseurs-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const filename = `regisseurs${exportSuffix()}-${new Date().toISOString().slice(0, 10)}.pdf`;
       const blob = pdf.output('blob');
       const status = await downloadOrShareFile(blob, filename, { title: filename, preOpenedWindow });
       const msg = status === 'blocked'
@@ -1609,12 +1724,30 @@ export default function Logistique({ kioskMode = false }) {
     }
   };
 
+  const runSelectedExport = async () => {
+    const sel = exportSel;
+    if (!Object.values(sel.sections).some(Boolean)) {
+      toast.error('Choisissez au moins un élément à exporter');
+      return;
+    }
+    exportScopeRef.current = sel;
+    setExportDialogOpen(false);
+    try {
+      if (sel.format === 'pdf') await handleExportRegisseursPdf();
+      else await handleExportRegisseursXlsx();
+    } finally {
+      exportScopeRef.current = null;
+    }
+  };
+  const seanceYears = Array.from(new Set(seances.map((x) => (x.date || '').slice(0, 4)).filter(Boolean))).sort().reverse();
+
   const SUB_TABS = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'entrees-sorties', label: 'Entrées / Sorties', icon: ArrowRightLeft },
     { id: 'stock', label: 'Stock & Inventaire', icon: Boxes },
     { id: 'contact', label: 'Contact', icon: Contact2 },
-    { id: 'incidents', label: 'Incidents', icon: AlertTriangle }
+    { id: 'incidents', label: 'Incidents', icon: AlertTriangle },
+    { id: 'notes', label: 'Notes', icon: StickyNote }
   ];
 
   return (
@@ -1636,6 +1769,10 @@ export default function Logistique({ kioskMode = false }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setExportDialogOpen(true)} data-testid="regisseurs-export-select-btn">
+              <CheckSquare className="w-4 h-4 mr-2" />
+              Exporter une sélection…
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={handleExportRegisseursXlsx}
               disabled={exportingXlsx}
@@ -1669,6 +1806,61 @@ export default function Logistique({ kioskMode = false }) {
                             />
                     </div>
 
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Exporter une sélection</DialogTitle>
+            <DialogDescription>Choisissez le format, ce qu'il faut exporter et la période des Entrées / Sorties.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              {[['xlsx', 'Excel (.xlsx)', FileSpreadsheet], ['pdf', 'PDF', FileText]].map(([id, label, Icon]) => (
+                <Button key={id} type="button" variant={exportSel.format === id ? 'default' : 'outline'} className="flex-1" onClick={() => setExportSel((x) => ({ ...x, format: id }))}>
+                  <Icon className="w-4 h-4 mr-2" />{label}
+                </Button>
+              ))}
+            </div>
+            <div className="space-y-2 rounded-lg border p-3">
+              {[['seances', 'Entrées / Sorties (fiches)'], ['materiel', 'Inventaire (stock & matériel)'], ['contact', 'Contacts'], ['incidents', 'Incidents']].map(([key, label]) => (
+                <label key={key} className="flex items-center gap-3 text-sm font-medium">
+                  <input type="checkbox" className="h-5 w-5 accent-primary" checked={!!exportSel.sections[key]}
+                    onChange={(e) => { const v = e.target.checked; setExportSel((x) => ({ ...x, sections: { ...x.sections, [key]: v } })); }} />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {exportSel.sections.seances && (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Année</Label>
+                  <select value={exportSel.year} onChange={(e) => { const v = e.target.value; setExportSel((x) => ({ ...x, year: v })); }} className="h-10 w-full rounded-md border bg-background px-2 text-sm">
+                    <option value="all">Toutes</option>
+                    {seanceYears.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Mois</Label>
+                  <select value={exportSel.month} onChange={(e) => { const v = e.target.value; setExportSel((x) => ({ ...x, month: v })); }} className="h-10 w-full rounded-md border bg-background px-2 text-sm">
+                    <option value="all">Tous</option>
+                    {MOIS_NOMS_FR.map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Caméra</Label>
+                  <select value={exportSel.poste} onChange={(e) => { const v = e.target.value; setExportSel((x) => ({ ...x, poste: v })); }} className="h-10 w-full rounded-md border bg-background px-2 text-sm">
+                    <option value="all">Toutes</option>
+                    {POSTES_CAM.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+            <Button className="w-full" onClick={runSelectedExport}>
+              <Download className="w-4 h-4 mr-2" />Exporter
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-wrap gap-2 border-b pb-2">
         {SUB_TABS.map((t) => {
           const Icon = t.icon;
@@ -1689,7 +1881,19 @@ export default function Logistique({ kioskMode = false }) {
       </>
       )}
 
-      {loading ? (
+      {kioskMode && (
+        <div className="flex gap-2 border-b pb-2">
+          {[['entrees-sorties', 'Entrées / Sorties', ArrowRightLeft], ['notes', 'Notes', StickyNote]].map(([id, label, Icon]) => (
+            <Button key={id} variant={subTab === id ? 'default' : 'outline'} className="h-12 flex-1 text-base" onClick={() => setSubTab(id)} data-testid={`kiosk-tab-${id}`}>
+              <Icon className="mr-2 h-5 w-5" />{label}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {subTab === 'notes' && <RegisseurNotes kioskMode={kioskMode} />}
+
+      {subTab === 'notes' ? null : loading ? (
         <div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
       ) : (
         <>
@@ -1946,7 +2150,7 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                   ))}
                 </div>
                 {canManage() && (
-                  <Dialog open={seanceDialogOpen} onOpenChange={(open) => { setSeanceDialogOpen(open); if (!open) resetSeanceForm(); }}>
+                  <Dialog open={seanceDialogOpen} onOpenChange={(open) => { if (open) setSeanceDialogOpen(true); else closeFiche(); }}>
                     <DialogTrigger asChild>
                       <Button data-testid="add-seance-btn"><Plus className="w-4 h-4 mr-2" />Nouveau culte</Button>
                     </DialogTrigger>
@@ -1980,7 +2184,7 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                             <button
                               type="button"
                               aria-label="Fermer la fiche"
-                              onClick={() => { setSeanceDialogOpen(false); resetSeanceForm(); }}
+                              onClick={closeFiche}
                               className="touch-manipulation absolute right-3 top-3 flex h-12 w-12 items-center justify-center rounded-full border-2 bg-background text-foreground shadow hover:bg-muted"
                               data-testid="fiche-close-btn"
                             >
@@ -2060,20 +2264,6 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                         )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label>Heure entrée</Label>
-                            <Input
-                              type="time"
-                              step={60}
-                              value={heureToInput(seanceForm.horaire_fin)}
-                              onChange={(e) => setSeanceForm({ ...seanceForm, horaire_fin: heureFromInput(e.target.value) })}
-                              className="max-w-[160px]"
-                              data-testid="heure-entree"
-                            />
-                            {seanceForm.horaire_fin && !heureToInput(seanceForm.horaire_fin) && (
-                              <p className="text-xs text-muted-foreground">Ancienne saisie : « {seanceForm.horaire_fin} » — choisissez l'heure pour la remplacer.</p>
-                            )}
-                          </div>
-                          <div className="space-y-2">
                             <Label>Heure sortie</Label>
                             <Input
                               type="time"
@@ -2129,9 +2319,6 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     {camLabelFor(m.nom)}
                                   </Badge>
                                 )}
-                                <Button type="button" size="sm" variant="ghost" onClick={() => removeEquipeMembre(idx)}>
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
                               </div>
                             ))}
                             {seanceForm.equipe.length === 0 && (
@@ -2151,22 +2338,22 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                               <Button
                                 type="button"
                                 size="sm"
-                                variant={allChecked('entree') ? 'secondary' : 'outline'}
-                                onClick={() => toggleAllChecks('entree')}
-                                data-testid="check-all-entrees"
-                              >
-                                <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
-                                {allChecked('entree') ? 'Décocher toutes les entrées' : 'Tout cocher : entrées'}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
                                 variant={allChecked('sortie') ? 'secondary' : 'outline'}
                                 onClick={() => toggleAllChecks('sortie')}
                                 data-testid="check-all-sorties"
                               >
                                 <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
                                 {allChecked('sortie') ? 'Décocher toutes les sorties' : 'Tout cocher : sorties'}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={allChecked('entree') ? 'secondary' : 'outline'}
+                                onClick={() => toggleAllChecks('entree')}
+                                data-testid="check-all-entrees"
+                              >
+                                <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
+                                {allChecked('entree') ? 'Décocher toutes les entrées' : 'Tout cocher : entrées'}
                               </Button>
                             </div>
                           )}
@@ -2184,8 +2371,8 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                 </TableRow>
                                 <TableRow>
                                   {ROLE_CODES.flatMap((rc) =>
-                                    ['entree', 'sortie'].map((field) => (
-                                      <TableHead key={`${rc}-${field}`} className={`text-center p-1 h-8 ${field === 'entree' ? 'border-l' : ''}`}>
+                                    ['sortie', 'entree'].map((field) => (
+                                      <TableHead key={`${rc}-${field}`} className={`text-center p-1 h-8 ${field === 'sortie' ? 'border-l' : ''}`}>
                                         <button
                                           type="button"
                                           onClick={() => toggleColumnChecks(rc, field)}
@@ -2220,12 +2407,12 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                       )}
                                     </TableCell>
                                     {ROLE_CODES.flatMap((rc) =>
-                                      ['entree', 'sortie'].map((field) => {
+                                      ['sortie', 'entree'].map((field) => {
                                         const checked = !!eq.checks?.[rc]?.[field];
                                         return (
                                           <TableCell
                                             key={`${rc}-${field}`}
-                                            className={`text-center p-2 ${field === 'entree' ? 'border-l' : ''} ${
+                                            className={`text-center p-2 ${field === 'sortie' ? 'border-l' : ''} ${
                                               checked ? (field === 'sortie' ? 'bg-blue-800/15' : 'bg-sky-300/25') : ''
                                             }`}
                                           >
@@ -2240,11 +2427,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                         );
                                       })
                                     )}
-                                    <TableCell className="p-1 text-center">
-                                      <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => removeEquipementLigne(idx)}>
-                                        <Trash2 className="w-4 h-4 text-destructive" />
-                                      </Button>
-                                    </TableCell>
+                                    <TableCell className="p-1" />
                                   </TableRow>
                                 ))}
                                 {seanceForm.equipements.length === 0 && (
@@ -2272,6 +2455,20 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                           <Label>Interventions</Label>
                           <Textarea value={seanceForm.interventions} onChange={(e) => setSeanceForm({ ...seanceForm, interventions: e.target.value })} rows={2} />
                         </div>
+                          <div className="space-y-2">
+                            <Label>Heure entrée</Label>
+                            <Input
+                              type="time"
+                              step={60}
+                              value={heureToInput(seanceForm.horaire_fin)}
+                              onChange={(e) => setSeanceForm({ ...seanceForm, horaire_fin: heureFromInput(e.target.value) })}
+                              className="max-w-[160px]"
+                              data-testid="heure-entree"
+                            />
+                            {seanceForm.horaire_fin && !heureToInput(seanceForm.horaire_fin) && (
+                              <p className="text-xs text-muted-foreground">Ancienne saisie : « {seanceForm.horaire_fin} » — choisissez l'heure pour la remplacer.</p>
+                            )}
+                          </div>
                         {/* Signature unique « Retour matériel » : uniquement au doigt (ou à la
                             souris), grandes zones l'une sous l'autre. */}
                         <div className="space-y-4">
@@ -2299,8 +2496,9 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     canonName(seanceForm.superviseur),
                                   ].filter(Boolean)));
                                   return (
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 items-start">
                                     <div className="space-y-1.5">
-                                      <Label className="text-xs text-muted-foreground">Signé par (nom)</Label>
+                                      <Label className="text-xs text-muted-foreground">Cadreur signataire</Label>
                                       <Input
                                         value={parVal}
                                         onChange={(e) => setSeanceForm((f) => ({ ...f, [parField]: e.target.value }))}
@@ -2322,6 +2520,24 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                         </div>
                                       )}
                                     </div>
+                                    <div className="space-y-1.5">
+                                      <Label className="text-xs text-muted-foreground">Régisseur</Label>
+                                      <select
+                                        value={seanceForm.regisseur_signataire || ''}
+                                        onChange={(e) => { const v = e.target.value; setSeanceForm((f) => ({ ...f, regisseur_signataire: v })); }}
+                                        className="h-11 w-full rounded-md border bg-background px-3 text-base"
+                                        data-testid="regisseur-signataire"
+                                      >
+                                        <option value="">— Choisir un régisseur —</option>
+                                        {Array.from(new Set([
+                                          ...regisseursRoster.map((t) => canonName(t.nom)),
+                                          seanceForm.regisseur_signataire,
+                                        ].filter(Boolean))).sort((x, y) => x.localeCompare(y, 'fr')).map((n) => (
+                                          <option key={n} value={n}>{n}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    </div>
                                   );
                                 })()}
                               </div>
@@ -2335,8 +2551,13 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                         )}
                         <Button type="submit" className="w-full" disabled={seanceSubmitting}>
                           {seanceSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                          {seanceEditingId ? 'Modifier' : 'Enregistrer'}
+                          Enregistrer
                         </Button>
+                        {seanceEditingId && autoSaveState && (
+                          <p className="text-center text-xs text-muted-foreground" data-testid="autosave-state">
+                            {autoSaveState === 'saving' ? 'Enregistrement automatique…' : autoSaveState === 'error' ? 'Enregistrement automatique impossible — vérifiez la connexion' : `Enregistré automatiquement${autoSavedAt ? ` à ${autoSavedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}`}
+                          </p>
+                        )}
                       </form>
                     </DialogContent>
                   </Dialog>
@@ -2475,6 +2696,49 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                         </TableCell>
                                       </TableRow>,
                                     );
+                                    // Encadré bleu : fiches restant à signer sur le mois affiché, par week-end.
+                                    const moisFiches = group.filter((g) => (g.date || '').slice(0, 4) === currentYear && (g.date || '').slice(5, 7) === selMonth);
+                                    const restantes = moisFiches.filter((g) => !g.signature_entree && !g.signature);
+                                    const weekends = new Map();
+                                    restantes.forEach((g) => {
+                                      const d = new Date(`${g.date}T00:00:00`);
+                                      const wd = d.getDay();
+                                      const sunday = new Date(d);
+                                      if (wd === 5) sunday.setDate(d.getDate() + 2);
+                                      else if (wd !== 0) sunday.setDate(d.getDate());
+                                      const key = wd === 5 || wd === 0 ? sunday.toISOString().slice(0, 10) : g.date;
+                                      const cur = weekends.get(key) || { sunday, ven: 0, dim: 0, autre: 0, isWe: wd === 5 || wd === 0 };
+                                      if (wd === 5) cur.ven += 1; else if (wd === 0) cur.dim += 1; else cur.autre += 1;
+                                      weekends.set(key, cur);
+                                    });
+                                    const fr = (d) => d.getDate();
+                                    rows.push(
+                                      <TableRow key={`restant-${poste}-${currentYear}`} className="hover:bg-transparent">
+                                        <TableCell colSpan={7} className="px-3 pb-3 pt-0">
+                                          <div className="rounded-lg border-2 border-blue-600 bg-blue-50 px-3 py-2 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200" data-testid="restant-a-signer">
+                                            {restantes.length === 0 ? (
+                                              <p className="text-sm font-semibold">{MOIS_NOMS_FR[parseInt(selMonth, 10) - 1] || selMonth} : toutes les fiches sont signées</p>
+                                            ) : (
+                                              <>
+                                                <p className="text-sm font-bold">
+                                                  Restant à signer en {MOIS_NOMS_FR[parseInt(selMonth, 10) - 1] || selMonth} : {restantes.length} fiche{restantes.length > 1 ? 's' : ''}
+                                                </p>
+                                                <div className="mt-1.5 flex flex-wrap gap-2">
+                                                  {Array.from(weekends.values()).sort((a, b) => a.sunday - b.sunday).map((w) => (
+                                                    <span key={w.sunday.toISOString()} className="inline-flex items-center gap-2 rounded-full border border-blue-600 bg-white px-3 py-1 text-sm font-semibold dark:bg-blue-950">
+                                                      {w.isWe ? `Week-end ${fr(new Date(w.sunday.getFullYear(), w.sunday.getMonth(), w.sunday.getDate() - 2))}–${fr(w.sunday)}` : `Jour ${fr(w.sunday)}`}
+                                                      {w.ven > 0 && <span className="rounded-full bg-blue-600 px-2 text-xs text-white">Ven {w.ven}</span>}
+                                                      {w.dim > 0 && <span className="rounded-full bg-blue-600 px-2 text-xs text-white">Dim {w.dim}</span>}
+                                                      {w.autre > 0 && <span className="rounded-full bg-blue-600 px-2 text-xs text-white">{w.autre}</span>}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </>
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>,
+                                    );
                                   }
                                   if (monthNum !== selMonth) return;
                                   const vide = isSeanceVide(s);
@@ -2498,6 +2762,19 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     </TableCell>
                                     <TableCell className="align-top">{s.superviseur ? canonName(s.superviseur) : <span className="text-muted-foreground">—</span>}</TableCell>
                                     <TableCell className="align-top">
+                                      {(() => {
+                                        const pr = principauxFor(s);
+                                        if (!pr.names.length) return null;
+                                        return (
+                                          <div className="mb-1 flex flex-wrap gap-1" title={pr.auto ? 'Cadreur principal prévu' : 'Cadreur principal'}>
+                                            {pr.names.map((n) => (
+                                              <span key={n} className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                                                ★ {n}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        );
+                                      })()}
                                       {(s.equipe || []).filter((m) => (m.nom || '').trim()).length > 0 ? (
                                         <div className="flex flex-wrap gap-1">
                                           {(s.equipe || [])
@@ -2515,9 +2792,9 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                               </span>
                                             ))}
                                         </div>
-                                      ) : (
+                                      ) : principauxFor(s).names.length === 0 ? (
                                         <span className="text-muted-foreground">—</span>
-                                      )}
+                                      ) : null}
                                     </TableCell>
                                     <TableCell className="align-top">
                                       {s.observations ? (
@@ -2569,11 +2846,6 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                             <Edit className="w-4 h-4" />
                                           </Button>
                                         )}
-                                        {isSuperAdmin() && (
-                                          <Button size="sm" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteSeance(s.id); }}>
-                                            <Trash2 className="w-4 h-4" />
-                                          </Button>
-                                        )}
                                       </div>
                                     </TableCell>
                                   </TableRow>
@@ -2605,8 +2877,8 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                                     <th></th>
                                                     {['C', 'A', 'R'].map((rc) => (
                                                       <>
-                                                        <th key={rc + '-e'} className="px-1 font-normal">Entrée</th>
                                                         <th key={rc + '-s'} className="px-1 font-normal">Sortie</th>
+                                                        <th key={rc + '-e'} className="px-1 font-normal">Entrée</th>
                                                       </>
                                                     ))}
                                                   </tr>
@@ -2617,8 +2889,8 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                                       <td className="pr-3 py-1 font-medium">{eq.nom}</td>
                                                       {['C', 'A', 'R'].map((rc) => (
                                                         <>
-                                                          <td key={rc + '-e'} className="px-1 text-center">{eq.checks?.[rc]?.entree ? '✓' : '—'}</td>
                                                           <td key={rc + '-s'} className="px-1 text-center">{eq.checks?.[rc]?.sortie ? '✓' : '—'}</td>
+                                                          <td key={rc + '-e'} className="px-1 text-center">{eq.checks?.[rc]?.entree ? '✓' : '—'}</td>
                                                         </>
                                                       ))}
                                                     </tr>

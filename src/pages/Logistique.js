@@ -245,6 +245,43 @@ const weekendKey = (dateStr) => {
 // Cadreurs principaux d'office par numéro de caméra (prénoms, résolus dans l'effectif).
 const DEFAULT_PRINCIPAUX = { 5: ['Marc-Arthur', 'Camille'] };
 
+// Champ nom avec suggestions filtrées par les lettres tapées (accents/casse ignorés).
+// Au focus le texte est sélectionné : taper remplace le nom et la liste repart de zéro.
+function NameCombobox({ value, options, labelFor, onChange, onCommit }) {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState(false);
+  const q = nomKey(value);
+  const shown = (options || []).filter((n) => !typed || !q || nomKey(n).includes(q)).slice(0, 40);
+  return (
+    <div className="relative flex-1 min-w-[140px]">
+      <Input
+        value={value}
+        placeholder="Nom (taper pour chercher dans la liste)"
+        autoComplete="off"
+        onFocus={(e) => { setOpen(true); setTyped(false); e.target.select(); }}
+        onChange={(e) => { setTyped(true); setOpen(true); onChange(e.target.value); }}
+        onBlur={() => { setOpen(false); onCommit(value); }}
+      />
+      {open && shown.length > 0 && (
+        <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+          {shown.map((n) => (
+            <li key={n}>
+              <button
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); onChange(n); onCommit(n); setOpen(false); setTyped(false); }}
+                className="flex w-full items-center justify-between gap-2 rounded px-2 py-2 text-left text-sm hover:bg-accent"
+              >
+                <span>{n}</span>
+                {labelFor && labelFor(n) ? <span className="text-[10px] text-primary">{labelFor(n)}</span> : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export default function Logistique({ kioskMode = false }) {
   const { canManage, isAdmin, isSuperAdmin, user } = useAuth();
   const [subTab, setSubTab] = useState(kioskMode ? 'entrees-sorties' : 'dashboard');
@@ -1174,30 +1211,46 @@ export default function Logistique({ kioskMode = false }) {
     }
     return { names: [], auto: true };
   };
-  // À l'ouverture d'une fiche sans équipe : cadreurs principaux ajoutés d'office.
-  const autoFillRef = useRef('');
+  // À l'ouverture d'une fiche vide : cadreur et assistant du planning ajoutés d'office
+  // (Caméra 5 : Marc-Arthur / Camille en cadreurs). Les autres cadreurs restent proposés
+  // dans la liste déroulante du nom, selon les lettres tapées.
+  const autoFillRef = useRef({});
   useEffect(() => {
     if (!seanceDialogOpen || !seanceForm.poste) return;
-    if ((seanceForm.equipe || []).some((m) => (m.nom || '').trim())) return;
     const key = `${seanceEditingId || 'new'}|${seanceForm.date}|${seanceForm.poste}`;
-    const { names } = principauxFor({ ...seanceForm, equipe: [] });
-    if (!names.length || autoFillRef.current === key) return;
-    autoFillRef.current = key;
-    // On garde les lignes d'office existantes (Cadreur / Assistant / Régisseur) : les
-    // cadreurs principaux remplissent les lignes C vides, et A / R sont ajoutées si absentes.
+    const done = autoFillRef.current[key] || (autoFillRef.current[key] = { C: false, A: false });
+    const eqNow = seanceForm.equipe || [];
+    const named = (r) => eqNow.some((m) => (m.nom || '').trim() && (!r || (m.role || '').trim().toUpperCase() === r));
+    // Fiche déjà remplie à la main : on n'y touche pas.
+    if (named() && !(done.C || done.A)) return;
+    const camNum = parseInt(((seanceForm.poste || '').match(/\d+/) || [''])[0], 10);
+    const planned = plannedCadreurs.find((p) => p.num === camNum);
+    const cNames = DEFAULT_PRINCIPAUX[camNum]
+      ? DEFAULT_PRINCIPAUX[camNum].map(resolveFirstName)
+      : (planned ? planned.names.filter((n) => n.slot === 0).map((n) => n.nom) : []);
+    const aNames = planned ? planned.names.filter((n) => n.slot === 1).map((n) => n.nom) : [];
+    const needC = !done.C && cNames.length > 0 && !named('C');
+    const needA = !done.A && aNames.length > 0 && !named('A');
+    if (!needC && !needA) return;
+    if (needC) done.C = true;
+    if (needA) done.A = true;
+    // On garde les lignes d'office existantes (Cadreur / Assistant / Régisseur) : les noms
+    // remplissent les lignes vides du bon rôle, et C / A / R sont ajoutées si absentes.
     setSeanceForm((f) => {
       const eq = (f.equipe || []).map((m) => ({ ...m }));
-      names.forEach((nom) => {
-        const idx = eq.findIndex((m) => (m.role || '').trim().toUpperCase() === 'C' && !(m.nom || '').trim());
-        if (idx >= 0) eq[idx].nom = nom; else eq.push({ role: 'C', nom });
+      const fill = (role, names) => names.forEach((nom) => {
+        const idx = eq.findIndex((m) => (m.role || '').trim().toUpperCase() === role && !(m.nom || '').trim());
+        if (idx >= 0) eq[idx].nom = nom; else eq.push({ role, nom });
       });
-      ['A', 'R'].forEach((r) => {
+      if (needC) fill('C', cNames);
+      if (needA) fill('A', aNames);
+      ['C', 'A', 'R'].forEach((r) => {
         if (!eq.some((m) => (m.role || '').trim().toUpperCase() === r)) eq.push({ role: r, nom: '' });
       });
       return { ...f, equipe: eq };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seanceDialogOpen, seanceForm.poste, seanceForm.date, seanceEditingId, plannedRaw, fullRoster, planningCache]);
+  }, [seanceDialogOpen, seanceForm.poste, seanceForm.date, seanceEditingId, plannedRaw, fullRoster]);
 
   // ================= CONTACTS =================
   const resetContactForm = () => {
@@ -2321,21 +2374,16 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                     {(m.role || '').trim().toUpperCase()} - {ROLE_LABELS_FULL[(m.role || '').trim().toUpperCase()]}
                                   </span>
                                 )}
-                                <Input
-                                  className="flex-1 min-w-[140px]"
-                                  placeholder="Nom (choisir dans la liste ou écrire)"
-                                  list={`equipe-noms-${idx}`}
+                                {/* Liste selon le rôle de la ligne : C / A = cadreurs (ceux du planning
+                                    d'abord), R = régisseurs, autre = tout l'effectif ; filtrée par les
+                                    lettres tapées. */}
+                                <NameCombobox
                                   value={m.nom}
-                                  onChange={(e) => updateEquipeMembre(idx, 'nom', e.target.value)}
-                                  onBlur={() => m.nom && updateEquipeMembre(idx, 'nom', canonName(m.nom))}
+                                  options={namesForRole(m.role, m.role_code)}
+                                  labelFor={camLabelFor}
+                                  onChange={(v) => updateEquipeMembre(idx, 'nom', v)}
+                                  onCommit={(v) => v && updateEquipeMembre(idx, 'nom', canonName(v))}
                                 />
-                                {/* Liste déroulante selon le rôle de la ligne : C / A =
-cadreurs, R = régisseurs, autre = tout l'effectif. */}
-                                <datalist id={`equipe-noms-${idx}`}>
-                                  {namesForRole(m.role, m.role_code).map((n) => (
-                                    <option key={n} value={n} label={camLabelFor(n) || undefined} />
-                                  ))}
-                                </datalist>
                                 {camLabelFor(m.nom) && (
                                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-primary border-primary/40">
                                     {camLabelFor(m.nom)}

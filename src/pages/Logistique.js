@@ -1183,7 +1183,19 @@ export default function Logistique({ kioskMode = false }) {
     const { names } = principauxFor({ ...seanceForm, equipe: [] });
     if (!names.length || autoFillRef.current === key) return;
     autoFillRef.current = key;
-    setSeanceForm((f) => ({ ...f, equipe: names.map((nom) => ({ role: 'C', nom })) }));
+    // On garde les lignes d'office existantes (Cadreur / Assistant / Régisseur) : les
+    // cadreurs principaux remplissent les lignes C vides, et A / R sont ajoutées si absentes.
+    setSeanceForm((f) => {
+      const eq = (f.equipe || []).map((m) => ({ ...m }));
+      names.forEach((nom) => {
+        const idx = eq.findIndex((m) => (m.role || '').trim().toUpperCase() === 'C' && !(m.nom || '').trim());
+        if (idx >= 0) eq[idx].nom = nom; else eq.push({ role: 'C', nom });
+      });
+      ['A', 'R'].forEach((r) => {
+        if (!eq.some((m) => (m.role || '').trim().toUpperCase() === r)) eq.push({ role: r, nom: '' });
+      });
+      return { ...f, equipe: eq };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seanceDialogOpen, seanceForm.poste, seanceForm.date, seanceEditingId, plannedRaw, fullRoster, planningCache]);
 

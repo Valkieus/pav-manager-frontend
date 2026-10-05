@@ -252,6 +252,16 @@ const nextWeekendRefDate = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+// Lignes d'office de l'équipe : Cadreur, Assistant, Régisseur (jamais à ajouter à la main).
+const defaultEquipe = () => ['C', 'A', 'R'].map((role) => ({ role, nom: '' }));
+const withDefaultEquipe = (equipe) => {
+  const eq = (equipe || []).map((m) => ({ ...m }));
+  ['C', 'A', 'R'].forEach((r) => {
+    if (!eq.some((m) => (m.role || '').trim().toUpperCase() === r)) eq.push({ role: r, nom: '' });
+  });
+  return eq;
+};
+
 // Cadreurs principaux d'office par numéro de caméra (prénoms, résolus dans l'effectif).
 const DEFAULT_PRINCIPAUX = { 5: ['Marc-Arthur', 'Camille'] };
 
@@ -453,7 +463,7 @@ export default function Logistique({ kioskMode = false }) {
     signature_entree_par: '',
     regisseur_signataire: '',
     equipements: [],
-    equipe: []
+    equipe: defaultEquipe()
   });
 
   // Cadreurs prévus au planning pour la date du culte, par poste (Caméra N) :
@@ -911,7 +921,7 @@ export default function Logistique({ kioskMode = false }) {
 
   // ================= SEANCES (Entrees / Sorties) =================
   const resetSeanceForm = () => {
-    setSeanceForm({ date: '', poste: '', superviseur: '', horaire_debut: '', horaire_fin: '', observations: '', interventions: '', signature: '', signature_sortie: '', signature_entree: '', signature_sortie_par: '', signature_entree_par: '', regisseur_signataire: '', equipements: [], equipe: [] });
+    setSeanceForm({ date: '', poste: '', superviseur: '', horaire_debut: '', horaire_fin: '', observations: '', interventions: '', signature: '', signature_sortie: '', signature_entree: '', signature_sortie_par: '', signature_entree_par: '', regisseur_signataire: '', equipements: [], equipe: defaultEquipe() });
     setSeanceEditingId(null);
   };
 
@@ -940,7 +950,7 @@ export default function Logistique({ kioskMode = false }) {
       signature_entree_par: s.signature_entree_par || '',
       regisseur_signataire: s.regisseur_signataire || '',
       equipements: (s.equipements || []).map((eq) => ({ nom: eq.nom || '', checks: { ...emptyChecks(), ...(eq.checks || {}) } })),
-      equipe: s.equipe || []
+      equipe: withDefaultEquipe(s.equipe)
     };
     lastSavedRef.current = JSON.stringify(form);
     setAutoSaveState('');

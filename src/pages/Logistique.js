@@ -232,6 +232,16 @@ const extractPlanned = (pl, date) => {
   return out;
 };
 
+// Clé du week-end (date du dimanche) pour un vendredi ou un dimanche ; null sinon.
+const weekendKey = (dateStr) => {
+  if (!dateStr) return null;
+  const d = new Date(`${dateStr}T00:00:00`);
+  const wd = d.getDay();
+  if (wd !== 5 && wd !== 0) return null;
+  const sunday = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (wd === 5 ? 2 : 0));
+  return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
+};
+
 // Cadreurs principaux d'office par numéro de caméra (prénoms, résolus dans l'effectif).
 const DEFAULT_PRINCIPAUX = { 5: ['Marc-Arthur', 'Camille'] };
 
@@ -2742,11 +2752,24 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                   }
                                   if (monthNum !== selMonth) return;
                                   const vide = isSeanceVide(s);
+                                  // Zone bleue entourant les fiches d'un même week-end (vendredi + dimanche).
+                                  const monthList = group.filter((g) => (g.date || '').slice(0, 4) === currentYear && (g.date || '').slice(5, 7) === selMonth);
+                                  const mIdx = monthList.indexOf(s);
+                                  const wk = weekendKey(s.date);
+                                  const wkFirst = !!wk && (mIdx <= 0 || weekendKey(monthList[mIdx - 1].date) !== wk);
+                                  const wkLast = !!wk && (mIdx >= monthList.length - 1 || weekendKey(monthList[mIdx + 1].date) !== wk);
+                                  const isExpanded = expandedSeance === s.id;
+                                  const boxClass = wk
+                                    ? `[&>td:last-child]:border-r-2 [&>td:last-child]:border-r-blue-600 ${wkFirst ? '[&>td]:border-t-2 [&>td]:border-t-blue-600' : ''} ${wkLast && !isExpanded ? '[&>td]:border-b-2 [&>td]:border-b-blue-600' : ''}`
+                                    : '';
+                                  const boxDetailClass = wk
+                                    ? `[&>td:last-child]:border-r-2 [&>td:last-child]:border-r-blue-600 ${wkLast ? '[&>td]:border-b-2 [&>td]:border-b-blue-600' : ''}`
+                                    : '';
                                   rows.push(
                                 <Fragment key={s.id}>
                                   <TableRow
                                     onClick={() => canManage() && handleEditSeance(s)}
-                                    className={`${weekendParite(s.date) === 1 ? 'bg-slate-300 hover:bg-slate-400/80 dark:bg-slate-700 dark:hover:bg-slate-600' : 'bg-background hover:bg-muted/40'} ${canManage() ? 'cursor-pointer' : ''}`}
+                                    className={`${weekendParite(s.date) === 1 ? 'bg-slate-300 hover:bg-slate-400/80 dark:bg-slate-700 dark:hover:bg-slate-600' : 'bg-background hover:bg-muted/40'} ${canManage() ? 'cursor-pointer' : ''} ${boxClass}`}
                                   >
                                     <TableCell className={`font-medium align-top border-l-8 ${cameraCouleur(s.poste)?.border || 'border-l-transparent'}`}>
                                       <div className="flex flex-col gap-1">
@@ -2850,7 +2873,7 @@ cadreurs, R = régisseurs, autre = tout l'effectif. */}
                                     </TableCell>
                                   </TableRow>
                                   {expandedSeance === s.id && (
-                                    <TableRow key={`${s.id}-detail`}>
+                                    <TableRow key={`${s.id}-detail`} className={boxDetailClass}>
                                       <TableCell colSpan={7} className="bg-muted/30">
                                         <div className="space-y-1 py-2">
                                           {(s.equipe || []).length > 0 && (

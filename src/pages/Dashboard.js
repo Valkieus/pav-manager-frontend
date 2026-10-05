@@ -15,6 +15,7 @@ import { Textarea } from "../components/ui/textarea";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { ScrollArea } from "../components/ui/scroll-area";
+import DatesCles from "../components/DatesCles";
 import {
   Dialog,
   DialogContent,
@@ -1428,6 +1429,8 @@ Régisseurs, puisque les devis matériel le concernent directement
         </div>
       )}
 
+
+      <DatesCles />
 
       {/* Portail Charisma */}
       <Card className="animate-fadeIn stagger-4 overflow-hidden">

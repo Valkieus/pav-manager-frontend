@@ -242,6 +242,16 @@ const weekendKey = (dateStr) => {
   return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
 };
 
+// Date de référence du week-end en cours : aujourd'hui si vendredi/samedi/dimanche, sinon le
+// vendredi à venir (lundi à jeudi → le week-end qui arrive).
+const nextWeekendRefDate = () => {
+  const t = new Date();
+  const wd = t.getDay();
+  const add = wd === 6 ? -1 : wd >= 1 && wd <= 4 ? 5 - wd : 0; // samedi → vendredi
+  const d = new Date(t.getFullYear(), t.getMonth(), t.getDate() + add);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 // Cadreurs principaux d'office par numéro de caméra (prénoms, résolus dans l'effectif).
 const DEFAULT_PRINCIPAUX = { 5: ['Marc-Arthur', 'Camille'] };
 
@@ -2766,49 +2776,6 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                         </TableCell>
                                       </TableRow>,
                                     );
-                                    // Encadré bleu : fiches restant à signer sur le mois affiché, par week-end.
-                                    const moisFiches = group.filter((g) => (g.date || '').slice(0, 4) === currentYear && (g.date || '').slice(5, 7) === selMonth);
-                                    const restantes = moisFiches.filter((g) => !g.signature_entree && !g.signature);
-                                    const weekends = new Map();
-                                    restantes.forEach((g) => {
-                                      const d = new Date(`${g.date}T00:00:00`);
-                                      const wd = d.getDay();
-                                      const sunday = new Date(d);
-                                      if (wd === 5) sunday.setDate(d.getDate() + 2);
-                                      else if (wd !== 0) sunday.setDate(d.getDate());
-                                      const key = wd === 5 || wd === 0 ? sunday.toISOString().slice(0, 10) : g.date;
-                                      const cur = weekends.get(key) || { sunday, ven: 0, dim: 0, autre: 0, isWe: wd === 5 || wd === 0 };
-                                      if (wd === 5) cur.ven += 1; else if (wd === 0) cur.dim += 1; else cur.autre += 1;
-                                      weekends.set(key, cur);
-                                    });
-                                    const fr = (d) => d.getDate();
-                                    rows.push(
-                                      <TableRow key={`restant-${poste}-${currentYear}`} className="hover:bg-transparent">
-                                        <TableCell colSpan={7} className="px-3 pb-3 pt-0">
-                                          <div className="rounded-lg border-2 border-blue-600 bg-blue-50 px-3 py-2 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200" data-testid="restant-a-signer">
-                                            {restantes.length === 0 ? (
-                                              <p className="text-sm font-semibold">{MOIS_NOMS_FR[parseInt(selMonth, 10) - 1] || selMonth} : toutes les fiches sont signées</p>
-                                            ) : (
-                                              <>
-                                                <p className="text-sm font-bold">
-                                                  Restant à signer en {MOIS_NOMS_FR[parseInt(selMonth, 10) - 1] || selMonth} : {restantes.length} fiche{restantes.length > 1 ? 's' : ''}
-                                                </p>
-                                                <div className="mt-1.5 flex flex-wrap gap-2">
-                                                  {Array.from(weekends.values()).sort((a, b) => a.sunday - b.sunday).map((w) => (
-                                                    <span key={w.sunday.toISOString()} className="inline-flex items-center gap-2 rounded-full border border-blue-600 bg-white px-3 py-1 text-sm font-semibold dark:bg-blue-950">
-                                                      {w.isWe ? `Week-end ${fr(new Date(w.sunday.getFullYear(), w.sunday.getMonth(), w.sunday.getDate() - 2))}–${fr(w.sunday)}` : `Jour ${fr(w.sunday)}`}
-                                                      {w.ven > 0 && <span className="rounded-full bg-blue-600 px-2 text-xs text-white">Ven {w.ven}</span>}
-                                                      {w.dim > 0 && <span className="rounded-full bg-blue-600 px-2 text-xs text-white">Dim {w.dim}</span>}
-                                                      {w.autre > 0 && <span className="rounded-full bg-blue-600 px-2 text-xs text-white">{w.autre}</span>}
-                                                    </span>
-                                                  ))}
-                                                </div>
-                                              </>
-                                            )}
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>,
-                                    );
                                   }
                                   if (monthNum !== selMonth) return;
                                   const vide = isSeanceVide(s);
@@ -2819,10 +2786,12 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                   const wkFirst = !!wk && (mIdx <= 0 || weekendKey(monthList[mIdx - 1].date) !== wk);
                                   const wkLast = !!wk && (mIdx >= monthList.length - 1 || weekendKey(monthList[mIdx + 1].date) !== wk);
                                   const isExpanded = expandedSeance === s.id;
-                                  const boxClass = wk
+                                  // Seul le week-end en cours (le prochain vendredi/dimanche, ou celui d'aujourd'hui) est entouré.
+                                  const thisWe = !!wk && wk === weekendKey(nextWeekendRefDate());
+                                  const boxClass = thisWe
                                     ? `[&>td:last-child]:border-r-2 [&>td:last-child]:border-r-blue-600 ${wkFirst ? '[&>td]:border-t-2 [&>td]:border-t-blue-600' : ''} ${wkLast && !isExpanded ? '[&>td]:border-b-2 [&>td]:border-b-blue-600' : ''}`
                                     : '';
-                                  const boxDetailClass = wk
+                                  const boxDetailClass = thisWe
                                     ? `[&>td:last-child]:border-r-2 [&>td:last-child]:border-r-blue-600 ${wkLast ? '[&>td]:border-b-2 [&>td]:border-b-blue-600' : ''}`
                                     : '';
                                   rows.push(

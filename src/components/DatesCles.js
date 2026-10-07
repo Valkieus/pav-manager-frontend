@@ -25,7 +25,7 @@ const lastSunday = (y, month) => {
 };
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 
-const eventsOf = (y) => {
+export const eventsOf = (y) => {
   const pentecost = addDays(easter(y), 49);
   let meres = lastSunday(y, 4);
   if (meres.getTime() === pentecost.getTime()) meres = nthSunday(y, 5, 1);

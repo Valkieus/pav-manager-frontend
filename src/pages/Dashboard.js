@@ -535,7 +535,7 @@ const MiniCalendar = ({
                   : undefined
               }
               className={`relative aspect-square flex items-center justify-center rounded-md text-xs
-${isToday ? "ring-2 ring-primary" : eventRingClass}
+${isToday ? "ring-2 ring-primary" : dateCle ? "ring-2 ring-inset ring-pink-500 bg-pink-500/10" : eventRingClass}
 ${isService ? "bg-primary/10 font-semibold text-primary" : "text-foreground"}
 ${isClickable ? "cursor-pointer hover:bg-primary/20 transition-colors" : ""}`}
             >
@@ -590,7 +590,8 @@ ${isClickable ? "cursor-pointer hover:bg-primary/20 transition-colors" : ""}`}
           Ma formation
         </span>
         <span className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5">
-          <span aria-hidden="true">🎄</span> Date clé
+          <span className="w-3 h-3 rounded border-2 border-pink-500 bg-pink-500/10 inline-block" />{" "}
+          Date clé
         </span>
       </div>
     </div>

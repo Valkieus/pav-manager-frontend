@@ -511,15 +511,28 @@ const MiniCalendar = ({
                   : "";
           const isToday = dateStr === todayStr;
           const dateCle = datesCles[d];
-          const title = [
-            dateCle ? `${dateCle.emoji} ${dateCle.nom}` : null,
-            isService
-              ? `Service (${serviceInfo.jour}${serviceInfo.poste ? ` — ${serviceInfo.poste}` : ""})`
-              : null,
-            ...dayEvents.map((e) => e.titre),
-          ]
-            .filter(Boolean)
-            .join(" — ");
+          const tipLines = [];
+          if (dateCle)
+            tipLines.push({ dot: "bg-pink-500", text: `${dateCle.emoji} ${dateCle.nom}` });
+          if (isService)
+            tipLines.push({
+              dot: "bg-primary",
+              text: `Service (${serviceInfo.jour}${serviceInfo.poste ? ` — ${serviceInfo.poste}` : ""})`,
+            });
+          dayEvents.forEach((e) => {
+            const kind = e.invite
+              ? { dot: "bg-amber-500", label: "Invité" }
+              : e.type === "absence"
+                ? { dot: "bg-slate-400", label: "Absence" }
+                : e.type === "formation"
+                  ? { dot: "bg-violet-500", label: "Formation" }
+                  : { dot: "bg-blue-500", label: "Événement" };
+            tipLines.push({ dot: kind.dot, text: `${kind.label} : ${e.titre}` });
+          });
+          const col = idx % 7;
+          const tipPos =
+            col <= 1 ? "left-0" : col >= 5 ? "right-0" : "left-1/2 -translate-x-1/2";
+          const title = tipLines.map((l) => l.text).join(" — ");
           // Cliquable dès qu'il y a quelque chose à voir ce jour-là : un
           // service OU un événement (Actualités, absence, formation).
           const isClickable = isService || dayEvents.length > 0;
@@ -528,18 +541,31 @@ const MiniCalendar = ({
             <Tag
               key={idx}
               type={isClickable ? "button" : undefined}
-              title={title || undefined}
+              aria-label={title ? `${d} : ${title}` : undefined}
               onClick={
                 isClickable
                   ? () => onDayClick?.(dateStr, serviceInfo, dayEvents)
                   : undefined
               }
-              className={`relative aspect-square flex items-center justify-center rounded-md text-xs
+              className={`group relative aspect-square flex items-center justify-center rounded-md text-xs
 ${isToday ? "ring-2 ring-primary" : dateCle ? "ring-2 ring-inset ring-pink-500 bg-pink-500/10" : eventRingClass}
 ${isService ? "bg-primary/10 font-semibold text-primary" : "text-foreground"}
 ${isClickable ? "cursor-pointer hover:bg-primary/20 transition-colors" : ""}`}
             >
               {d}
+              {tipLines.length > 0 && (
+                <span
+                  role="tooltip"
+                  className={`pointer-events-none absolute bottom-full mb-1 z-50 hidden group-hover:block group-focus-visible:block w-max max-w-[14rem] rounded-md border border-border bg-popover text-popover-foreground shadow-md px-2.5 py-1.5 text-left text-xs font-normal ${tipPos}`}
+                >
+                  {tipLines.map((l, i) => (
+                    <span key={i} className="flex items-start gap-1.5 py-0.5">
+                      <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${l.dot}`} />
+                      <span className="break-words">{l.text}</span>
+                    </span>
+                  ))}
+                </span>
+              )}
               {dateCle && (
                 <span
                   className="absolute top-0 right-0.5 text-[11px] leading-none"

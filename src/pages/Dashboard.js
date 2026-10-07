@@ -15,7 +15,7 @@ import { Textarea } from "../components/ui/textarea";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { ScrollArea } from "../components/ui/scroll-area";
-import DatesCles from "../components/DatesCles";
+import DatesCles, { eventsOf as datesClesOf } from "../components/DatesCles";
 import {
   Dialog,
   DialogContent,
@@ -471,6 +471,10 @@ const MiniCalendar = ({
     eventsByDate[e.date].push(e);
   });
   const todayStr = new Date().toISOString().slice(0, 10);
+  const datesCles = {};
+  datesClesOf(year).forEach((e) => {
+    if (e.date.getMonth() === month - 1) datesCles[e.date.getDate()] = e;
+  });
 
   const cells = [];
   for (let i = 0; i < startWeekday; i++) cells.push(null);
@@ -506,7 +510,9 @@ const MiniCalendar = ({
                   ? "ring-1 ring-inset ring-slate-400"
                   : "";
           const isToday = dateStr === todayStr;
+          const dateCle = datesCles[d];
           const title = [
+            dateCle ? `${dateCle.emoji} ${dateCle.nom}` : null,
             isService
               ? `Service (${serviceInfo.jour}${serviceInfo.poste ? ` — ${serviceInfo.poste}` : ""})`
               : null,
@@ -534,6 +540,14 @@ ${isService ? "bg-primary/10 font-semibold text-primary" : "text-foreground"}
 ${isClickable ? "cursor-pointer hover:bg-primary/20 transition-colors" : ""}`}
             >
               {d}
+              {dateCle && (
+                <span
+                  className="absolute top-0 right-0.5 text-[11px] leading-none"
+                  aria-label={dateCle.nom}
+                >
+                  {dateCle.emoji}
+                </span>
+              )}
               {dayEvents.length > 0 && (
                 <span className="absolute bottom-0.5 flex items-center gap-0.5">
                   {hasGuest && (
@@ -574,6 +588,9 @@ ${isClickable ? "cursor-pointer hover:bg-primary/20 transition-colors" : ""}`}
         <span className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5">
           <span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block" />{" "}
           Ma formation
+        </span>
+        <span className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5">
+          <span aria-hidden="true">🎄</span> Date clé
         </span>
       </div>
     </div>

@@ -2636,7 +2636,7 @@ export default function Administration() {
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
-        className="grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]"
+        className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]"
       >
         {/* Navigation : colonne à gauche sur grand écran, bandeau défilant sur mobile */}
         <nav
@@ -2645,7 +2645,7 @@ export default function Administration() {
           data-testid="admin-nav"
         >
           {ADMIN_SECTIONS.map((sec) => (
-            <div key={sec.title} className="flex gap-2 lg:block lg:space-y-1">
+            <div key={sec.title} className="flex shrink-0 gap-2 lg:block lg:space-y-1">
               <p className="hidden px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground lg:block">
                 {sec.title}
               </p>

@@ -2950,6 +2950,7 @@ export default function Planning() {
         onBack={() => setEvenementView(false)}
         technicienNames={technicienNames}
         isSuperAdmin={isSuperAdmin}
+        defaultSections={DEFAULT_SECTIONS}
       />
     );
   }

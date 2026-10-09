@@ -4467,7 +4467,46 @@ même limite pour éviter un 403 après coup. */}
                     <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <>
+                  {/* Téléphone : chaque droit en carte avec ses interrupteurs par rôle */}
+                  <div className="space-y-2 md:hidden" data-testid="rights-mobile-list">
+                    {(() => {
+                      const LABELS = { actualites: "Actualités", documents: "Documents", effectif: "Effectif", planning: "Planning", devis: "Devis", formations: "Formations", logistique: "Logistique / Matériel", led: "Éléments LED", salles: "Salles", admin: "Supervision & Maintenance" };
+                      let last = null;
+                      const out = [];
+                      rightsRows.forEach((row) => {
+                        const cat = row.key.split(".")[0];
+                        if (cat !== last) {
+                          last = cat;
+                          out.push(<p key={`c-${cat}`} className="pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{LABELS[cat] || cat}</p>);
+                        }
+                        out.push(
+                          <div key={row.key} className="rounded-xl border p-3">
+                            <p className="mb-2 text-sm font-medium">{row.label}</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {["Responsable", "Coordination", "Admin"].map((role) => {
+                                const cell = row.roles[role] || {};
+                                const busy = rightsBusyKey === `${row.key}:${role}`;
+                                return (
+                                  <label key={role} title={cell.reason || ""} className={`flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm ${cell.locked ? "opacity-60" : ""}`}>
+                                    {role}
+                                    <input type="checkbox" checked={!!cell.granted} disabled={cell.locked || busy}
+                                      onChange={(e) => toggleRolePermission(row.key, role, e.target.checked)} className="h-5 w-5" />
+                                  </label>
+                                );
+                              })}
+                              <label className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm opacity-60">
+                                Super Admin
+                                <input type="checkbox" checked disabled className="h-5 w-5" />
+                              </label>
+                            </div>
+                          </div>,
+                        );
+                      });
+                      return out;
+                    })()}
+                  </div>
+                  <div className="hidden overflow-x-auto md:block">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -4568,6 +4607,7 @@ même limite pour éviter un 403 après coup. */}
                       </TableBody>
                     </Table>
                   </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -4587,7 +4627,7 @@ même limite pour éviter un 403 après coup. */}
           <TabsContent value="logs" className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-2 items-center flex-1">
-                <div className="relative max-w-xs flex-1 min-w-[180px]">
+                <div className="relative w-full flex-1 sm:max-w-xs sm:min-w-[180px]">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     value={logSearch}
@@ -4600,7 +4640,7 @@ même limite pour éviter un 403 après coup. */}
                   value={logModuleFilter}
                   onValueChange={setLogModuleFilter}
                 >
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="Module" />
                   </SelectTrigger>
                   <SelectContent>
@@ -4618,7 +4658,7 @@ même limite pour éviter un 403 après coup. */}
                   value={logSeverityFilter}
                   onValueChange={setLogSeverityFilter}
                 >
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-full sm:w-[150px]">
                     <SelectValue placeholder="Sévérité" />
                   </SelectTrigger>
                   <SelectContent>
@@ -4660,6 +4700,35 @@ même limite pour éviter un 403 après coup. */}
                     <p className="text-muted-foreground">Aucun log</p>
                   </div>
                 ) : (
+                  <>
+                  {/* Téléphone : une carte par entrée du journal (plus de tableau à faire défiler) */}
+                  <div className="divide-y md:hidden" data-testid="logs-mobile-list">
+                    {logs
+                      .filter((log) => {
+                        const q = logSearch.trim().toLowerCase();
+                        const okSearch = !q || (log.action || "").toLowerCase().includes(q) || (log.user_name || "").toLowerCase().includes(q) || (log.details || "").toLowerCase().includes(q);
+                        const okModule = logModuleFilter === "all" || (log.module || "Général") === logModuleFilter;
+                        const okSev = logSeverityFilter === "all" || (log.severity || "info") === logSeverityFilter;
+                        return okSearch && okModule && okSev;
+                      })
+                      .map((log) => (
+                        <button key={log.id} type="button" onClick={() => setSelectedLog(log)} className="flex w-full items-start gap-3 p-3 text-left active:bg-muted/60">
+                          <span className="text-xl leading-none">{getActionIcon(log.action)}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-1.5">
+                              <span className="font-medium">{log.action}</span>
+                              {getSeverityBadge(log.severity || "info")}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
+                              {log.user_name} · {new Date(log.timestamp).toLocaleString("fr-FR")}
+                            </span>
+                            {log.details && <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground">{log.details}</span>}
+                            <Badge variant="outline" className="mt-1 text-[10px]">{log.module || "Général"}</Badge>
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+                  <div className="hidden md:block">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -4727,6 +4796,8 @@ même limite pour éviter un 403 après coup. */}
                         ))}
                     </TableBody>
                   </Table>
+                  </div>
+                  </>
                 )}
               </CardContent>
             </Card>

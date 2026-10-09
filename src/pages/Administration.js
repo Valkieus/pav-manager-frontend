@@ -1265,6 +1265,8 @@ export default function Administration() {
   const [cloudinaryStatus, setCloudinaryStatus] = useState(null);
   const [r2Status, setR2Status] = useState(null);
   const [r2Backing, setR2Backing] = useState(false);
+  const [dataBackup, setDataBackup] = useState(null);
+  const [dataBacking, setDataBacking] = useState(false);
   const [cloudinaryCfg, setCloudinaryCfg] = useState(null);
   const [cloudinaryForm, setCloudinaryForm] = useState({ cloud: "", api_key: "", api_secret: "" });
   const [cloudinarySaving, setCloudinarySaving] = useState(false);
@@ -1379,6 +1381,23 @@ export default function Administration() {
       setLedMigration(res.data);
     } catch (err) {
       setLedMigration(null);
+    }
+  };
+
+  const fetchDataBackup = async () => {
+    try { setDataBackup((await axios.get(`${API}/admin/infra/data-backup`)).data); } catch (err) { setDataBackup(null); }
+  };
+
+  const handleDataBackupNow = async () => {
+    setDataBacking(true);
+    try {
+      await axios.post(`${API}/admin/infra/data-backup`);
+      toast.success("Sauvegarde des données effectuée");
+      fetchDataBackup();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Sauvegarde impossible");
+    } finally {
+      setDataBacking(false);
     }
   };
 
@@ -2008,6 +2027,7 @@ export default function Administration() {
     fetchCloudinaryStatus();
     fetchCloudinaryConfig();
     fetchR2Status();
+    fetchDataBackup();
     fetchLedMigration();
     if (isSuperAdmin()) {
       fetchCanPurgeAllLogs();
@@ -5744,6 +5764,31 @@ même limite pour éviter un 403 après coup. */}
                       </Button>
                     )}
                   </>
+                )}
+                {dataBackup && (
+                  <div className="space-y-2 rounded-lg border border-dashed p-3">
+                    <p className="text-sm font-semibold">Sauvegardes des données (Planning, Régisseurs, Communication)</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Copiées sur {dataBackup.stockages?.join(", ") || "aucun stockage"} · {dataBackup.retention}.
+                    </p>
+                    <ul className="space-y-1 text-xs">
+                      {Object.entries(dataBackup.domaines || {}).map(([name, d]) => (
+                        <li key={name} className="flex flex-wrap justify-between gap-2">
+                          <span className="font-medium capitalize">{name}</span>
+                          <span className={d.last_error ? "text-amber-600" : "text-muted-foreground"}>
+                            {d.last_ok ? `dernière sauvegarde ${new Date(d.last_ok).toLocaleString("fr-FR")}` : "pas encore sauvegardé"}
+                            {d.last_error ? ` · ${d.last_error}` : ""}
+                            {d.counts && Object.keys(d.counts).length ? ` · ${Object.values(d.counts).reduce((a, b) => a + b, 0)} fiches` : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {isSuperAdmin() && (
+                      <Button size="sm" variant="outline" onClick={handleDataBackupNow} disabled={dataBacking}>
+                        {dataBacking && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />} Sauvegarder maintenant
+                      </Button>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>

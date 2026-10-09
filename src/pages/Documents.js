@@ -116,6 +116,8 @@ export default function Documents() {
   const [preview, setPreview] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("recent"); // recent | az
+  const [viewMode, setViewMode] = useState("grid"); // grid | list
 
   const [form, setForm] = useState({
     titre: "",
@@ -323,47 +325,44 @@ export default function Documents() {
     .filter(
       (d) => selectedCategory === "all" || d.categorie_id === selectedCategory,
     )
-    .filter(
-      (d) =>
-        !search.trim() ||
-        d.titre.toLowerCase().includes(search.trim().toLowerCase()),
+    .filter((d) => {
+      const q = search.trim().toLowerCase();
+      return !q || d.titre.toLowerCase().includes(q) || (d.description || "").toLowerCase().includes(q) || (d.categorie_nom || "").toLowerCase().includes(q);
+    })
+    .sort((a, b) =>
+      sortBy === "az"
+        ? a.titre.localeCompare(b.titre, "fr")
+        : String(b.created_at || "").localeCompare(String(a.created_at || "")),
     );
 
   return (
     <div className="space-y-6" data-testid="documents-page">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Base de connaissance</h1>
+          <h1 className="text-2xl font-bold">Base de connaissances</h1>
           <p className="text-muted-foreground">
-            Plans, procédures et fichiers techniques
+            Plans, procédures et fichiers techniques — {documents.length} document{documents.length > 1 ? "s" : ""} dans {categories.length} catégorie{categories.length > 1 ? "s" : ""}
           </p>
         </div>
       </div>
 
-      {/* Overview stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card className="animate-fadeIn">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Documents</p>
-              <p className="text-2xl font-bold">{documents.length}</p>
-            </div>
-            <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
-              <FileText className="w-5 h-5 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="animate-fadeIn stagger-1">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Catégories</p>
-              <p className="text-2xl font-bold">{categories.length}</p>
-            </div>
-            <div className="w-11 h-11 rounded-xl bg-violet-500/10 flex items-center justify-center">
-              <Layers className="w-5 h-5 text-violet-600" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Catégories : filtre rapide en un clic, avec le nombre de documents */}
+      <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Catégories">
+        {[{ id: "all", nom: "Tous", count: documents.length }, ...categories.map((c) => ({ id: c.id, nom: c.nom, count: getDocCountByCategory(c.id) }))].map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            role="tab"
+            aria-selected={selectedCategory === c.id}
+            onClick={() => { setSelectedCategory(c.id); setActiveTab("documents"); }}
+            className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+              selectedCategory === c.id ? "border-primary bg-primary text-primary-foreground shadow" : "bg-card text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {c.nom}
+            <span className={`rounded-full px-1.5 text-[11px] ${selectedCategory === c.id ? "bg-white/20" : "bg-muted"}`}>{c.count}</span>
+          </button>
+        ))}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -377,31 +376,36 @@ export default function Documents() {
         <TabsContent value="documents" className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex flex-col sm:flex-row gap-3 flex-1">
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-80">
                 <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
                 <Input
                   className="pl-8"
-                  placeholder="Rechercher un document..."
+                  placeholder="Rechercher (titre, description, catégorie)…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <Select
-                value={selectedCategory}
-                onValueChange={setSelectedCategory}
-              >
-                <SelectTrigger className="w-full sm:w-56">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-full sm:w-44">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Toutes les catégories</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.nom}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="recent">Plus récents</SelectItem>
+                  <SelectItem value="az">Ordre alphabétique</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="flex rounded-md border p-0.5" role="group" aria-label="Affichage">
+                {[["grid", "Cartes"], ["list", "Liste"]].map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setViewMode(k)}
+                    className={`rounded px-3 py-1.5 text-sm transition ${viewMode === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {canManage() && (
@@ -641,6 +645,33 @@ document est automatiquement cantonné à sa/ses propre(s)
                 )}
               </CardContent>
             </Card>
+          ) : viewMode === "list" ? (
+            <div className="divide-y rounded-xl border bg-card">
+              {filteredDocuments.map((doc) => {
+                const { icon: Icon, cls } = getFileMeta(doc.file_type);
+                return (
+                  <div key={doc.id} className="flex items-center gap-3 p-3">
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${cls}`}><Icon className="h-4 w-4" /></div>
+                    <button type="button" onClick={() => setPreview(doc)} className="min-w-0 flex-1 text-left">
+                      <p className="truncate font-medium hover:underline">{doc.titre}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {doc.categorie_nom} · {new Date(doc.created_at).toLocaleDateString("fr-FR")}
+                        {doc.description ? ` · ${doc.description}` : ""}
+                      </p>
+                    </button>
+                    {doc.visible_roles && doc.visible_roles.length > 0 && (
+                      <Badge variant="outline" className="hidden gap-1 border-amber-500/40 text-xs text-amber-600 sm:inline-flex"><Lock className="h-3 w-3" />Restreint</Badge>
+                    )}
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setPreview(doc)} title="Visualiser"><Eye className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild>
+                      <a href={doc.file_url} target="_blank" rel="noopener noreferrer" title="Ouvrir"><ExternalLink className="h-4 w-4" /></a>
+                    </Button>
+                    {canManage() && (<Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleEdit(doc)}><Edit className="h-4 w-4" /></Button>)}
+                    {isAdmin() && (<Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => handleDelete(doc.id)}><Trash2 className="h-4 w-4" /></Button>)}
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredDocuments.map((doc) => {

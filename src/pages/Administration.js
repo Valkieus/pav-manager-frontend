@@ -89,6 +89,7 @@ import {
   MessageSquare,
   Eye,
   Database,
+  Wrench,
   BarChart3,
 } from "lucide-react";
 import {
@@ -1259,6 +1260,7 @@ export default function Administration() {
   const [netlifyRestoringId, setNetlifyRestoringId] = useState(null);
 
   // Redondance stockage B2 (deux comptes Backblaze indépendants + bascule)
+  const [supSection, setSupSection] = useState("overview"); // sous-section de la Supervision
   const [b2Status, setB2Status] = useState(null);
   const [b2StatusLoading, setB2StatusLoading] = useState(false);
   const [b2StatusUpdatedAt, setB2StatusUpdatedAt] = useState(null);
@@ -4830,6 +4832,34 @@ même limite pour éviter un 403 après coup. */}
               </Button>
             </div>
 
+            {/* Sous-navigation de la Supervision : une catégorie à la fois, plus de page interminable */}
+            <div className="flex gap-1.5 overflow-x-auto rounded-xl border bg-card p-1.5" role="tablist" aria-label="Catégories de la supervision">
+              {[
+                ["overview", "Vue d'ensemble", Activity],
+                ["infra", "Infrastructure", Server],
+                ["stockage", "Stockage", HardDrive],
+                ["cloudinary", "Cloudinary (LED)", Cloud],
+                ["backup", "Sauvegardes", Database],
+                ["db", "Base de données", Database],
+                ["tools", "Outils", Wrench],
+              ].map(([key, label, Icon]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={supSection === key}
+                  onClick={() => setSupSection(key)}
+                  className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    supSection === key ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" /> {label}
+                </button>
+              ))}
+            </div>
+
+            {supSection === "overview" && (
+            <>
             {/* Bandeau d'état global — santé de l'app en un coup d'œil */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <HealthPill
@@ -4894,7 +4924,11 @@ même limite pour éviter un 403 après coup. */}
                 }
               />
             </div>
+            </>
+            )}
 
+            {supSection === "infra" && (
+            <>
             {/* SECTION : INFRASTRUCTURE — backend (Render) + frontend (Netlify), en direct */}
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2 pt-1">
               <Cloud className="w-3.5 h-3.5" /> Infrastructure
@@ -5220,7 +5254,11 @@ même limite pour éviter un 403 après coup. */}
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            </>
+            )}
 
+            {supSection === "stockage" && (
+            <>
             {/* SECTION : REDONDANCE DU STOCKAGE (Backblaze B2) */}
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2 pt-1">
               <HardDrive className="w-3.5 h-3.5" /> Redondance du stockage
@@ -5556,152 +5594,63 @@ même limite pour éviter un 403 après coup. */}
                 )}
               </CardContent>
             </Card>
+            </>
+            )}
 
+            {supSection === "overview" && (
+            <>
             <ServerLoadCard />
+            </>
+            )}
+            {supSection === "cloudinary" && (
+            <>
             <CloudinaryAccountsCard canEdit={isSuperAdmin()} />
+            </>
+            )}
 
-            {/* STOCKAGE DES ÉLÉMENTS LED (Cloudinary) */}
-            <Card>
-              <CardHeader className="space-y-0">
-                <CardTitle className="flex items-center gap-2">
-                  <Cloud className="w-5 h-5" /> Stockage Éléments LED (Cloudinary)
-                </CardTitle>
-                <CardDescription>
-                  Photos et vidéos du site Éléments LED, hébergées par Cloudinary (offre
-                  gratuite : crédits mensuels partagés entre stockage, bande passante et
-                  transformations).
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {isSuperAdmin() && (
-                  <div className="p-3 rounded-lg border border-border space-y-2">
-                    <p className="text-xs font-medium">
-                      {cloudinaryCfg?.configured
-                        ? `Connecté au cloud « ${cloudinaryCfg.cloud} » (clé ${cloudinaryCfg.api_key_hint})`
-                        : "Connecter Cloudinary"}
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <Input
-                        className="h-8 text-sm"
-                        placeholder="Nom du cloud (« Cloud name », pas le nom de la clé)"
-                        value={cloudinaryForm.cloud}
-                        onChange={(e) => setCloudinaryForm({ ...cloudinaryForm, cloud: e.target.value })}
-                      />
-                      <Input
-                        className="h-8 text-sm"
-                        placeholder="Clé API"
-                        value={cloudinaryForm.api_key}
-                        onChange={(e) => setCloudinaryForm({ ...cloudinaryForm, api_key: e.target.value })}
-                      />
-                      <Input
-                        className="h-8 text-sm"
-                        type="password"
-                        autoComplete="new-password"
-                        placeholder={cloudinaryCfg?.has_secret ? "Secret API (laisser vide pour conserver)" : "Secret API"}
-                        value={cloudinaryForm.api_secret}
-                        onChange={(e) => setCloudinaryForm({ ...cloudinaryForm, api_secret: e.target.value })}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        onClick={handleSaveCloudinary}
-                        disabled={cloudinarySaving || !cloudinaryForm.cloud || !cloudinaryForm.api_key}
-                      >
-                        {cloudinarySaving && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
-                        Enregistrer et tester
-                      </Button>
-                      {cloudinaryCfg?.configured && cloudinaryCfg.source === "db" && (
-                        <Button size="sm" variant="outline" onClick={handleDeleteCloudinary}>
-                          Déconnecter
-                        </Button>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      Le secret est vérifié puis conservé côté serveur uniquement : il n'est jamais renvoyé à l'écran.
-                    </p>
-                  </div>
-                )}
-                {!cloudinaryStatus ? (
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                ) : !cloudinaryStatus.configured ? (
-                  <p className="text-xs text-amber-600 dark:text-amber-500">
-                    {cloudinaryStatus.message}
+            {supSection === "cloudinary" && (
+ <>
+            {/* Migration B2 -> Cloudinary (LED) */}
+            {cloudinaryCfg?.configured && ledMigration && (
+              <Card>
+                <CardHeader className="space-y-0">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Cloud className="w-5 h-5" /> Migration des fichiers B2 vers Cloudinary
+                  </CardTitle>
+                  <CardDescription>
+                    Reprend toute seule : les fichiers que B2 refuse de lire (plafond quotidien) sont retentés plus tard. La migration répartit
+                    les fichiers entre les comptes Cloudinary connectés et s'arrête à 70 % de leurs crédits. Les vidéos de plus de 100 Mo
+                    restent sur B2 (limite de l'offre gratuite Cloudinary).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-sm">
+                    {ledMigration.running
+                      ? `En cours : ${ledMigration.done ?? 0} migré(s) sur ${ledMigration.total ?? "?"}`
+                      : ledMigration.remaining > 0
+                        ? `${ledMigration.remaining} fichier(s) encore sur B2`
+                        : "Tous les fichiers sont chez Cloudinary"}
+                    {ledMigration.message && !ledMigration.running ? ` · ${ledMigration.message}` : ""}
                   </p>
-                ) : cloudinaryStatus.error ? (
-                  <p className="text-xs text-red-500">{cloudinaryStatus.error}</p>
-                ) : (
-                  <>
-                    <p className="text-xs text-muted-foreground">
-                      Compte{" "}
-                      <span className="font-medium text-foreground">{cloudinaryStatus.cloud}</span>
-                      {cloudinaryStatus.plan ? ` · offre ${cloudinaryStatus.plan}` : ""}
-                      {cloudinaryStatus.last_updated ? ` · données du ${cloudinaryStatus.last_updated}` : ""}
-                    </p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {[
-                        ["Crédits utilisés", cloudinaryStatus.credits_used != null
-                          ? `${Number(cloudinaryStatus.credits_used).toFixed(2)}${cloudinaryStatus.credits_limit ? ` / ${cloudinaryStatus.credits_limit}` : ""}`
-                          : "—"],
-                        ["Stockage", formatBytes(cloudinaryStatus.storage_bytes)],
-                        ["Bande passante (mois)", formatBytes(cloudinaryStatus.bandwidth_bytes)],
-                        ["Transformations", cloudinaryStatus.transformations != null ? String(cloudinaryStatus.transformations) : "—"],
-                      ].map(([label, value]) => (
-                        <div key={label} className="p-2 rounded-lg bg-muted/50">
-                          <p className="text-[10px] text-muted-foreground">{label}</p>
-                          <p className="text-sm font-bold">{value}</p>
-                        </div>
-                      ))}
-                    </div>
-                    {cloudinaryStatus.credits_percent != null && (
-                      <div className="space-y-1">
-                        <div className="h-2 rounded bg-muted overflow-hidden">
-                          <div
-                            className={`h-full ${cloudinaryStatus.credits_percent >= 90 ? "bg-red-500" : cloudinaryStatus.credits_percent >= 75 ? "bg-amber-500" : "bg-emerald-500"}`}
-                            style={{ width: `${Math.min(100, cloudinaryStatus.credits_percent)}%` }}
-                          />
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">
-                          {cloudinaryStatus.credits_percent}% des crédits du mois
-                          {cloudinaryStatus.resources != null ? ` · ${cloudinaryStatus.resources} fichiers` : ""}
-                        </p>
-                      </div>
-                    )}
-                  </>
-                )}
-                {cloudinaryCfg?.configured && ledMigration && (
-                  <div className="p-3 rounded-lg border border-border space-y-2">
-                    <p className="text-xs font-medium">Migration des fichiers B2 vers Cloudinary</p>
-                    <p className="text-xs text-muted-foreground">
-                      {ledMigration.running
-                        ? `En cours : ${ledMigration.done ?? 0} migré(s) sur ${ledMigration.total ?? "?"}`
-                        : ledMigration.remaining > 0
-                          ? `${ledMigration.remaining} fichier(s) encore sur B2`
-                          : "Tous les fichiers sont chez Cloudinary"}
-                      {ledMigration.message && !ledMigration.running ? ` · ${ledMigration.message}` : ""}
-                    </p>
-                    {ledMigration.errors?.length > 0 && (
-                      <ul className="text-[11px] text-amber-600 dark:text-amber-500 list-disc pl-4 space-y-0.5">
-                        {ledMigration.errors.slice(0, 5).map((e, i) => (
-                          <li key={i}>{e}</li>
-                        ))}
-                      </ul>
-                    )}
-                    {isSuperAdmin() && ledMigration.remaining > 0 && (
-                      <Button size="sm" variant="outline" onClick={handleStartLedMigration} disabled={ledMigrating || ledMigration.running}>
-                        {(ledMigrating || ledMigration.running) && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
-                        {ledMigration.running ? "Migration en cours…" : "Lancer / reprendre la migration"}
-                      </Button>
-                    )}
-                    <p className="text-[10px] text-muted-foreground">
-                      Reprend toute seule : les fichiers que B2 refuse de lire (plafond quotidien) sont retentés plus tard. Les vidéos de plus
-                      de 100 Mo restent sur B2 (limite de l'offre gratuite Cloudinary).
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  {ledMigration.errors?.length > 0 && (
+                    <ul className="text-[11px] text-amber-600 dark:text-amber-500 list-disc pl-4 space-y-0.5">
+                      {ledMigration.errors.slice(0, 5).map((e, i) => (<li key={i}>{e}</li>))}
+                    </ul>
+                  )}
+                  {isSuperAdmin() && ledMigration.remaining > 0 && (
+                    <Button size="sm" variant="outline" onClick={handleStartLedMigration} disabled={ledMigrating || ledMigration.running}>
+                      {(ledMigrating || ledMigration.running) && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                      {ledMigration.running ? "Migration en cours…" : "Lancer / reprendre la migration"}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+ </>
+            )}
 
+            {supSection === "backup" && (
+            <>
             {/* PRA / PCA : copie Cloudflare R2 */}
             <Card className="border-border">
               <CardHeader>
@@ -5792,6 +5741,8 @@ même limite pour éviter un 403 après coup. */}
                 )}
               </CardContent>
             </Card>
+            </>
+            )}
 
             {/* Confirmation bascule B2 */}
             <Dialog
@@ -5828,7 +5779,7 @@ même limite pour éviter un 403 après coup. */}
               </DialogContent>
             </Dialog>
 
-            {systemStatusLoading && !systemStatus ? (
+            {["stockage", "db", "tools"].includes(supSection) && (systemStatusLoading && !systemStatus ? (
               <div className="p-8 text-center">
                 <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
               </div>
@@ -5838,6 +5789,8 @@ même limite pour éviter un 403 après coup. */}
               </div>
             ) : (
               <>
+            {supSection === "db" && (
+            <>
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2 pt-1">
                   <HardDrive className="w-3.5 h-3.5" /> Base de données
                 </h3>
@@ -6056,7 +6009,11 @@ même limite pour éviter un 403 après coup. */}
                     })()}
                   </CardContent>
                 </Card>
+            </>
+            )}
 
+            {supSection === "stockage" && (
+            <>
                 {/* Quota de stockage */}
                 <Card>
                   <CardHeader>
@@ -6129,7 +6086,11 @@ même limite pour éviter un 403 après coup. */}
                     </div>
                   </CardContent>
                 </Card>
+            </>
+            )}
 
+            {supSection === "tools" && (
+            <>
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2 pt-1">
                   <Power className="w-3.5 h-3.5" /> Nettoyage & actions
                 </h3>
@@ -6812,8 +6773,10 @@ même limite pour éviter un 403 après coup. */}
                     </Button>
                   </CardContent>
                 </Card>
-              </>
+            </>
             )}
+              </>
+            ))}
           </TabsContent>
         )}
         {isSuperAdmin() && (

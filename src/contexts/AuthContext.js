@@ -4,13 +4,22 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
 import axios from "axios";
+import { toast } from "sonner";
 import { useTheme } from "./ThemeContext";
 
 const AuthContext = createContext(null);
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// « Voir comme… » : un Admin ou Super Admin peut prévisualiser l'application avec le niveau d'un rôle INFÉRIEUR au sien.
+// Aperçu en lecture seule (aucune modification envoyée au serveur) et jamais mémorisé au-delà de l'onglet.
+const LEVELS = ["Technicien", "Responsable", "Coordination", "Admin (lecture seule)", "Admin", "Super Admin"];
+const VIEW_AS_KEY = "pav_view_as";
+const viewAsChoices = (real) =>
+  ["Admin", "Super Admin"].includes(real) ? LEVELS.filter((l) => LEVELS.indexOf(l) < LEVELS.indexOf(real)) : [];
 
 // Compte tablette (kiosk_mode) : la session ne doit JAMAIS sauter à cause d'une
 // coupure réseau passagère. Le profil est mémorisé sur la tablette et réutilisé
@@ -37,7 +46,38 @@ const readKioskUser = () => {
 
 export const AuthProvider = ({ children }) => {
   const { syncThemeFromServer } = useTheme();
-  const [user, setUser] = useState(null);
+  const [rawUser, setUser] = useState(null);
+  const [viewAs, setViewAs] = useState(() => {
+    try { return sessionStorage.getItem(VIEW_AS_KEY) || null; } catch (e) { return null; }
+  });
+  // Utilisateur « effectif » : en aperçu, le niveau simulé remplace le vrai ; les droits de groupes ne sont pas simulés.
+  const viewAsOptions = rawUser && !rawUser.kiosk_mode ? viewAsChoices(rawUser.niveau_acces) : [];
+  const viewAsActive = viewAs && viewAsOptions.includes(viewAs) ? viewAs : null;
+  const user = useMemo(
+    () => (rawUser && viewAsActive ? { ...rawUser, niveau_acces: viewAsActive, module_permissions: [], group_ids: [], real_niveau_acces: rawUser.niveau_acces } : rawUser),
+    [rawUser, viewAsActive],
+  );
+  const startViewAs = (level) => {
+    try { sessionStorage.setItem(VIEW_AS_KEY, level); } catch (e) { /* ignore */ }
+    setViewAs(level);
+  };
+  const stopViewAs = () => {
+    try { sessionStorage.removeItem(VIEW_AS_KEY); } catch (e) { /* ignore */ }
+    setViewAs(null);
+  };
+  // Aperçu = lecture seule : toute requête qui modifierait des données est bloquée.
+  useEffect(() => {
+    if (!viewAsActive) return undefined;
+    const id = axios.interceptors.request.use((config) => {
+      const method = (config.method || "get").toLowerCase();
+      if (!["get", "head", "options"].includes(method) && !String(config.url || "").includes("/auth/")) {
+        toast.info(`Aperçu « ${viewAsActive} » : lecture seule — quittez l'aperçu pour modifier.`);
+        return Promise.reject(new axios.Cancel("Aperçu en lecture seule"));
+      }
+      return config;
+    });
+    return () => axios.interceptors.request.eject(id);
+  }, [viewAsActive]);
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
@@ -121,6 +161,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    try { sessionStorage.removeItem(VIEW_AS_KEY); } catch (e) { /* ignore */ }
+    setViewAs(null);
     localStorage.removeItem("token");
     rememberKioskUser(null);
     delete axios.defaults.headers.common["Authorization"];
@@ -187,6 +229,11 @@ export const AuthProvider = ({ children }) => {
         user,
         token,
         loading,
+        realUser: rawUser,
+        viewAs: viewAsActive,
+        viewAsOptions,
+        startViewAs,
+        stopViewAs,
         login,
         loginWithData,
         logout,

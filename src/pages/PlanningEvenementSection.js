@@ -35,6 +35,7 @@ function FloatingBanner({ children, tone = 'amber' }) {
     : 'bg-[#FCE4D6] text-[#7a3a0c] border-[#C55A11]';
   return (
     <div
+      style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.5rem)" }}
       className={`fixed top-0 inset-x-0 z-[100] border-b-2 px-3 py-2 text-sm font-medium shadow-lg print:hidden ${cls}`}
       role="status"
       data-testid="evenement-banner"

@@ -11,7 +11,7 @@ export const OfflineIndicator = () => {
   }
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
+    <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2" style={{ marginBottom: "env(safe-area-inset-bottom)", marginLeft: "env(safe-area-inset-left)" }}>
       {!isOnline && (
         <Badge variant="destructive" className="flex items-center gap-2 py-2 px-3 animate-pulse">
           <WifiOff className="w-4 h-4" />

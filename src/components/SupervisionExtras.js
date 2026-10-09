@@ -98,6 +98,9 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
   const [cursor, setCursor] = useState(null);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [reb, setReb] = useState(null); // état de l'équilibrage
+  const [rebPlan, setRebPlan] = useState(null);
+  const [rebBusy, setRebBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,6 +114,32 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
     }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  const loadReb = useCallback(async () => {
+    try { setReb((await axios.get(`${API}/led/rebalance-status`)).data); } catch (e) { setReb(null); }
+  }, []);
+  useEffect(() => {
+    loadReb();
+    const t = setInterval(loadReb, 15000);
+    return () => clearInterval(t);
+  }, [loadReb]);
+  const simulateReb = async () => {
+    setRebBusy(true);
+    try { setRebPlan((await axios.post(`${API}/led/rebalance-cloudinary`, null, { params: { dry_run: true } })).data); }
+    catch (err) { toast.error(err.response?.data?.detail || "Simulation impossible"); }
+    finally { setRebBusy(false); }
+  };
+  const startReb = async () => {
+    if (!window.confirm("Déplacer des médias du compte le plus chargé vers l'autre compte puis vers B2 ? Chaque fichier n'est supprimé de l'ancien compte qu'après copie réussie.")) return;
+    setRebBusy(true);
+    try {
+      await axios.post(`${API}/led/rebalance-cloudinary`);
+      toast.success("Équilibrage lancé en arrière-plan");
+      setRebPlan(null);
+      setTimeout(loadReb, 1500);
+    } catch (err) { toast.error(err.response?.data?.detail || "Lancement impossible"); }
+    finally { setRebBusy(false); }
+  };
 
   const fetchPage = useCallback(async (account, type, next) => {
     setBusy(true);
@@ -250,6 +279,43 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
                 </div>
               );
             })
+          )}
+          {accounts && accounts.filter((a) => a.configured).length > 0 && (
+            <div className="space-y-2 rounded-lg border border-dashed p-3">
+              <p className="font-semibold">Équilibrage des comptes</p>
+              <p className="text-xs text-muted-foreground">
+                Automatique (toutes les 6 h) : quand un compte dépasse 90 % de ses crédits, ses fichiers les plus lourds passent vers
+                l'autre compte tant qu'il reste sous 70 %, puis vers B2 gratuit. Les crédits affichés se mettent à jour sous 24 h.
+              </p>
+              {reb?.message && (
+                <p className="text-xs">
+                  {reb.running ? "En cours : " : ""}{reb.message}
+                  {reb.running || reb.moved_cloud || reb.moved_b2
+                    ? ` (${reb.moved_cloud || 0} vers l'autre compte, ${reb.moved_b2 || 0} vers B2, ${reb.failed || 0} échec(s), ${fmtBytes(reb.freed_bytes || 0)} libérés)`
+                    : ""}
+                </p>
+              )}
+              {reb?.errors?.length > 0 && (
+                <ul className="list-disc pl-4 text-[11px] text-amber-600">
+                  {reb.errors.slice(0, 5).map((e, i) => (<li key={i}>{e}</li>))}
+                </ul>
+              )}
+              {rebPlan && (
+                <p className="text-xs text-muted-foreground">
+                  {rebPlan.plan?.length
+                    ? `Simulation : ${rebPlan.plan.length} fichier(s), ${fmtBytes(rebPlan.total_bytes)} à déplacer depuis « ${rebPlan.source?.cloud} » (${rebPlan.source?.pct} %).`
+                    : (rebPlan.message || "Simulation : rien à déplacer pour le moment.")}
+                </p>
+              )}
+              {canEdit && (
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={simulateReb} disabled={rebBusy || reb?.running}>Simuler</Button>
+                  <Button size="sm" onClick={startReb} disabled={rebBusy || reb?.running}>
+                    {(rebBusy || reb?.running) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Équilibrer maintenant
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

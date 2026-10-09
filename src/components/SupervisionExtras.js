@@ -230,7 +230,7 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
                     {a.configured && (
                       <div className="flex flex-wrap items-center gap-2">
                         {a.receives_uploads
-                          ? <Badge className="bg-emerald-600 text-white">Reçoit les envois</Badge>
+                          ? <Badge className="bg-emerald-600 text-white">Reçoit les envois{a.share_percent ? ` · ${a.share_percent} %` : ""}</Badge>
                           : <Badge variant="outline" className="border-amber-500 text-amber-600">Complet — envois ailleurs</Badge>}
                         {canEdit && <Button size="sm" variant="ghost" onClick={() => { setEditing(a.account); setForm({ cloud: "", api_key: "", api_secret: "", skip_verify: false }); }}>Modifier</Button>}
                         <Button size="sm" variant="outline" onClick={() => openBrowse(a)}>
@@ -284,8 +284,8 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
             <div className="space-y-2 rounded-lg border border-dashed p-3">
               <p className="font-semibold">Équilibrage des comptes</p>
               <p className="text-xs text-muted-foreground">
-                Automatique (toutes les 6 h) : quand un compte dépasse 90 % de ses crédits, ses fichiers les plus lourds passent vers
-                l'autre compte tant qu'il reste sous 70 %, puis vers B2 gratuit. Les crédits affichés se mettent à jour sous 24 h.
+                Automatique (toutes les 6 h) : les fichiers les plus lourds passent du compte le plus chargé vers le moins chargé (écart de plus de 10 points,
+                destinataire sous 70 %) ; au-dessus de 90 %, le surplus part sur B2 gratuit. Les crédits affichés se mettent à jour sous 24 h.
               </p>
               {reb?.message && (
                 <p className="text-xs">

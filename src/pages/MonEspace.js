@@ -73,6 +73,7 @@ const FREQUENCES = [
 export default function MonEspace() {
   const { user, isGestionnairePlus } = useAuth();
   const navigate = useNavigate();
+  const [tab, setTab] = useState("absences");
   const [absences, setAbsences] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -427,15 +428,50 @@ export default function MonEspace() {
 
   return (
     <div className="space-y-6" data-testid="mon-espace-page">
-      <div>
-        <h1 className="text-2xl font-bold">Mon espace</h1>
-        <p className="text-muted-foreground">
-          Bienvenue {user?.full_name?.split(" ")[0]} — signalez vos absences
-          ici, elles seront visibles par la Coordination lors de la construction
-          du planning.
-        </p>
+      {/* En-tête profil + navigation par rubrique */}
+      <div className="flex flex-col gap-4 rounded-2xl border bg-card p-4 shadow-sm sm:flex-row sm:items-center">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-lg font-bold text-primary">
+          {(user?.full_name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-2xl font-bold leading-tight">Mon espace</h1>
+          <p className="text-sm text-muted-foreground">
+            Bonjour {user?.full_name?.split(" ")[0]}
+            {user?.niveau_acces ? ` · ${user.niveau_acces}` : ""}
+            {user?.branche ? ` · ${user.branche}` : ""}
+          </p>
+        </div>
+        <div className="flex gap-2 text-center">
+          <div className="rounded-xl bg-muted/50 px-4 py-2">
+            <p className="text-lg font-bold leading-none">{absences.length}</p>
+            <p className="text-[11px] text-muted-foreground">absence(s)</p>
+          </div>
+        </div>
       </div>
 
+      <div className="flex gap-1.5 overflow-x-auto rounded-xl border bg-card p-1.5" role="tablist" aria-label="Rubriques de mon espace">
+        {[
+          ["absences", "Mes absences", CalendarOff],
+          ["badge", "Mon badge", IdCard],
+          ["donnees", "Mes données", ShieldCheck],
+        ].map(([key, label, Icon]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+              tab === key ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            <Icon className="h-4 w-4" /> {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "absences" && (
+      <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -829,28 +865,11 @@ export default function MonEspace() {
           )}
         </CardContent>
       </Card>
+      </>
+      )}
 
-      <Card>
-        <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <GraduationCap className="w-5 h-5 text-primary" />
-            <div>
-              <p className="font-medium text-sm">Formations</p>
-              <p className="text-xs text-muted-foreground">
-                Faites une demande, suivez son statut, ou parcourez le catalogue
-              </p>
-            </div>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigate("/formations")}
-          >
-            Ouvrir Formations
-          </Button>
-        </CardContent>
-      </Card>
-
+      {tab === "badge" && (
+      <>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -967,7 +986,11 @@ export default function MonEspace() {
           </div>
         </CardContent>
       </Card>
+      </>
+      )}
 
+      {tab === "donnees" && (
+      <>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -1005,6 +1028,8 @@ export default function MonEspace() {
           </div>
         </CardContent>
       </Card>
+      </>
+      )}
     </div>
   );
 }

@@ -8,6 +8,8 @@ import { Textarea } from '../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import SalleEditor, { SALLE_TYPES } from '../components/salles/SalleEditor';
+import CreneauxManager from '../components/salles/CreneauxManager';
 import {
   Dialog,
   DialogContent,
@@ -54,11 +56,11 @@ import {
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const TAB_META = {
-  salles: { label: 'Salles', icon: Building2 },
-  reservations: { label: 'Réservations', icon: CalendarClock },
-  liens: { label: 'Liens', icon: LinkIcon },
-  creneaux: { label: 'Créneaux', icon: Clock },
-  notifications: { label: 'Notifications', icon: Mail },
+  salles: { label: 'Espaces', icon: Building2 },
+  creneaux: { label: 'Horaires', icon: Clock },
+  liens: { label: 'Liens externes', icon: LinkIcon },
+  notifications: { label: 'E-mails', icon: Mail },
+  reservations: { label: 'Historique', icon: CalendarClock },
 };
 
 function formatTimeLeft(expiresAt) {
@@ -289,6 +291,26 @@ export default function SallesAdmin({ embedded = false }) {
       }
       setSalleDialogOpen(false);
       setSalleForm({ nom: '', capacite: '', equipements: '', description: '' });
+      setEditingSalle(null);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const saveSalle = async (data) => {
+    setSubmitting(true);
+    try {
+      if (editingSalle) {
+        await axios.put(`${API}/salles/${editingSalle.id}`, data);
+        toast.success('Espace modifié');
+      } else {
+        await axios.post(`${API}/salles`, data);
+        toast.success('Espace créé');
+      }
+      setSalleDialogOpen(false);
       setEditingSalle(null);
       fetchData();
     } catch (err) {
@@ -562,69 +584,22 @@ export default function SallesAdmin({ embedded = false }) {
 
         {/* SALLES TAB */}
         <TabsContent value="salles" className="space-y-4 mt-4">
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-muted-foreground">Les espaces réservables (salles, studios, régies…).</p>
             {isAdmin() && (
-              <Dialog open={salleDialogOpen} onOpenChange={(open) => {
-                setSalleDialogOpen(open);
-                if (!open) {
-                  setSalleForm({ nom: '', capacite: '', equipements: '', description: '' });
-                  setEditingSalle(null);
-                }
-              }}>
-                <DialogTrigger asChild>
-                  <Button data-testid="add-salle-btn" className="shadow-lg shadow-primary/20">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Ajouter une salle
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{editingSalle ? 'Modifier' : 'Ajouter'} une salle</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleSalleSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Nom *</Label>
-                      <Input
-                        value={salleForm.nom}
-                        onChange={(e) => setSalleForm({ ...salleForm, nom: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Capacité</Label>
-                      <Input
-                        type="number"
-                        value={salleForm.capacite}
-                        onChange={(e) => setSalleForm({ ...salleForm, capacite: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Équipements</Label>
-                      <Input
-                        value={salleForm.equipements}
-                        onChange={(e) => setSalleForm({ ...salleForm, equipements: e.target.value })}
-                        placeholder="Sono, Vidéoprojecteur..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Description</Label>
-                      <Textarea
-                        value={salleForm.description}
-                        onChange={(e) => setSalleForm({ ...salleForm, description: e.target.value })}
-                      />
-                    </div>
-                    <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setSalleDialogOpen(false)}>Annuler</Button>
-                      <Button type="submit" disabled={submitting}>
-                        {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                        {editingSalle ? 'Modifier' : 'Créer'}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
+              <Button data-testid="add-salle-btn" className="shadow-lg shadow-primary/20" onClick={() => { setEditingSalle(null); setSalleDialogOpen(true); }}>
+                <Plus className="w-4 h-4 mr-2" />
+                Nouvel espace
+              </Button>
             )}
           </div>
+          <SalleEditor
+            open={salleDialogOpen}
+            onOpenChange={(o) => { setSalleDialogOpen(o); if (!o) setEditingSalle(null); }}
+            salle={editingSalle}
+            onSave={saveSalle}
+            submitting={submitting}
+          />
 
           {salles.length === 0 ? (
             <Card className="border-dashed">
@@ -644,7 +619,12 @@ export default function SallesAdmin({ embedded = false }) {
                         <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                           <Building2 className="w-4.5 h-4.5 text-primary" />
                         </div>
-                        <span className="truncate">{salle.nom}</span>
+                        <span className="min-w-0">
+                          <span className="block truncate">{salle.nom}</span>
+                          {salle.type && SALLE_TYPES.find((t) => t.id === salle.type) && (
+                            <span className="block truncate text-[11px] font-normal text-muted-foreground">{SALLE_TYPES.find((t) => t.id === salle.type).label}</span>
+                          )}
+                        </span>
                       </span>
                       {isAdmin() && (
                         <div className="flex gap-1 shrink-0">
@@ -993,92 +973,7 @@ export default function SallesAdmin({ embedded = false }) {
 
         {/* CRENEAUX TAB */}
         <TabsContent value="creneaux" className="space-y-4 mt-4">
-          <div className="flex justify-end">
-            {isAdmin() && (
-              <Dialog open={creneauDialogOpen} onOpenChange={(open) => {
-                setCreneauDialogOpen(open);
-                if (!open) {
-                  setCreneauForm({ nom: '', heure_debut: '', heure_fin: '' });
-                  setEditingCreneau(null);
-                }
-              }}>
-                <DialogTrigger asChild>
-                  <Button data-testid="add-creneau-btn" className="shadow-lg shadow-primary/20">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Ajouter un créneau
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{editingCreneau ? 'Modifier' : 'Ajouter'} un créneau</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleCreneauSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Nom *</Label>
-                      <Input
-                        value={creneauForm.nom}
-                        onChange={(e) => setCreneauForm({ ...creneauForm, nom: e.target.value })}
-                        placeholder="Ex: Matin, Après-midi..."
-                        required
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Heure de début *</Label>
-                        <Input
-                          type="time"
-                          value={creneauForm.heure_debut}
-                          onChange={(e) => setCreneauForm({ ...creneauForm, heure_debut: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Heure de fin *</Label>
-                        <Input
-                          type="time"
-                          value={creneauForm.heure_fin}
-                          onChange={(e) => setCreneauForm({ ...creneauForm, heure_fin: e.target.value })}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setCreneauDialogOpen(false)}>Annuler</Button>
-                      <Button type="submit" disabled={submitting}>
-                        {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                        {editingCreneau ? 'Modifier' : 'Créer'}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {creneaux.map((creneau) => (
-              <Card key={creneau.id} className="card-hover" data-testid={`creneau-${creneau.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Clock className="w-4 h-4 text-primary" />
-                      </div>
-                      <span className="font-medium">{creneau.nom}</span>
-                    </div>
-                    {isSuperAdmin() && (
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteCreneau(creneau.id)}>
-                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-3 pl-11">
-                    {creneau.heure_debut} - {creneau.heure_fin}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <CreneauxManager creneaux={creneaux} canEdit={isAdmin()} onChanged={fetchData} />
         </TabsContent>
 
         {/* NOTIFICATIONS TAB */}

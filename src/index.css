@@ -207,3 +207,36 @@
         animation: progressGrow 0.6s ease-out forwards;
     }
 }
+
+/* ---- Ergonomie téléphone / tablette (iOS, Android, iPad) ---- */
+@layer base {
+    html {
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        overflow-x: hidden;
+        /* pas de « rebond » ni de geste retour déclenché par un glissé horizontal accidentel */
+        overscroll-behavior-x: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+    body {
+        overflow-x: hidden;
+        overscroll-behavior-x: none;
+        min-height: 100vh;
+        min-height: 100dvh;
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+    img, video, canvas, svg { max-width: 100%; }
+    img, video { height: auto; }
+    /* tout contenu de carte peut rétrécir et retourne à la ligne au lieu de déborder */
+    .grid > * { min-width: 0; }
+    td, th, p, h1, h2, h3, h4, label { overflow-wrap: anywhere; }
+    /* tableaux : défilement horizontal dans leur cadre, jamais sur la page entière */
+    table { max-width: 100%; }
+    /* zones tactiles confortables et pas de zoom automatique de iOS sur les champs */
+    button, [role="button"], a, select, summary { touch-action: manipulation; }
+    @media (pointer: coarse) {
+        button:not([class*="h-"]):not([class*="p-"]), [role="tab"] { min-height: 40px; }
+        input, select, textarea { font-size: 16px; }
+    }
+}

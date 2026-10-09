@@ -1,4 +1,5 @@
 import React from 'react';
+import { isChunkError, reloadForNewVersion } from '../lib/lazyWithRetry';
 
 // Without this, any uncaught render error anywhere in the tree unmounts the
 // whole app and leaves a silent blank/white page — no error text, nothing
@@ -20,6 +21,12 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
+    // Nouvelle version déployée pendant que l'onglet était ouvert : un simple
+    // rechargement règle le problème, ce n'est pas un vrai crash à signaler.
+    if (isChunkError(error) && reloadForNewVersion()) {
+      this.setState({ updating: true });
+      return;
+    }
     // eslint-disable-next-line no-console
     console.error('ErrorBoundary caught:', error, info);
     this.setState({ info });
@@ -51,8 +58,22 @@ export default class ErrorBoundary extends React.Component {
   }
 
   render() {
-    const { error, info } = this.state;
+    const { error, info, updating } = this.state;
     if (!error) return this.props.children;
+
+    if (updating) {
+      return (
+        <div style={{
+          minHeight: '100vh', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', padding: 24,
+          fontFamily: 'system-ui, -apple-system, sans-serif', background: '#fff', color: '#111',
+          textAlign: 'center',
+        }}>
+          <img src="/logo.png" alt="PAV" style={{ width: 56, height: 56, marginBottom: 16 }} />
+          <p style={{ fontSize: 15, fontWeight: 600 }}>Mise à jour de PAV Manager…</p>
+        </div>
+      );
+    }
 
     return (
       <div style={{

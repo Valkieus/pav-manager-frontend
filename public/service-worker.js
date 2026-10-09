@@ -5,10 +5,10 @@
 // this closes the loophole where an old, already-registered service worker
 // could keep serving a stale cached build (with outdated nav/permission
 // logic) to a returning user for up to ~24h after a new deploy.
-const CACHE_NAME = 'pav-manager-v3';
-const STATIC_CACHE = 'pav-static-v3';
-const DYNAMIC_CACHE = 'pav-dynamic-v3';
-const API_CACHE = 'pav-api-v3';
+const CACHE_NAME = 'pav-manager-v4';
+const STATIC_CACHE = 'pav-static-v4';
+const DYNAMIC_CACHE = 'pav-dynamic-v4';
+const API_CACHE = 'pav-api-v4';
 
 // Static assets to cache immediately
 const STATIC_ASSETS = [
@@ -122,6 +122,14 @@ async function handleApiRequest(request) {
   }
 }
 
+// Vrai si l'URL est un fichier statique (/static/...) mais que la réponse est
+// une page HTML (repli SPA) : ce n'est pas le fichier demandé.
+function isHtmlMasquerade(url, response) {
+  if (!url.pathname.startsWith('/static/')) return false;
+  const type = (response.headers.get('content-type') || '').toLowerCase();
+  return type.includes('text/html');
+}
+
 // Handle static requests.
 // The HTML shell (navigation requests, "/", "/index.html") is served
 // NETWORK-FIRST: it's the file that references which hashed JS/CSS bundle
@@ -153,13 +161,19 @@ async function handleStaticRequest(request) {
 
   // Non-shell static assets: cache-first, refresh in background
   const cachedResponse = await cache.match(request);
-  if (cachedResponse) {
+  if (cachedResponse && !isHtmlMasquerade(url, cachedResponse)) {
     fetchAndCache(request, cache);
     return cachedResponse;
   }
 
   try {
     const networkResponse = await fetch(request);
+    // Un ancien chunk JS/CSS qui n'existe plus est « répondu » par la page
+    // d'accueil (repli SPA de Netlify) : on le renvoie en vraie 404 et on ne
+    // le met jamais en cache, pour que l'appli détecte la nouvelle version.
+    if (isHtmlMasquerade(url, networkResponse)) {
+      return new Response('Not found', { status: 404 });
+    }
     if (networkResponse.ok) {
       cache.put(request, networkResponse.clone());
       trimCache(cache, 40);
@@ -181,7 +195,7 @@ async function handleStaticRequest(request) {
 async function fetchAndCache(request, cache) {
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    if (response.ok && !isHtmlMasquerade(new URL(request.url), response)) {
       cache.put(request, response);
       trimCache(cache, 40);
     }

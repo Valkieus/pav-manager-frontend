@@ -3357,6 +3357,34 @@ même limite pour éviter un 403 après coup. */}
                             {countOf(niveau)}
                           </span>
                         </div>
+                        {countOf(niveau) > 4 ? (
+                          /* Plus de 4 comptes dans la catégorie : vue compacte en liste dense, défilante, au lieu d'un mur de cartes */
+                          <div
+                            className={`grid gap-1 overflow-y-auto rounded-xl border bg-card p-1.5 sm:grid-cols-2 xl:grid-cols-3 ${
+                              userLevelFilter === niveau ? "max-h-[70vh]" : "max-h-64"
+                            }`}
+                            data-testid={`user-list-compact-${niveau}`}
+                          >
+                            {searched
+                              .filter((u) => groupOf(u) === niveau)
+                              .map((u) => (
+                                <button
+                                  key={u.id}
+                                  type="button"
+                                  onClick={() => setUserDetailOpen(u)}
+                                  className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-muted ${u.is_active ? "" : "opacity-60"}`}
+                                >
+                                  <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                                    {u.full_name?.charAt(0)}
+                                    <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${u.is_active ? "bg-emerald-500" : "bg-red-500"}`} />
+                                  </span>
+                                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{u.full_name || u.username}</span>
+                                  {u.id === currentUser?.id && <Badge variant="outline" className="px-1.5 py-0 text-[10px]">Vous</Badge>}
+                                  {!u.is_active && <Badge className="bg-red-100 px-1.5 py-0 text-[10px] text-red-800">Inactif</Badge>}
+                                </button>
+                              ))}
+                          </div>
+                        ) : (
                         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                           {searched
                             .filter((u) => groupOf(u) === niveau)
@@ -3423,6 +3451,7 @@ même limite pour éviter un 403 après coup. */}
                               );
                             })}
                         </div>
+                        )}
                       </section>
                     ))
                   )}
@@ -5720,15 +5749,35 @@ même limite pour éviter un 403 après coup. */}
                     <p className="text-[11px] text-muted-foreground">
                       Copiées sur {dataBackup.stockages?.join(", ") || "aucun stockage"} · {dataBackup.retention}.
                     </p>
-                    <ul className="space-y-1 text-xs">
+                    <ul className="space-y-2 text-xs">
                       {Object.entries(dataBackup.domaines || {}).map(([name, d]) => (
-                        <li key={name} className="flex flex-wrap justify-between gap-2">
-                          <span className="font-medium capitalize">{name}</span>
-                          <span className={d.last_error ? "text-amber-600" : "text-muted-foreground"}>
-                            {d.last_ok ? `dernière sauvegarde ${new Date(d.last_ok).toLocaleString("fr-FR")}` : "pas encore sauvegardé"}
-                            {d.last_error ? ` · ${d.last_error}` : ""}
-                            {d.counts && Object.keys(d.counts).length ? ` · ${Object.values(d.counts).reduce((a, b) => a + b, 0)} fiches` : ""}
-                          </span>
+                        <li key={name} className="rounded-lg bg-muted/40 p-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-medium capitalize">{name}</span>
+                            <span className="text-muted-foreground">
+                              {d.last_ok ? new Date(d.last_ok).toLocaleString("fr-FR") : "pas encore sauvegardé"}
+                              {d.counts && Object.keys(d.counts).length ? ` · ${Object.values(d.counts).reduce((a, b) => a + b, 0)} fiches` : ""}
+                            </span>
+                          </div>
+                          {d.targets?.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                              {d.targets.map((t) => (
+                                <span
+                                  key={t.cible}
+                                  title={t.erreur || "Copie réussie"}
+                                  className={`rounded-full px-2 py-0.5 text-[11px] ${t.ok ? "bg-emerald-500/15 text-emerald-600" : "bg-red-500/15 text-red-500"}`}
+                                >
+                                  {t.ok ? "✓" : "✗"} {t.cible}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {d.warning && <p className="mt-1 text-amber-600">{d.warning}</p>}
+                          {d.last_error && (
+                            <p className="mt-1 text-red-500">
+                              {d.last_error} — nouvel essai automatique toutes les heures ; une copie de secours reste dans la base.
+                            </p>
+                          )}
                         </li>
                       ))}
                     </ul>

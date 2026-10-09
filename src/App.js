@@ -28,7 +28,6 @@ const ElementsLED = lazy(() => import("./pages/ElementsLED"));
 const KioskShell = lazy(() => import("./components/KioskShell"));
 const Devis = lazy(() => import("./pages/Devis"));
 const Formations = lazy(() => import("./pages/Formations"));
-const Maintenance = lazy(() => import("./pages/Maintenance"));
 const Salles = lazy(() => import("./pages/Salles"));
 const Documents = lazy(() => import("./pages/Documents"));
 const Administration = lazy(() => import("./pages/Administration"));
@@ -113,8 +112,7 @@ function AppRoutes() {
       <Route path="/logistique" element={<ProtectedRoute><Logistique /></ProtectedRoute>} />
       <Route path="/elements-led" element={<ProtectedRoute><ElementsLED /></ProtectedRoute>} />
       <Route path="/devis" element={<ProtectedRoute><Devis /></ProtectedRoute>} />
-      <Route path="/formations" element={<ProtectedRoute><Maintenance titre="Formations" /></ProtectedRoute>} />
-      <Route path="/formations-preview" element={<ProtectedRoute><Formations /></ProtectedRoute>} />
+      <Route path="/formations" element={<ProtectedRoute><Formations /></ProtectedRoute>} />
       <Route path="/salles" element={<ProtectedRoute><Salles /></ProtectedRoute>} />
       <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
       <Route path="/administration" element={<ProtectedRoute><Administration /></ProtectedRoute>} />

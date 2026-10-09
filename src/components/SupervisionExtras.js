@@ -205,7 +205,7 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
         <CardHeader className="space-y-0">
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2">
-              <Cloud className="w-5 h-5" /> Cloudinary — les comptes (jusqu'à 3)
+              <Cloud className="w-5 h-5" /> Cloudinary — les comptes (jusqu'à 6)
             </CardTitle>
             <Button size="sm" variant="ghost" onClick={load} aria-label="Actualiser"><RefreshCw className="w-4 h-4" /></Button>
           </div>
@@ -218,7 +218,11 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
           {loading ? (
             <div className="p-4 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></div>
           ) : (
-            (accounts || []).map((a) => {
+            (() => {
+              // comptes connectés + un seul emplacement libre pour en ajouter un nouveau
+              const firstFree = (accounts || []).find((x) => !x.configured)?.account;
+              return (accounts || []).filter((x) => x.configured || x.account === firstFree);
+            })().map((a) => {
               const u = a.usage || {};
               return (
                 <div key={a.account} className="space-y-2 rounded-lg border p-3">

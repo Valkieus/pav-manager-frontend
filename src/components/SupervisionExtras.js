@@ -176,7 +176,7 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
   const saveAcc = async (n) => {
     setSaving(true);
     try {
-      const url = n === 1 ? `${API}/admin/infra/cloudinary-config` : `${API}/admin/infra/cloudinary-config-2`;
+      const url = n === 1 ? `${API}/admin/infra/cloudinary-config` : `${API}/admin/infra/cloudinary-config-${n}`;
       await axios.put(url, form);
       toast.success(`Compte ${n} connecté`);
       setForm({ cloud: "", api_key: "", api_secret: "", skip_verify: false });
@@ -188,11 +188,11 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
       setSaving(false);
     }
   };
-  const del2 = async () => {
-    if (!window.confirm("Déconnecter le second compte Cloudinary ? (les fichiers ne sont pas touchés)")) return;
+  const delAcc = async (n) => {
+    if (!window.confirm(`Déconnecter le compte ${n} Cloudinary ? (les fichiers ne sont pas touchés)`)) return;
     try {
-      await axios.delete(`${API}/admin/infra/cloudinary-config-2`);
-      toast.success("Second compte déconnecté");
+      await axios.delete(`${API}/admin/infra/cloudinary-config-${n}`);
+      toast.success(`Compte ${n} déconnecté`);
       await load();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Erreur");
@@ -205,13 +205,13 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
         <CardHeader className="space-y-0">
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2">
-              <Cloud className="w-5 h-5" /> Cloudinary — les deux comptes
+              <Cloud className="w-5 h-5" /> Cloudinary — les comptes (jusqu'à 3)
             </CardTitle>
             <Button size="sm" variant="ghost" onClick={load} aria-label="Actualiser"><RefreshCw className="w-4 h-4" /></Button>
           </div>
           <CardDescription>
-            Les envois du site LED sont répartis automatiquement entre les deux comptes, selon leurs crédits restants. Un compte à 80 % ou plus
-            ne reçoit plus rien ; quand les deux sont pleins, Backblaze B2 (gratuit) prend le relais. Rien n'est jamais facturé.
+            Les envois du site LED sont répartis automatiquement entre les comptes connectés, selon leurs crédits restants. Un compte à 80 % ou plus
+            ne reçoit plus rien ; quand tous sont pleins, Backblaze B2 (gratuit) prend le relais. Rien n'est jamais facturé.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -236,8 +236,8 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
                         <Button size="sm" variant="outline" onClick={() => openBrowse(a)}>
                           <Eye className="mr-2 h-4 w-4" /> Visualiser
                         </Button>
-                        {canEdit && a.account === 2 && (
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={del2}>
+                        {canEdit && a.account >= 2 && (
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => delAcc(a.account)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}

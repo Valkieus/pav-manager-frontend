@@ -1,5 +1,6 @@
 import "@/App.css";
-import { Suspense, lazy } from "react";
+import { Suspense } from "react";
+import lazyWithRetry from "./lib/lazyWithRetry";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -12,27 +13,27 @@ import IdleGuard from "./components/IdleGuard";
 
 // Pages — lazy-loaded so each route only downloads its own JS chunk instead of
 // bundling every page into the initial load (faster first paint, especially on mobile).
-const Login = lazy(() => import("./pages/Login"));
-const SsoLed = lazy(() => import("./pages/SsoLed"));
-const SsoAcademy = lazy(() => import("./pages/SsoAcademy"));
-const Register = lazy(() => import("./pages/Register"));
-const Confidentialite = lazy(() => import("./pages/Confidentialite"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Actualites = lazy(() => import("./pages/Actualites"));
-const Planning = lazy(() => import("./pages/PlanningHub"));
-const MonEspace = lazy(() => import("./pages/MonEspace"));
-const Effectif = lazy(() => import("./pages/Effectif"));
-const Logistique = lazy(() => import("./pages/Logistique"));
-const ElementsLED = lazy(() => import("./pages/ElementsLED"));
+const Login = lazyWithRetry(() => import("./pages/Login"));
+const SsoLed = lazyWithRetry(() => import("./pages/SsoLed"));
+const SsoAcademy = lazyWithRetry(() => import("./pages/SsoAcademy"));
+const Register = lazyWithRetry(() => import("./pages/Register"));
+const Confidentialite = lazyWithRetry(() => import("./pages/Confidentialite"));
+const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"));
+const Actualites = lazyWithRetry(() => import("./pages/Actualites"));
+const Planning = lazyWithRetry(() => import("./pages/PlanningHub"));
+const MonEspace = lazyWithRetry(() => import("./pages/MonEspace"));
+const Effectif = lazyWithRetry(() => import("./pages/Effectif"));
+const Logistique = lazyWithRetry(() => import("./pages/Logistique"));
+const ElementsLED = lazyWithRetry(() => import("./pages/ElementsLED"));
 // Écran du compte tablette « Régisseurs iPad » — chargé seulement pour ce compte.
-const KioskShell = lazy(() => import("./components/KioskShell"));
-const Devis = lazy(() => import("./pages/Devis"));
-const Formations = lazy(() => import("./pages/Formations"));
-const Salles = lazy(() => import("./pages/Salles"));
-const Documents = lazy(() => import("./pages/Documents"));
-const Administration = lazy(() => import("./pages/Administration"));
-const Communication = lazy(() => import("./pages/Communication"));
-const PublicReservation = lazy(() => import("./pages/PublicReservation"));
+const KioskShell = lazyWithRetry(() => import("./components/KioskShell"));
+const Devis = lazyWithRetry(() => import("./pages/Devis"));
+const Formations = lazyWithRetry(() => import("./pages/Formations"));
+const Salles = lazyWithRetry(() => import("./pages/Salles"));
+const Documents = lazyWithRetry(() => import("./pages/Documents"));
+const Administration = lazyWithRetry(() => import("./pages/Administration"));
+const Communication = lazyWithRetry(() => import("./pages/Communication"));
+const PublicReservation = lazyWithRetry(() => import("./pages/PublicReservation"));
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">

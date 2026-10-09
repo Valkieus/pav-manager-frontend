@@ -1,4 +1,5 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import lazyWithRetry from "../lib/lazyWithRetry";
 import axios from "axios";
 import { UserRound, Repeat2 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -9,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-const Logistique = lazy(() => import("../pages/Logistique"));
+const Logistique = lazyWithRetry(() => import("../pages/Logistique"));
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const STORAGE_KEY = "pav_kiosk_regisseur";

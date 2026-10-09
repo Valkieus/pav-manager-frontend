@@ -240,3 +240,9 @@
         input, select, textarea { font-size: 16px; }
     }
 }
+
+/* iPhone (Dynamic Island, encoche) / Android : rien ne passe sous la barre d'état ni la barre de gestes */
+@layer base {
+    [data-sonner-toaster] { --offset: calc(env(safe-area-inset-top, 0px) + 16px) !important; }
+    [role="dialog"], [data-radix-popper-content-wrapper] { scroll-padding-top: env(safe-area-inset-top); }
+}

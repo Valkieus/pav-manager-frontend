@@ -268,6 +268,11 @@ export const Layout = ({ children }) => {
     canManage,
     onboardingSeen,
     markOnboardingSeen,
+    viewAs,
+    viewAsOptions,
+    startViewAs,
+    stopViewAs,
+    realUser,
   } = useAuth();
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -827,6 +832,7 @@ export const Layout = ({ children }) => {
 
       {/* Sidebar */}
       <aside
+        style={{ height: "100dvh", paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", paddingLeft: "env(safe-area-inset-left)" }}
         className={`
 fixed lg:sticky top-0 left-0 z-50 h-screen w-72 sm:w-64
 bg-card border-r border-border
@@ -969,7 +975,7 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-lg border-b border-border">
+        <header style={{ paddingTop: "env(safe-area-inset-top)" }} className="sticky top-0 z-30 bg-background/80 backdrop-blur-lg border-b border-border">
           <div className="flex items-center justify-between px-3 sm:px-4 md:px-6 h-14 sm:h-16">
             <button
               className="lg:hidden p-2 hover:bg-muted rounded-lg -ml-2"
@@ -1136,6 +1142,25 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  {viewAsOptions.length > 0 && (
+                    <>
+                      <DropdownMenuLabel className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                        <Eye className="w-3.5 h-3.5" /> Voir comme…
+                      </DropdownMenuLabel>
+                      {[...viewAsOptions].reverse().map((lvl) => (
+                        <DropdownMenuItem key={lvl} onClick={() => { startViewAs(lvl); navigate("/"); }} className={viewAs === lvl ? "font-semibold text-primary" : ""}>
+                          {lvl}
+                          {viewAs === lvl && <span className="ml-auto text-xs">actif</span>}
+                        </DropdownMenuItem>
+                      ))}
+                      {viewAs && (
+                        <DropdownMenuItem onClick={stopViewAs}>
+                          <X className="w-4 h-4 mr-2" /> Quitter l'aperçu
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   {isSuperAdmin() && (
                     <DropdownMenuItem
                       onClick={() => navigate("/administration")}
@@ -1159,6 +1184,15 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
 
         {/* Page Content */}
         <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8">
+          {viewAs && (
+            <div className="mb-4 flex flex-col gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white sm:flex-row sm:items-center sm:justify-between" data-testid="view-as-banner">
+              <span className="flex items-center gap-2">
+                <Eye className="h-4 w-4 shrink-0" />
+                Aperçu en tant que « {viewAs} » — lecture seule (vous êtes {realUser?.niveau_acces}). Les droits de groupe ne sont pas simulés.
+              </span>
+              <Button size="sm" variant="secondary" onClick={stopViewAs}>Quitter l'aperçu</Button>
+            </div>
+          )}
           {adminPageEntry && !showMaintenanceContentOnly && (
             <div className="mb-4 flex flex-col gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between" data-testid="maintenance-admin-banner">
               <span className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
@@ -1424,7 +1458,7 @@ tailored per permission level. */}
       la flèche restait coincée juste sous "Compris" au lieu d'aller
       jusqu'en bas de l'écran réel). */}
       {iosInstallHelpOpen && isIOSDevice() && (
-        <div className="fixed inset-x-0 bottom-3 flex justify-center pointer-events-none z-[100]">
+        <div className="fixed inset-x-0 bottom-3 flex justify-center pointer-events-none z-[100]" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
           <ArrowDown className="w-8 h-8 text-primary animate-bounce drop-shadow-lg" />
         </div>
       )}

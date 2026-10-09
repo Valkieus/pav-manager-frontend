@@ -709,6 +709,7 @@ export const Layout = ({ children }) => {
   //    (qu'on ne peut pas toujours annuler) est neutralisé en revenant aussitôt à la page et en ouvrant le menu.
   //  - on ne détourne pas le geste dans une zone qui défile horizontalement (tableaux, frises, carrousels).
   const edgeTouchAtRef = useRef(0);
+  const lastActionAtRef = useRef(0);
   useEffect(() => {
     let startX = null;
     let startY = null;
@@ -767,23 +768,43 @@ export const Layout = ({ children }) => {
 
     const onTouchEnd = () => { startX = null; startY = null; committed = false; mode = null; };
 
-    // Geste « retour » du navigateur déclenché depuis le bord gauche : on l'annule et on ouvre le menu.
+    // Geste « retour » du système (bord gauche) : dans l'application installée (écran d'accueil) il n'existe aucun
+    // bouton retour du navigateur, et aucune action de l'appli n'a précédé le changement d'historique (ni clic ni
+    // touche) : c'est donc le geste système. On l'annule (retour à la page) et on ouvre le menu.
+    const standalone = () => window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
     const onPopState = () => {
       if (window.innerWidth >= 1024 || sidebarOpen) return;
-      if (Date.now() - edgeTouchAtRef.current < 900) {
+      const appInitiated = Date.now() - lastActionAtRef.current < 700; // bouton « Retour » de l'appli, lien, etc.
+      const edgeGesture = Date.now() - edgeTouchAtRef.current < 900;
+      if (!appInitiated && (edgeGesture || standalone())) {
         edgeTouchAtRef.current = 0;
         window.history.forward();
         setSidebarOpen(true);
       }
     };
+    const markAction = () => { lastActionAtRef.current = Date.now(); };
+    // Sur le tout bord de l'écran, sauf sur un bouton ou un lien, on retire à iOS la main sur ce geste.
+    const onEdgeTouchStart = (e) => {
+      if (window.innerWidth >= 1024 || sidebarOpen) return;
+      const t = e.touches[0];
+      if (!t || t.clientX > 20) return;
+      if (e.target.closest && e.target.closest("button, a, input, select, textarea, [role='button']")) return;
+      if (e.cancelable) e.preventDefault();
+    };
 
     document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchstart", onEdgeTouchStart, { passive: false });
+    document.addEventListener("click", markAction, true);
+    document.addEventListener("keydown", markAction, true);
     document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
     document.addEventListener("touchcancel", onTouchEnd, { passive: true });
     window.addEventListener("popstate", onPopState);
     return () => {
       document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchstart", onEdgeTouchStart);
+      document.removeEventListener("click", markAction, true);
+      document.removeEventListener("keydown", markAction, true);
       document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("touchend", onTouchEnd);
       document.removeEventListener("touchcancel", onTouchEnd);

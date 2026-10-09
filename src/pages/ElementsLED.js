@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -11,7 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
 import { toast } from 'sonner';
-import { Search, Loader2, FileText, Film, Lightbulb, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { Search, Loader2, FileText, Film, Lightbulb, Plus, Trash2, ExternalLink, Download } from 'lucide-react';
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND}/api`;
@@ -30,6 +30,34 @@ const coverOf = (el) => {
   }
   return null;
 };
+
+// Adresse de téléchargement du fichier d'origine (Cloudinary : pièce jointe ; sinon lien signé ou serveur).
+const downloadUrl = (m) => (m.storage === 'cloudinary'
+  ? `https://res.cloudinary.com/${m.cloud}/${m.resource_type === 'image' ? 'image' : 'video'}/upload/fl_attachment/${m.public_id}${m.format ? `.${m.format}` : ''}`
+  : (m.download_url || mediaUrl(m.url)));
+
+// Vidéo : lecture automatique (muette, le navigateur l'exige ; le son se réactive au clic), commandes, repli sur
+// les liens de secours si le premier ne répond pas, et téléchargement du fichier d'origine.
+function PlayableVideo({ m }) {
+  const cands = useMemo(
+    () => (m.storage === 'cloudinary' ? [m.url, ...(m.alt_urls || [])] : [m.direct_url, ...(m.alt_urls || []), mediaUrl(m.url)]).filter(Boolean),
+    [m],
+  );
+  const [i, setI] = useState(0);
+  return (
+    <div className="space-y-1 sm:col-span-2">
+      <video key={cands[i]} src={cands[i]} controls autoPlay muted loop playsInline preload="auto" className="w-full rounded bg-black"
+        onError={() => setI((x) => (x < cands.length - 1 ? x + 1 : x))} />
+      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span className="truncate">{m.filename}</span>
+        <a href={downloadUrl(m)} download={m.filename} target="_blank" rel="noreferrer"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border px-2.5 py-1.5 font-medium text-foreground hover:bg-muted">
+          <Download className="h-3.5 w-3.5" /> Télécharger
+        </a>
+      </div>
+    </div>
+  );
+}
 
 // --- Page -----------------------------------------------------------------
 
@@ -264,11 +292,16 @@ export default function ElementsLED() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {selected.medias?.map((m) => (
                   m.kind === 'image' ? (
-                    <a key={m.url} href={mediaUrl(m.url)} target="_blank" rel="noreferrer">
-                      <img src={mediaUrl(m.url)} alt={m.filename} className="w-full rounded" />
-                    </a>
+                    <div key={m.url} className="space-y-1">
+                      <a href={mediaUrl(m.url)} target="_blank" rel="noreferrer">
+                        <img src={mediaUrl(m.url)} alt={m.filename} className="w-full rounded" />
+                      </a>
+                      <a href={downloadUrl(m)} download={m.filename} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs underline">
+                        <Download className="h-3 w-3" /> Télécharger
+                      </a>
+                    </div>
                   ) : m.kind === 'video' ? (
-                    <video key={m.url} src={mediaUrl(m.url)} controls className="w-full rounded" />
+                    <PlayableVideo key={m.url} m={m} />
                   ) : (
                     <a key={m.url} href={mediaUrl(m.url)} target="_blank" rel="noreferrer" className="underline text-sm">{m.filename}</a>
                   )

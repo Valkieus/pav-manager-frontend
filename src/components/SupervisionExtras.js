@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Cloud, Cpu, Loader2, Eye, Trash2, RefreshCw } from "lucide-react";
+import { Cloud, Cpu, Loader2, Eye, Trash2, RefreshCw, ChevronDown } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
@@ -98,6 +98,8 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
   const [cursor, setCursor] = useState(null);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [openAcc, setOpenAcc] = useState({}); // comptes dépliés (liste déroulante)
+  const toggleAcc = (n) => setOpenAcc((o) => ({ ...o, [n]: !o[n] }));
   const [reb, setReb] = useState(null); // état de l'équilibrage
   const [rebPlan, setRebPlan] = useState(null);
   const [rebBusy, setRebBusy] = useState(false);
@@ -225,29 +227,41 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
             })().map((a) => {
               const u = a.usage || {};
               return (
-                <div key={a.account} className="space-y-2 rounded-lg border p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-semibold">
+                <div key={a.account} className="rounded-lg border">
+                  <button type="button" onClick={() => toggleAcc(a.account)} aria-expanded={!!(openAcc[a.account] || !a.configured)}
+                    className="flex w-full flex-wrap items-center justify-between gap-2 p-3 text-left">
+                    <span className="flex items-center gap-2 font-semibold">
+                      <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${(openAcc[a.account] || !a.configured) ? "rotate-180" : ""}`} />
                       Compte {a.account}
-                      {a.configured ? ` — « ${a.cloud} » (clé ${a.api_key_hint})` : " — non connecté"}
-                    </p>
+                      {a.configured ? ` — « ${a.cloud} »` : " — non connecté"}
+                    </span>
                     {a.configured && (
-                      <div className="flex flex-wrap items-center gap-2">
+                      <span className="flex flex-wrap items-center gap-2">
+                        {u.credits_percent != null && !u.error && (
+                          <span className="text-xs text-muted-foreground">{u.credits_percent} % des crédits</span>
+                        )}
                         {a.receives_uploads
                           ? <Badge className="bg-emerald-600 text-white">Reçoit les envois{a.share_percent ? ` · ${a.share_percent} %` : ""}</Badge>
                           : <Badge variant="outline" className="border-amber-500 text-amber-600">Complet — envois ailleurs</Badge>}
-                        {canEdit && <Button size="sm" variant="ghost" onClick={() => { setEditing(a.account); setForm({ cloud: "", api_key: "", api_secret: "", skip_verify: false }); }}>Modifier</Button>}
-                        <Button size="sm" variant="outline" onClick={() => openBrowse(a)}>
-                          <Eye className="mr-2 h-4 w-4" /> Visualiser
-                        </Button>
-                        {canEdit && a.account >= 2 && (
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => delAcc(a.account)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
+                      </span>
                     )}
-                  </div>
+                  </button>
+                  {(openAcc[a.account] || !a.configured) && (
+                  <div className="space-y-2 border-t p-3">
+                  {a.configured && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-muted-foreground">clé {a.api_key_hint}</span>
+                      {canEdit && <Button size="sm" variant="ghost" onClick={() => { setEditing(a.account); setForm({ cloud: "", api_key: "", api_secret: "", skip_verify: false }); }}>Modifier</Button>}
+                      <Button size="sm" variant="outline" onClick={() => openBrowse(a)}>
+                        <Eye className="mr-2 h-4 w-4" /> Visualiser
+                      </Button>
+                      {canEdit && a.account >= 2 && (
+                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => delAcc(a.account)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
                   {a.configured && (u.error ? (
                     <p className="text-sm text-destructive">{u.error}</p>
                   ) : (
@@ -279,6 +293,8 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
                         {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Connecter le compte {a.account}
                       </Button>
                     </div>
+                  )}
+                  </div>
                   )}
                 </div>
               );

@@ -101,7 +101,14 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     const res = await axios.post(`${API}/auth/login`, { username, password });
-    const { access_token, user: userData } = res.data;
+    return applyLogin(res.data);
+  };
+
+  // Connexion par Face ID / empreinte : même résultat que le mot de passe.
+  const loginWithData = async (data) => applyLogin(data);
+
+  const applyLogin = (data) => {
+    const { access_token, user: userData } = data;
     localStorage.setItem("token", access_token);
     axios.defaults.headers.common["Authorization"] = `Bearer ${access_token}`;
     setToken(access_token);
@@ -181,6 +188,7 @@ export const AuthProvider = ({ children }) => {
         token,
         loading,
         login,
+        loginWithData,
         logout,
         changePassword,
         mustChangePassword,

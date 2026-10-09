@@ -8,6 +8,7 @@ import { Label } from "./ui/label";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Badge } from "./ui/badge";
 import { ScrollArea } from "./ui/scroll-area";
+import MaintenanceBlock from "./MaintenanceBlock";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ import {
   Newspaper,
   FolderOpen,
   AlertTriangle,
+  Wrench,
   CalendarOff,
   Bell,
   Check,
@@ -628,6 +630,13 @@ export const Layout = ({ children }) => {
       entryAppliesToUser(e),
   );
   const showMaintenanceContentOnly = !activeSiteEntry && !!activePageEntry;
+  // Super Admin : jamais bloqué, mais prévenu (bandeau) et peut prévisualiser l'écran de maintenance.
+  const adminPageEntry = isSuperAdmin()
+    ? maintenanceEntries.find((e) => e.scope === "page" && e.page_path === location.pathname)
+    : null;
+  const [adminPreviewMaintenance, setAdminPreviewMaintenance] = useState(false);
+  useEffect(() => { setAdminPreviewMaintenance(false); }, [location.pathname]);
+  const pageLabel = filteredNavItems.find((i) => i.path === location.pathname)?.label;
 
   // Show password change dialog if required
   useEffect(() => {
@@ -788,22 +797,12 @@ export const Layout = ({ children }) => {
   // Show maintenance page for members
   if (showMaintenancePage) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-        <div className="max-w-md text-center space-y-6">
-          <AlertTriangle className="w-20 h-20 mx-auto text-yellow-500" />
-          <h1 className="text-3xl font-bold">Maintenance en cours</h1>
-          <p className="text-muted-foreground text-lg">
-            {activeSiteEntry?.message ||
-              "Nous effectuons une maintenance. Veuillez réessayer plus tard."}
-          </p>
-          <div className="pt-4">
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Se déconnecter
-            </Button>
-          </div>
-        </div>
-      </div>
+      <MaintenanceBlock
+        fullScreen
+        titre="Le site"
+        message={activeSiteEntry?.message || "Nous effectuons une maintenance. Veuillez réessayer plus tard."}
+        onLogout={handleLogout}
+      />
     );
   }
 
@@ -862,10 +861,7 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
                 const isUnderMaintenance = maintenanceEntries.some(
-                  (e) =>
-                    e.scope === "page" &&
-                    e.page_path === item.path &&
-                    entryAppliesToUser(e),
+                  (e) => e.scope === "page" && e.page_path === item.path,
                 );
                 return (
                   <Link
@@ -878,7 +874,7 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
                     <Icon className="w-5 h-5 shrink-0" />
                     <span className="flex-1 truncate">{item.label}</span>
                     {isUnderMaintenance && (
-                      <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" />
+                      <Wrench className="w-4 h-4 text-amber-500 shrink-0" />
                     )}
                     {isActive && !isUnderMaintenance && (
                       <ChevronRight className="w-4 h-4 text-white/90 shrink-0" />
@@ -1154,17 +1150,22 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
 
         {/* Page Content */}
         <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8">
-          {showMaintenanceContentOnly ? (
-            <div className="min-h-[60vh] flex flex-col items-center justify-center p-4">
-              <div className="max-w-md text-center space-y-4">
-                <AlertTriangle className="w-16 h-16 mx-auto text-yellow-500" />
-                <h2 className="text-2xl font-bold">Page en maintenance</h2>
-                <p className="text-muted-foreground">
-                  {activePageEntry?.message ||
-                    "Cette page est temporairement indisponible. Veuillez réessayer plus tard."}
-                </p>
-              </div>
+          {adminPageEntry && !showMaintenanceContentOnly && (
+            <div className="mb-4 flex flex-col gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between" data-testid="maintenance-admin-banner">
+              <span className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                <Wrench className="h-4 w-4 shrink-0" />
+                Cette page est en maintenance pour les autres utilisateurs — vous la voyez en tant que Super Admin.
+              </span>
+              <Button size="sm" variant="outline" onClick={() => setAdminPreviewMaintenance((v) => !v)}>
+                {adminPreviewMaintenance ? "Revenir à la page" : "Voir comme un utilisateur"}
+              </Button>
             </div>
+          )}
+          {showMaintenanceContentOnly || (adminPreviewMaintenance && adminPageEntry) ? (
+            <MaintenanceBlock
+              titre={pageLabel}
+              message={(activePageEntry || adminPageEntry)?.message}
+            />
           ) : (
             children
           )}

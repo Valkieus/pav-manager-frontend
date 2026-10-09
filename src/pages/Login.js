@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
@@ -6,7 +6,8 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Loader2, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Loader2, LogIn, AlertCircle, Eye, EyeOff, ScanFace } from 'lucide-react';
+import { passkeyLogin, passkeySupported, passkeyEnrolledHere } from '../lib/passkey';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -14,7 +15,24 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, loginWithData } = useAuth();
+  const [bioOk, setBioOk] = useState(false);
+  useEffect(() => { passkeySupported().then((ok) => setBioOk(ok && passkeyEnrolledHere())); }, []);
+
+  const handleBiometric = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const data = await passkeyLogin();
+      await loginWithData(data);
+      const next = sessionStorage.getItem('post_login_next');
+      navigate(['/sso-led', '/sso-academy'].includes(next) ? next : '/');
+    } catch (err) {
+      if (err?.name !== 'NotAllowedError') setError(err.response?.data?.detail || 'Face ID / empreinte indisponible : utilisez votre mot de passe');
+    } finally {
+      setLoading(false);
+    }
+  };
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -54,6 +72,14 @@ export default function Login() {
         </CardHeader>
 
         <CardContent>
+          {bioOk && (
+            <div className="mb-4 space-y-3">
+              <Button type="button" onClick={handleBiometric} disabled={loading} className="w-full h-12 btn-press shadow-lg shadow-primary/20" data-testid="login-biometric">
+                <ScanFace className="w-5 h-5 mr-2" /> Se connecter avec Face ID / empreinte
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">ou avec votre mot de passe :</p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive" className="animate-fadeIn">

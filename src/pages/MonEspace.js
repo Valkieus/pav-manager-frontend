@@ -27,6 +27,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../components/ui/dialog";
+import BiometricCard from "../components/BiometricCard";
 import { Calendar } from "../components/ui/calendar";
 import {
   Popover,
@@ -45,6 +46,7 @@ import {
   UserX,
   GraduationCap,
   IdCard,
+  ScanFace,
   Upload,
   CheckCircle2,
   AlertCircle,
@@ -453,6 +455,7 @@ export default function MonEspace() {
         {[
           ["absences", "Mes absences", CalendarOff],
           ["badge", "Mon badge", IdCard],
+          ["securite", "Connexion rapide", ScanFace],
           ["donnees", "Mes données", ShieldCheck],
         ].map(([key, label, Icon]) => (
           <button
@@ -988,6 +991,8 @@ export default function MonEspace() {
       </Card>
       </>
       )}
+
+      {tab === "securite" && <BiometricCard />}
 
       {tab === "donnees" && (
       <>

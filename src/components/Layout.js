@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
@@ -697,33 +697,46 @@ export const Layout = ({ children }) => {
   // JS — impossible à bloquer avec preventDefault une fois démarré dans
   // cette zone. Résultat : selon la précision du doigt, le swipe ouvrait
   // le menu OU déclenchait le retour navigateur, au hasard.
-  // Fix : on démarre la détection un peu plus loin du bord (au-delà de la
-  // zone système), et on appelle preventDefault dès qu'on reconnaît notre
-  // geste horizontal pour empêcher toute interférence (scroll, swipe-back
-  // Chrome Android, rubber-banding iOS) — plus JAMAIS "autre chose" que
-  // l'ouverture du menu.
+  // Gestes du menu sur téléphone / tablette :
+  //  - glisser vers la droite depuis la partie gauche de l'écran (bord compris) OUVRE le menu ;
+  //  - glisser vers la gauche quand il est ouvert le FERME ;
+  //  - un glisser depuis le bord gauche ne fait JAMAIS « page précédente » : le geste retour du navigateur
+  //    (qu'on ne peut pas toujours annuler) est neutralisé en revenant aussitôt à la page et en ouvrant le menu.
+  //  - on ne détourne pas le geste dans une zone qui défile horizontalement (tableaux, frises, carrousels).
+  const edgeTouchAtRef = useRef(0);
   useEffect(() => {
     let startX = null;
     let startY = null;
-    let committed = false; // true une fois qu'on a décidé "c'est notre swipe"
-    const SYSTEM_EDGE_ZONE = 18; // zone réservée au geste retour du navigateur, on l'ignore complètement
-    const OUTER_ZONE = 70; // au-delà, ce n'est plus un swipe "depuis le bord"
-    const SWIPE_THRESHOLD = 60;
-    const COMMIT_DEADZONE = 10; // px de mouvement avant de trancher horizontal vs vertical
+    let mode = null; // "open" | "close"
+    let committed = false;
+    const OPEN_ZONE = 120; // zone de départ (depuis le bord gauche, bord inclus)
+    const SWIPE_THRESHOLD = 55;
+    const COMMIT_DEADZONE = 10;
+
+    const inHorizontalScroller = (el) => {
+      for (let n = el; n && n !== document.body; n = n.parentElement) {
+        if (n.scrollWidth > n.clientWidth + 4) {
+          const ox = getComputedStyle(n).overflowX;
+          if (ox === "auto" || ox === "scroll") return true;
+        }
+        if (n.tagName === "INPUT" && n.type === "range") return true;
+      }
+      return false;
+    };
 
     const onTouchStart = (e) => {
       committed = false;
-      if (window.innerWidth >= 1024) {
-        startX = null;
-        return;
-      }
-      if (sidebarOpen) {
-        startX = null;
-        return;
-      }
+      mode = null;
+      startX = null;
+      if (window.innerWidth >= 1024) return;
       const t = e.touches[0];
-      if (!t || t.clientX <= SYSTEM_EDGE_ZONE || t.clientX > OUTER_ZONE) {
-        startX = null;
+      if (!t) return;
+      if (t.clientX <= 24) edgeTouchAtRef.current = Date.now();
+      if (sidebarOpen) {
+        mode = "close";
+      } else if (t.clientX <= OPEN_ZONE && !inHorizontalScroller(e.target)) {
+        mode = "open";
+      } else {
         return;
       }
       startX = t.clientX;
@@ -736,44 +749,40 @@ export const Layout = ({ children }) => {
       if (!t) return;
       const dx = t.clientX - startX;
       const dy = Math.abs(t.clientY - startY);
-
       if (!committed) {
         if (Math.max(Math.abs(dx), dy) < COMMIT_DEADZONE) return;
-        if (dx <= 0 || dy > dx) {
-          // Pas un swipe horizontal vers la droite : on abandonne cette
-          // séquence tactile (laisse le scroll vertical normal se faire).
-          startX = null;
-          return;
-        }
+        const rightOk = mode === "open" ? dx > 0 : dx < 0;
+        if (!rightOk || dy > Math.abs(dx)) { startX = null; return; } // scroll vertical ou autre sens : on laisse faire
         committed = true;
       }
-
-      // À partir d'ici c'est reconnu comme NOTRE geste : on empêche tout
-      // autre comportement (scroll, navigation navigateur) de s'y mêler.
-      if (e.cancelable) e.preventDefault();
-
-      if (dx > SWIPE_THRESHOLD) {
-        setSidebarOpen(true);
-        startX = null;
-        committed = false;
-      }
+      if (e.cancelable) e.preventDefault(); // notre geste : ni scroll ni navigation navigateur
+      if (mode === "open" && dx > SWIPE_THRESHOLD) { setSidebarOpen(true); startX = null; committed = false; }
+      if (mode === "close" && dx < -SWIPE_THRESHOLD) { setSidebarOpen(false); startX = null; committed = false; }
     };
 
-    const onTouchEnd = () => {
-      startX = null;
-      startY = null;
-      committed = false;
+    const onTouchEnd = () => { startX = null; startY = null; committed = false; mode = null; };
+
+    // Geste « retour » du navigateur déclenché depuis le bord gauche : on l'annule et on ouvre le menu.
+    const onPopState = () => {
+      if (window.innerWidth >= 1024 || sidebarOpen) return;
+      if (Date.now() - edgeTouchAtRef.current < 900) {
+        edgeTouchAtRef.current = 0;
+        window.history.forward();
+        setSidebarOpen(true);
+      }
     };
 
     document.addEventListener("touchstart", onTouchStart, { passive: true });
     document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
     document.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    window.addEventListener("popstate", onPopState);
     return () => {
       document.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("touchend", onTouchEnd);
       document.removeEventListener("touchcancel", onTouchEnd);
+      window.removeEventListener("popstate", onPopState);
     };
   }, [sidebarOpen]);
 

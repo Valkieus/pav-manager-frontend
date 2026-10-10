@@ -62,7 +62,17 @@ export async function enrollPasskey(label) {
 }
 
 // Connexion par Face ID / empreinte : renvoie { access_token, user } comme la connexion classique.
-export async function passkeyLogin() {
+// Une seule demande Face ID à la fois : un second appel (bouton touché pendant le lancement automatique,
+// page remontée, double déclenchement) réutilise la demande déjà en cours au lieu d'ouvrir un 2e écran « passkey ».
+let _loginInFlight = null;
+export function passkeyLogin() {
+  if (!_loginInFlight) {
+    _loginInFlight = _passkeyLogin().finally(() => { _loginInFlight = null; });
+  }
+  return _loginInFlight;
+}
+
+async function _passkeyLogin() {
   const { data } = await axios.post(`${API}/auth/passkey/login/options`);
   const o = data.options;
   const preferred = savedCredId();

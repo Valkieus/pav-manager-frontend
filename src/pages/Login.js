@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
@@ -9,6 +9,10 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { Loader2, LogIn, AlertCircle, Eye, EyeOff, ScanFace } from 'lucide-react';
 import { passkeyLogin, passkeySupported, passkeyEnrolledHere } from '../lib/passkey';
 
+// Lancement automatique de Face ID : une seule fois par chargement de page (la page de connexion peut être remontée
+// plusieurs fois pendant le chargement de la session, ce qui ouvrait l'écran « passkey » deux fois).
+let autoBiometricDone = false;
+
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -17,7 +21,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login, loginWithData } = useAuth();
   const [bioOk, setBioOk] = useState(false);
-  const autoTried = useRef(false);
 
   const handleBiometric = async () => {
     setError('');
@@ -42,8 +45,8 @@ export default function Login() {
     passkeySupported().then((ok) => {
       const enrolled = ok && passkeyEnrolledHere();
       setBioOk(enrolled);
-      if (enrolled && !autoTried.current) {
-        autoTried.current = true;
+      if (enrolled && !autoBiometricDone) {
+        autoBiometricDone = true;
         handleBiometric();
       }
     });

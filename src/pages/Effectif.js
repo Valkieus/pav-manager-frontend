@@ -140,6 +140,10 @@ const BRANCH_COLORS = {
   },
 };
 
+// Fenêtre « fiche » : centrée sur PC, plein écran sur téléphone (zones de sécurité iOS/Android respectées).
+const SHEET_CLASS =
+  "flex flex-col gap-0 overflow-hidden p-0 sm:max-w-xl sm:max-h-[90vh] sm:rounded-xl max-sm:left-0 max-sm:top-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-screen max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none";
+
 const NIVEAU_ORDER = { Expert: 0, Confirmé: 1, Intermédiaire: 2, Débutant: 3, Novice: 4 };
 
 const getBranchColor = (branche) =>
@@ -1296,241 +1300,201 @@ export default function Effectif() {
                   </Button>
                 </DialogTrigger>
               )}
-              <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingId ? "Modifier" : "Ajouter"} un technicien
-                  </DialogTitle>
-                  <DialogDescription>
-                    Remplissez les informations
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Nom *</Label>
-                    <Input
-                      value={form.nom}
-                      onChange={(e) =>
-                        setForm({ ...form, nom: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Niveau Technicien</Label>
-                      <Select
-                        value={form.niveau_technicien}
-                        onValueChange={(v) =>
-                          setForm({ ...form, niveau_technicien: v })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner (optionnel)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {enums.niveaux_technicien?.map((n) => (
-                            <SelectItem key={n} value={n}>
-                              {n}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Niveau d'Accès *</Label>
-                      <Select
-                        value={form.niveau_acces}
-                        onValueChange={(v) =>
-                          setForm({ ...form, niveau_acces: v })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {enums.niveaux_acces?.map((n) => (
-                            <SelectItem key={n} value={n}>
-                              {n}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+              <DialogContent
+                className={SHEET_CLASS}
+                data-testid="tech-edit-dialog"
+              >
+                <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                  <div className="border-b px-4 pb-3 pt-4 sm:px-6">
+                    <DialogHeader className="space-y-1 text-left">
+                      <DialogTitle className="flex items-center gap-2 pr-8">
+                        {editingId ? <Edit className="h-5 w-5 text-primary" /> : <Plus className="h-5 w-5 text-primary" />}
+                        {editingId ? "Modifier la fiche" : "Nouveau technicien"}
+                      </DialogTitle>
+                      <DialogDescription>
+                        {editingId ? (form.nom || "Technicien") : "Remplissez les informations de la personne"}
+                      </DialogDescription>
+                    </DialogHeader>
                   </div>
 
-                  {/* Multiple Branches Selection */}
-                  <div className="space-y-2">
-                    <Label>Branches * (plusieurs possibles)</Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/30">
-                      {
-                        // Un Responsable/Coordination scopé à une ou plusieurs branches
-                        // (User.branches) ne peut créer/éditer que dans son propre
-                        // périmètre — le backend le refuse désormais aussi (tâche #292),
-                        // donc on ne propose ici que les branches réellement utilisables
-                        // pour éviter un 403 confus après coup.
-                        (!isAdminOrReadOnly() && user?.branches?.length
-                          ? enums.branches?.filter((b) =>
-                              user.branches.includes(b),
-                            )
-                          : enums.branches
-                        )?.map((b) => (
-                          <div key={b} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`branch-${b}`}
-                              checked={form.branches.includes(b)}
-                              onCheckedChange={() => toggleBranche(b)}
-                            />
-                            <Label
-                              htmlFor={`branch-${b}`}
-                              className="text-sm cursor-pointer"
-                            >
-                              {b}
-                            </Label>
-                          </div>
-                        ))
-                      }
-                    </div>
-                    {form.branches.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {form.branches.map((b) => (
-                          <Badge
-                            key={b}
-                            variant="secondary"
-                            className="text-xs"
-                          >
-                            {b}
-                          </Badge>
-                        ))}
+                  <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-6">
+                    {/* Identité */}
+                    <section className="space-y-3 rounded-xl border p-3 sm:p-4">
+                      <h3 className="text-sm font-semibold">Identité</h3>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="tech-nom">Nom *</Label>
+                        <Input
+                          id="tech-nom"
+                          value={form.nom}
+                          onChange={(e) => setForm({ ...form, nom: e.target.value })}
+                          className="h-11 text-base sm:h-10 sm:text-sm"
+                          autoComplete="off"
+                          required
+                        />
                       </div>
-                    )}
-                  </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label>Niveau technicien</Label>
+                          <Select value={form.niveau_technicien} onValueChange={(v) => setForm({ ...form, niveau_technicien: v })}>
+                            <SelectTrigger className="h-11 sm:h-10"><SelectValue placeholder="Optionnel" /></SelectTrigger>
+                            <SelectContent>
+                              {enums.niveaux_technicien?.map((n) => (<SelectItem key={n} value={n}>{n}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Niveau d'accès *</Label>
+                          <Select value={form.niveau_acces} onValueChange={(v) => setForm({ ...form, niveau_acces: v })}>
+                            <SelectTrigger className="h-11 sm:h-10"><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                            <SelectContent>
+                              {enums.niveaux_acces?.map((n) => (<SelectItem key={n} value={n}>{n}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </section>
 
-                  {/* Poste(s) de prédilection — used to filter the Planning
-                    assignment dropdown to only relevant people (independent
-                    of branche, so exceptions are just an extra tick here). */}
-                  <div className="space-y-2">
-                    <Label>Poste principal</Label>
-                    <Select
-                      value={form.poste_principal || "__none__"}
-                      onValueChange={(v) =>
-                        setForm({
-                          ...form,
-                          poste_principal: v === "__none__" ? "" : v,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner (optionnel)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Aucun</SelectItem>
-                        {enums.postes?.map((p) => (
-                          <SelectItem key={p} value={p}>
-                            {p}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Postes secondaires (plusieurs possibles)</Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/30 max-h-40 overflow-y-auto">
-                      {enums.postes
-                        ?.filter((p) => p !== form.poste_principal)
-                        .map((p) => (
-                          <div key={p} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`poste-${p}`}
-                              checked={form.postes_secondaires.includes(p)}
-                              onCheckedChange={() => togglePosteSecondaire(p)}
-                            />
-                            <Label
-                              htmlFor={`poste-${p}`}
-                              className="text-sm cursor-pointer"
-                            >
-                              {p}
-                            </Label>
+                    {/* Coordonnées */}
+                    <section className="space-y-3 rounded-xl border p-3 sm:p-4">
+                      <h3 className="text-sm font-semibold">Coordonnées</h3>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="tech-tel">Téléphone</Label>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input id="tech-tel" type="tel" inputMode="tel" autoComplete="off" value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} className="h-11 pl-9 text-base sm:h-10 sm:text-sm" />
                           </div>
-                        ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Dans le Planning, la liste des noms proposée pour un poste
-                      ne montrera que les personnes ayant ce poste en principal
-                      ou secondaire.
-                    </p>
-                  </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="tech-mail">Email</Label>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input id="tech-mail" type="email" inputMode="email" autoComplete="off" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-11 pl-9 text-base sm:h-10 sm:text-sm" />
+                          </div>
+                        </div>
+                      </div>
+                    </section>
 
-                  {isGestionnairePlus() && (
-                    <div className="space-y-2">
-                      <Label>Étiquette dans l'organigramme (optionnel)</Label>
-                      <Input
-                        value={form.organigramme_label}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            organigramme_label: e.target.value,
+                    {/* Branches : pastilles à toucher */}
+                    <section className="space-y-3 rounded-xl border p-3 sm:p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-semibold">Branches *</h3>
+                        <span className="text-xs text-muted-foreground">{form.branches.length} choisie(s)</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {
+                          // Un Responsable/Coordination scopé à une ou plusieurs branches
+                          // (User.branches) ne peut créer/éditer que dans son propre
+                          // périmètre — le backend le refuse aussi (tâche #292).
+                          (!isAdminOrReadOnly() && user?.branches?.length
+                            ? enums.branches?.filter((b) => user.branches.includes(b))
+                            : enums.branches
+                          )?.map((b) => {
+                            const c = getBranchColor(b);
+                            const on = form.branches.includes(b);
+                            return (
+                              <button
+                                key={b}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => toggleBranche(b)}
+                                className={`inline-flex min-h-[40px] items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition ${on ? `${c.bg} ${c.text} ${c.border} ring-2 ring-primary/40` : "hover:bg-muted"}`}
+                              >
+                                <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
+                                {b}
+                                {on && <Check className="h-3.5 w-3.5" />}
+                              </button>
+                            );
                           })
                         }
-                        placeholder={
-                          form.poste_principal || "Par défaut : poste principal"
-                        }
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Réservé à Coordination+. Contrôle le petit badge affiché
-                        à côté de son nom dans l'organigramme du Dashboard.
-                        Laisse vide pour reprendre automatiquement le poste
-                        principal.
-                      </p>
-                    </div>
-                  )}
+                      </div>
+                    </section>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Téléphone</Label>
-                      <Input
-                        value={form.telephone}
-                        onChange={(e) =>
-                          setForm({ ...form, telephone: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Email</Label>
-                      <Input
-                        type="email"
-                        value={form.email}
-                        onChange={(e) =>
-                          setForm({ ...form, email: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="badge"
-                      checked={form.badge_attribue}
-                      onCheckedChange={(checked) =>
-                        setForm({ ...form, badge_attribue: checked })
-                      }
-                    />
-                    <Label htmlFor="badge" className="text-sm">
-                      Badge attribué
-                    </Label>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={submitting}
-                    >
-                      {submitting && (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {/* Postes : sert à filtrer les noms proposés dans le Planning */}
+                    <section className="space-y-3 rounded-xl border p-3 sm:p-4">
+                      <h3 className="text-sm font-semibold">Postes</h3>
+                      <div className="space-y-1.5">
+                        <Label>Poste principal</Label>
+                        <Select
+                          value={form.poste_principal || "__none__"}
+                          onValueChange={(v) => setForm({ ...form, poste_principal: v === "__none__" ? "" : v })}
+                        >
+                          <SelectTrigger className="h-11 sm:h-10"><SelectValue placeholder="Optionnel" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Aucun</SelectItem>
+                            {enums.postes?.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Postes secondaires</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {enums.postes?.filter((p) => p !== form.poste_principal).map((p) => {
+                            const on = form.postes_secondaires.includes(p);
+                            return (
+                              <button
+                                key={p}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => togglePosteSecondaire(p)}
+                                className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 text-sm transition ${on ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/40" : "hover:bg-muted"}`}
+                              >
+                                {on && <Check className="h-3.5 w-3.5" />}
+                                {p}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Dans le Planning, la liste des noms proposée pour un poste ne montre que les personnes ayant ce poste en principal ou secondaire.
+                        </p>
+                      </div>
+                      {isGestionnairePlus() && (
+                        <div className="space-y-1.5 border-t pt-3">
+                          <Label htmlFor="tech-orga">Étiquette dans l'organigramme (optionnel)</Label>
+                          <Input
+                            id="tech-orga"
+                            value={form.organigramme_label}
+                            onChange={(e) => setForm({ ...form, organigramme_label: e.target.value })}
+                            placeholder={form.poste_principal || "Par défaut : poste principal"}
+                            className="h-11 text-base sm:h-10 sm:text-sm"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Petit badge affiché à côté du nom dans l'organigramme du Dashboard. Laissez vide pour reprendre le poste principal.
+                          </p>
+                        </div>
                       )}
-                      {editingId ? "Modifier" : "Créer"}
+                    </section>
+
+                    {/* Badge */}
+                    <label
+                      htmlFor="badge"
+                      className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 sm:p-4"
+                    >
+                      <span className="flex items-center gap-2 text-sm font-medium">
+                        <IdCard className="h-4 w-4 text-muted-foreground" /> Badge attribué
+                      </span>
+                      <Checkbox
+                        id="badge"
+                        checked={form.badge_attribue}
+                        onCheckedChange={(checked) => setForm({ ...form, badge_attribue: checked })}
+                        className="h-6 w-6"
+                      />
+                    </label>
+                  </div>
+
+                  <div
+                    className="flex gap-2 border-t bg-background px-4 py-3 sm:justify-end sm:px-6"
+                    style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+                  >
+                    <Button type="button" variant="outline" className="h-11 flex-1 sm:h-10 sm:flex-none" onClick={() => { setDialogOpen(false); resetForm(); }}>
+                      Annuler
                     </Button>
-                  </DialogFooter>
+                    <Button type="submit" className="h-11 flex-1 sm:h-10 sm:flex-none sm:min-w-[160px]" disabled={submitting} data-testid="tech-save-btn">
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {editingId ? "Enregistrer" : "Créer"}
+                    </Button>
+                  </div>
                 </form>
               </DialogContent>
             </Dialog>
@@ -1768,93 +1732,100 @@ export default function Effectif() {
         </div>
       )}
 
-      {/* Detail Dialog */}
+      {/* Fiche d'un technicien (PC : fenêtre ; téléphone : plein écran) */}
       <Dialog open={!!selectedTech} onOpenChange={handleCloseDetail}>
-        <DialogContent className="max-w-md">
-          {selectedTech && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="text-primary font-semibold text-xl">
-                      {selectedTech.nom.charAt(0)}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-lg">{selectedTech.nom}</p>
-                    <p className="text-sm font-normal text-muted-foreground">
-                      {(selectedTech.branches || []).join(", ") ||
-                        "Aucune branche"}
-                    </p>
-                  </div>
-                </DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-4 pt-4">
-                <div className="flex flex-wrap gap-2">
-                  {selectedTech.niveau_technicien && (
-                    <Badge
-                      className={getNiveauColor(selectedTech.niveau_technicien)}
-                    >
-                      {selectedTech.niveau_technicien}
+        <DialogContent className={SHEET_CLASS} data-testid="tech-detail-dialog">
+          {selectedTech && (() => {
+            const t = selectedTech;
+            const bc = getBranchColor((t.branches || [])[0]);
+            return (
+              <>
+                <div className={`${bc.bg} px-4 pb-4 pt-5 sm:px-6`}>
+                  <DialogHeader className="space-y-0 text-left">
+                    <DialogTitle className="flex items-center gap-3 pr-8">
+                      <span className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-background/70 text-2xl font-bold shadow-sm ${bc.text}`}>
+                        {(t.nom || "?").charAt(0)}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-xl font-bold leading-tight">{t.nom}</span>
+                        <span className="block truncate text-sm font-normal text-foreground/70">
+                          {t.poste_principal || "Poste non renseigné"}
+                        </span>
+                      </span>
+                    </DialogTitle>
+                    <DialogDescription className="sr-only">Fiche de {t.nom}</DialogDescription>
+                  </DialogHeader>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {t.niveau_technicien && <Badge className={`${getNiveauColor(t.niveau_technicien)} border-0`}>{t.niveau_technicien}</Badge>}
+                    <Badge variant="outline" className="flex items-center gap-1 bg-background/60">
+                      <span className={`h-2 w-2 rounded-full ${getAccesColor(t.niveau_acces)}`} />
+                      {t.niveau_acces}
                     </Badge>
-                  )}
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <span
-                      className={`w-2 h-2 rounded-full ${getAccesColor(selectedTech.niveau_acces)}`}
-                    />
-                    {selectedTech.niveau_acces}
-                  </Badge>
+                    <Badge variant="outline" className={`flex items-center gap-1 bg-background/60 ${t.badge_attribue ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
+                      <IdCard className="h-3 w-3" /> {t.badge_attribue ? "Badge attribué" : "Sans badge"}
+                    </Badge>
+                  </div>
                 </div>
 
-                {/* Show all branches with colors */}
-                {(selectedTech.branches || []).length > 0 && (
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Branches
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {selectedTech.branches.map((b) => {
-                        const colors = getBranchColor(b);
-                        return (
-                          <Badge
-                            key={b}
-                            className={`${colors.bg} ${colors.text} border ${colors.border}`}
-                          >
-                            <span
-                              className={`w-2 h-2 rounded-full ${colors.dot} mr-1`}
-                            />
-                            {b}
-                          </Badge>
-                        );
-                      })}
-                    </div>
+                <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
+                  {/* Joindre la personne en un geste */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {t.telephone ? (
+                      <a href={`tel:${t.telephone}`} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm active:scale-[0.98]">
+                        <Phone className="h-4 w-4" /> Appeler
+                      </a>
+                    ) : (
+                      <span className="flex h-12 items-center justify-center gap-2 rounded-xl border border-dashed text-sm text-muted-foreground"><Phone className="h-4 w-4" /> Pas de numéro</span>
+                    )}
+                    {t.email ? (
+                      <a href={`mailto:${t.email}`} className="flex h-12 items-center justify-center gap-2 rounded-xl border text-sm font-semibold hover:bg-muted active:scale-[0.98]">
+                        <Mail className="h-4 w-4" /> Écrire
+                      </a>
+                    ) : (
+                      <span className="flex h-12 items-center justify-center gap-2 rounded-xl border border-dashed text-sm text-muted-foreground"><Mail className="h-4 w-4" /> Pas d'email</span>
+                    )}
                   </div>
-                )}
 
-                {/* Poste(s) de prédilection */}
-                {(selectedTech.poste_principal ||
-                  (selectedTech.postes_secondaires || []).length > 0) && (
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Poste(s)
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {selectedTech.poste_principal && (
-                        <Badge className="bg-primary/10 text-primary border border-primary/30">
-                          {selectedTech.poste_principal}
-                        </Badge>
-                      )}
-                      {(selectedTech.postes_secondaires || []).map((p) => (
-                        <Badge key={p} variant="secondary" className="text-xs">
-                          {p}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  <section className="space-y-2 rounded-xl border p-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Coordonnées</h3>
+                    <dl className="space-y-1 text-sm">
+                      <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Téléphone</dt><dd className="truncate font-medium">{t.telephone || "—"}</dd></div>
+                      <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Email</dt><dd className="truncate font-medium">{t.email || "—"}</dd></div>
+                    </dl>
+                  </section>
 
-                <div className="pt-2 border-t space-y-3">
+                  <section className="space-y-2 rounded-xl border p-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Branches</h3>
+                    {(t.branches || []).length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Aucune branche</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {t.branches.map((b) => {
+                          const c = getBranchColor(b);
+                          return (
+                            <span key={b} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${c.bg} ${c.text} ${c.border}`}>
+                              <span className={`h-2 w-2 rounded-full ${c.dot}`} />{b}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="space-y-2 rounded-xl border p-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Postes</h3>
+                    {!t.poste_principal && (t.postes_secondaires || []).length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Aucun poste renseigné</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {t.poste_principal && <Badge className="border border-primary/30 bg-primary/10 text-primary">{t.poste_principal}</Badge>}
+                        {(t.postes_secondaires || []).map((p) => (<Badge key={p} variant="secondary">{p}</Badge>))}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="rounded-xl border p-3">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground flex items-center gap-2">
                       <IdCard className="w-4 h-4" /> Badge
@@ -2030,54 +2001,44 @@ export default function Effectif() {
                   )}
                 </div>
 
-                <div className="pt-4 border-t">
+                  </section>
+                </div>
+
+                {/* Actions toujours visibles en bas */}
+                <div
+                  className="flex flex-wrap items-center gap-2 border-t bg-background px-4 py-3 sm:px-6"
+                  style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+                >
+                  {canManage() && (
+                    <Button className="h-11 flex-1 sm:h-10" onClick={() => handleEdit(t)} data-testid="tech-edit-btn">
+                      <Edit className="mr-2 h-4 w-4" /> Modifier
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
-                    className="w-full"
+                    className="h-11 sm:h-10"
                     disabled={exportingFichePdf}
                     onClick={handleExportFichePdf}
                     data-testid="effectif-fiche-export-pdf-btn"
+                    title="Exporter la fiche (PDF)"
                   >
-                    {exportingFichePdf ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <FileText className="w-4 h-4 mr-2" />
-                    )}
-                    Exporter la fiche (PDF)
+                    {exportingFichePdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                    <span className="ml-2 hidden sm:inline">PDF</span>
                   </Button>
-                </div>
-
-                {canManage() && (
-                  <div className="flex gap-2 pt-4 border-t">
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => handleEdit(selectedTech)}
-                    >
-                      <Edit className="w-4 h-4 mr-2" /> Modifier
+                  {canManage() && isAdmin() && (
+                    <Button variant="outline" className="h-11 sm:h-10" onClick={() => handleArchive(t.id)} title="Archiver">
+                      <Archive className="h-4 w-4" />
                     </Button>
-                    {isAdmin() && (
-                      <Button
-                        variant="outline"
-                        onClick={() => handleArchive(selectedTech.id)}
-                      >
-                        <Archive className="w-4 h-4" />
-                      </Button>
-                    )}
-                    {isSuperAdmin() && (
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        onClick={() => handleDelete(selectedTech.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+                  )}
+                  {canManage() && isSuperAdmin() && (
+                    <Button variant="destructive" size="icon" className="h-11 w-11 sm:h-10 sm:w-10" onClick={() => handleDelete(t.id)} title="Supprimer">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

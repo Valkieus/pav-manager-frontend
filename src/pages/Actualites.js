@@ -6,13 +6,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
 import { Checkbox } from "../components/ui/checkbox";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "../components/ui/card";
+import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import {
   Tabs,
@@ -26,7 +20,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "../components/ui/dialog";
 import { toast } from "sonner";
 import {
@@ -36,12 +29,19 @@ import {
   Calendar,
   Edit,
   Trash2,
-  Upload,
   Sparkles,
   CalendarClock,
+  UserRound,
+  ImagePlus,
+  X,
+  Clock,
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Fenêtre « fiche » : centrée sur PC, plein écran sur téléphone (zones de sécurité iOS/Android respectées).
+const SHEET_CLASS =
+  "flex flex-col gap-0 overflow-hidden p-0 sm:max-w-xl sm:max-h-[90vh] sm:rounded-xl max-sm:left-0 max-sm:top-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-screen max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none";
 
 export default function Actualites() {
   const { user, isAdmin } = useAuth();
@@ -65,6 +65,7 @@ export default function Actualites() {
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selected, setSelected] = useState(null); // actualité ouverte en détail
   const [form, setForm] = useState({
     titre: "",
     description: "",
@@ -266,468 +267,350 @@ export default function Actualites() {
     return `${startLabel} → ${endLabel}`;
   };
 
+  // Étiquette « dans N jours » / « En cours » / « Terminé » pour une actualité.
+  const startOf = (a) => (a.date_evenement ? new Date(a.date_evenement + "T00:00:00") : null);
+  const endOf = (a) => (eventEndDate(a) ? new Date(eventEndDate(a) + "T00:00:00") : null);
+  const countdown = (a) => {
+    const st = startOf(a);
+    const en = endOf(a);
+    if (!st) return null;
+    if (en < today) return { label: "Terminé", tone: "muted" };
+    if (st <= today && today <= en) return { label: st.getTime() === en.getTime() ? "Aujourd'hui" : "En cours", tone: "live" };
+    const days = Math.round((st - today) / 86400000);
+    if (days === 1) return { label: "Demain", tone: "soon" };
+    return { label: `Dans ${days} jours`, tone: days <= 7 ? "soon" : "later" };
+  };
+  const toneCls = {
+    live: "bg-emerald-500 text-white",
+    soon: "bg-amber-500 text-white",
+    later: "bg-background/90 text-primary shadow-sm",
+    muted: "bg-background/90 text-muted-foreground shadow-sm",
+  };
+  const CountdownChip = ({ a, className = "" }) => {
+    const c = countdown(a);
+    if (!c) return null;
+    return (
+      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${toneCls[c.tone]} ${className}`}>
+        <Clock className="h-3 w-3" /> {c.label}
+      </span>
+    );
+  };
+  // Pastille « jour / mois » façon calendrier
+  const DateBlock = ({ a, muted }) => {
+    const st = startOf(a);
+    if (!st) return null;
+    return (
+      <div className={`flex w-14 shrink-0 flex-col items-center rounded-xl border bg-background/95 px-1 py-1.5 shadow-sm ${muted ? "opacity-70" : ""}`}>
+        <span className="text-[10px] font-semibold uppercase leading-none text-primary">
+          {st.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "")}
+        </span>
+        <span className="text-2xl font-bold leading-tight">{st.getDate()}</span>
+      </div>
+    );
+  };
+  const InviteChip = ({ a }) =>
+    a.invite ? (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+        <UserRound className="h-3 w-3" /> Invité{a.invite_nom ? ` : ${a.invite_nom}` : ""}
+      </span>
+    ) : null;
+
   const renderActions = (a) =>
     canManage() && (
-      <div className="flex gap-1">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-8 w-8 p-0"
-          onClick={() => handleEdit(a)}
-        >
-          <Edit className="w-4 h-4" />
+      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+        <Button size="sm" variant="secondary" className="h-9 w-9 p-0" onClick={() => handleEdit(a)} title="Modifier">
+          <Edit className="h-4 w-4" />
         </Button>
         {isAdmin() && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 w-8 p-0 text-destructive"
-            onClick={() => handleDelete(a.id)}
-          >
-            <Trash2 className="w-4 h-4" />
+          <Button size="sm" variant="secondary" className="h-9 w-9 p-0 text-destructive" onClick={() => handleDelete(a.id)} title="Supprimer">
+            <Trash2 className="h-4 w-4" />
           </Button>
         )}
       </div>
     );
 
+  const Cover = ({ a, className = "", past }) =>
+    a.image_url ? (
+      <img
+        src={a.image_url}
+        alt=""
+        loading="lazy"
+        className={`h-full w-full object-cover ${past ? "grayscale-[40%]" : ""} ${className}`}
+        onError={(e) => { e.target.style.display = "none"; }}
+      />
+    ) : (
+      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-transparent">
+        <Newspaper className="h-10 w-10 text-primary/30" />
+      </div>
+    );
+
+  const EventCard = ({ a }) => (
+    <Card
+      className="group cursor-pointer overflow-hidden card-hover animate-fadeIn"
+      onClick={() => setSelected(a)}
+      data-testid={`actualite-card-${a.id}`}
+    >
+      <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+        <Cover a={a} className="transition-transform duration-300 group-hover:scale-[1.03]" />
+        <div className="absolute left-3 top-3"><DateBlock a={a} /></div>
+        <div className="absolute right-3 top-3"><CountdownChip a={a} /></div>
+      </div>
+      <CardContent className="space-y-2 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-base font-semibold leading-snug">{a.titre}</h3>
+          {renderActions(a)}
+        </div>
+        {a.date_evenement && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Calendar className="h-3.5 w-3.5" />{formatEventDate(a)}</p>
+        )}
+        {a.description && <p className="line-clamp-2 text-sm text-muted-foreground">{a.description}</p>}
+        <div className="flex flex-wrap items-center gap-1.5"><InviteChip a={a} /></div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6" data-testid="actualites-page">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Actualités</h1>
           <p className="text-muted-foreground">
-            Événements à venir du département PAV
+            {upcomingActualites.length} événement{upcomingActualites.length > 1 ? "s" : ""} à venir du département PAV
           </p>
         </div>
-
         {canManage() && (
-          <Dialog
-            open={dialogOpen}
-            onOpenChange={(open) => {
-              setDialogOpen(open);
-              if (!open) resetForm();
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button
-                className="shadow-lg shadow-primary/20"
-                data-testid="add-actualite-btn"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Nouvelle actualité
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {editingId ? "Modifier" : "Créer"} une actualité
+          <Button className="shadow-lg shadow-primary/20" data-testid="add-actualite-btn" onClick={() => { resetForm(); setDialogOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" /> Nouvelle actualité
+          </Button>
+        )}
+      </div>
+
+      {/* Création / modification */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+        <DialogContent className={SHEET_CLASS} data-testid="actualite-dialog">
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="border-b px-4 pb-3 pt-4 sm:px-6">
+              <DialogHeader className="space-y-1 text-left">
+                <DialogTitle className="flex items-center gap-2 pr-8">
+                  {editingId ? <Edit className="h-5 w-5 text-primary" /> : <Plus className="h-5 w-5 text-primary" />}
+                  {editingId ? "Modifier l'actualité" : "Nouvelle actualité"}
                 </DialogTitle>
                 <DialogDescription>
-                  {editingId
-                    ? "Modifiez les informations"
-                    : "Cette actualité sera visible sur la page de connexion"}
+                  {editingId ? "Modifiez les informations" : "Cette actualité sera visible sur la page de connexion"}
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Titre de l'événement *</Label>
-                  <Input
-                    value={form.titre}
-                    onChange={(e) =>
-                      setForm({ ...form, titre: e.target.value })
-                    }
-                    required
-                    placeholder="Ex: Pâques 2026, Concert de Noël..."
-                    data-testid="actualite-titre"
-                  />
+            </div>
+
+            <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-6">
+              <section className="space-y-3 rounded-xl border p-3 sm:p-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="act-titre">Titre de l'événement *</Label>
+                  <Input id="act-titre" value={form.titre} onChange={(e) => setForm({ ...form, titre: e.target.value })} required placeholder="Ex : Pâques 2026, Concert de Noël…" className="h-11 text-base sm:h-10 sm:text-sm" data-testid="actualite-titre" />
                 </div>
-                <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Textarea
-                    value={form.description}
-                    onChange={(e) =>
-                      setForm({ ...form, description: e.target.value })
-                    }
-                    rows={3}
-                    placeholder="Détails de l'événement..."
-                    data-testid="actualite-description"
-                  />
+                <div className="space-y-1.5">
+                  <Label htmlFor="act-desc">Description</Label>
+                  <Textarea id="act-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} placeholder="Détails de l'événement…" className="text-base sm:text-sm" data-testid="actualite-description" />
                 </div>
-                <div className="space-y-2">
-                  <Label>
-                    {isPeriode ? "Date de début" : "Date de l'événement"}
-                  </Label>
-                  <Input
-                    type="date"
-                    value={form.date_evenement}
-                    onChange={(e) =>
-                      setForm({ ...form, date_evenement: e.target.value })
-                    }
-                    data-testid="actualite-date"
-                  />
-                  <label className="flex items-center gap-2 cursor-pointer mt-1">
-                    <Checkbox
-                      checked={isPeriode}
-                      onCheckedChange={(checked) => setIsPeriode(!!checked)}
-                      data-testid="actualite-periode-checkbox"
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      Sur plusieurs jours (période)
-                    </span>
-                  </label>
+              </section>
+
+              <section className="space-y-3 rounded-xl border p-3 sm:p-4">
+                <h3 className="text-sm font-semibold">Date</h3>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>{isPeriode ? "Date de début" : "Date de l'événement"}</Label>
+                    <Input type="date" value={form.date_evenement} onChange={(e) => setForm({ ...form, date_evenement: e.target.value })} className="h-11 sm:h-10" data-testid="actualite-date" />
+                  </div>
                   {isPeriode && (
-                    <div className="space-y-1 mt-1">
-                      <Label className="text-xs">Date de fin</Label>
-                      <Input
-                        type="date"
-                        value={form.date_fin_evenement}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            date_fin_evenement: e.target.value,
-                          })
-                        }
-                        data-testid="actualite-date-fin"
-                      />
+                    <div className="space-y-1.5">
+                      <Label>Date de fin</Label>
+                      <Input type="date" value={form.date_fin_evenement} onChange={(e) => setForm({ ...form, date_fin_evenement: e.target.value })} className="h-11 sm:h-10" data-testid="actualite-date-fin" />
                     </div>
                   )}
                 </div>
-                <div className="space-y-2 border rounded-md p-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox
-                      checked={form.invite}
-                      onCheckedChange={(checked) =>
-                        setForm({
-                          ...form,
-                          invite: !!checked,
-                          invite_nom: checked ? form.invite_nom : "",
-                        })
-                      }
-                      data-testid="actualite-invite-checkbox"
-                    />
-                    <span className="text-sm font-medium">
-                      Cet événement accueille un invité
-                    </span>
-                  </label>
-                  {form.invite && (
-                    <Input
-                      value={form.invite_nom}
-                      onChange={(e) =>
-                        setForm({ ...form, invite_nom: e.target.value })
-                      }
-                      placeholder="Nom de l'invité"
-                      className="mt-1"
-                      data-testid="actualite-invite-nom"
-                    />
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Alimente le rappel "invités ce mois" affiché sur le
-                    Dashboard de tous les utilisateurs.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Image (optionnel)</Label>
-                  <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
-                    <input
-                      type="file"
-                      id="image-upload-actualite"
-                      className="hidden"
-                      accept="image/png,image/jpg,image/jpeg,image/gif,image/webp"
-                      onChange={handleImageUpload}
-                    />
-                    <label
-                      htmlFor="image-upload-actualite"
-                      className="cursor-pointer"
-                    >
+                <label className="flex cursor-pointer items-center gap-2">
+                  <Checkbox checked={isPeriode} onCheckedChange={(checked) => setIsPeriode(!!checked)} data-testid="actualite-periode-checkbox" />
+                  <span className="text-sm text-muted-foreground">Sur plusieurs jours (période)</span>
+                </label>
+              </section>
+
+              <section className="space-y-3 rounded-xl border p-3 sm:p-4">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <Checkbox
+                    checked={form.invite}
+                    onCheckedChange={(checked) => setForm({ ...form, invite: !!checked, invite_nom: checked ? form.invite_nom : "" })}
+                    data-testid="actualite-invite-checkbox"
+                  />
+                  <span className="text-sm font-medium">Cet événement accueille un invité</span>
+                </label>
+                {form.invite && (
+                  <Input value={form.invite_nom} onChange={(e) => setForm({ ...form, invite_nom: e.target.value })} placeholder="Nom de l'invité" className="h-11 text-base sm:h-10 sm:text-sm" data-testid="actualite-invite-nom" />
+                )}
+                <p className="text-xs text-muted-foreground">Alimente le rappel « invités ce mois » affiché sur le Dashboard de tous les utilisateurs.</p>
+              </section>
+
+              <section className="space-y-3 rounded-xl border p-3 sm:p-4">
+                <h3 className="text-sm font-semibold">Image (optionnel)</h3>
+                {form.image_url ? (
+                  <div className="relative overflow-hidden rounded-lg border bg-muted">
+                    <img src={form.image_url} alt="Aperçu" className="aspect-[16/9] w-full object-cover" onError={(e) => { e.target.style.display = "none"; }} />
+                    <Button type="button" size="icon" variant="secondary" className="absolute right-2 top-2 h-8 w-8" onClick={() => setForm({ ...form, image_url: "" })} title="Retirer l'image">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border-2 border-dashed p-4 text-center transition-colors hover:border-primary/50">
+                    <input type="file" id="image-upload-actualite" className="hidden" accept="image/png,image/jpg,image/jpeg,image/gif,image/webp" onChange={handleImageUpload} />
+                    <label htmlFor="image-upload-actualite" className="cursor-pointer">
                       {uploading ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          <span>Upload en cours...</span>
-                        </div>
+                        <div className="flex items-center justify-center gap-2"><Loader2 className="h-5 w-5 animate-spin" /><span>Envoi en cours…</span></div>
                       ) : (
                         <div className="flex flex-col items-center gap-2">
-                          <Upload className="w-6 h-6 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">
-                            Cliquez pour uploader une image (max 10 MB)
-                          </span>
+                          <ImagePlus className="h-7 w-7 text-muted-foreground" />
+                          <span className="text-sm font-medium">Choisir une image</span>
+                          <span className="text-xs text-muted-foreground">Appareil photo ou galerie · 10 Mo max</span>
                         </div>
                       )}
                     </label>
                   </div>
-                  <Input
-                    value={form.image_url}
-                    onChange={(e) =>
-                      setForm({ ...form, image_url: e.target.value })
-                    }
-                    placeholder="Ou collez une URL https://..."
-                    data-testid="actualite-image"
-                  />
-                  {form.image_url && (
-                    <p className="text-xs text-emerald-600">✓ Image prête</p>
+                )}
+                <Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="Ou collez une URL https://…" className="h-11 text-base sm:h-10 sm:text-sm" data-testid="actualite-image" />
+              </section>
+            </div>
+
+            <div className="flex gap-2 border-t bg-background px-4 py-3 sm:justify-end sm:px-6" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+              <Button type="button" variant="outline" className="h-11 flex-1 sm:h-10 sm:flex-none" onClick={() => { setDialogOpen(false); resetForm(); }}>Annuler</Button>
+              <Button type="submit" className="h-11 flex-1 sm:h-10 sm:min-w-[160px] sm:flex-none" disabled={submitting || uploading} data-testid="actualite-submit">
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editingId ? "Enregistrer" : "Publier"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Détail d'une actualité */}
+      <Dialog open={!!selected} onOpenChange={(o) => { if (!o) setSelected(null); }}>
+        <DialogContent className={SHEET_CLASS} data-testid="actualite-detail">
+          {selected && (
+            <>
+              <div className="relative max-h-[45%] shrink-0 overflow-hidden bg-muted">
+                {selected.image_url ? (
+                  <img src={selected.image_url} alt={selected.titre} className="max-h-[40vh] w-full object-contain bg-black/5" onError={(e) => { e.target.style.display = "none"; }} />
+                ) : (
+                  <div className="flex h-32 items-center justify-center bg-gradient-to-br from-primary/20 to-transparent"><Newspaper className="h-12 w-12 text-primary/30" /></div>
+                )}
+              </div>
+              <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6">
+                <DialogHeader className="space-y-1 text-left">
+                  <DialogTitle className="pr-8 text-xl">{selected.titre}</DialogTitle>
+                  <DialogDescription className="sr-only">Détail de l'actualité</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-wrap items-center gap-2">
+                  <CountdownChip a={selected} />
+                  {selected.date_evenement && (
+                    <span className="inline-flex items-center gap-1.5 text-sm text-primary font-medium"><CalendarClock className="h-4 w-4" />{formatEventDate(selected)}</span>
                   )}
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setDialogOpen(false)}
-                  >
-                    Annuler
+                <InviteChip a={selected} />
+                {selected.description && <p className="whitespace-pre-line text-sm leading-relaxed">{selected.description}</p>}
+                <p className="border-t pt-3 text-xs text-muted-foreground">
+                  Par {selected.created_by_name} • {new Date(selected.created_at).toLocaleDateString("fr-FR")}
+                </p>
+              </div>
+              {canManage() && (
+                <div className="flex gap-2 border-t bg-background px-4 py-3 sm:px-6" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+                  <Button className="h-11 flex-1 sm:h-10" onClick={() => { const a = selected; setSelected(null); handleEdit(a); }}>
+                    <Edit className="mr-2 h-4 w-4" /> Modifier
                   </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1"
-                    disabled={submitting || uploading}
-                    data-testid="actualite-submit"
-                  >
-                    {submitting && (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    )}
-                    {editingId ? "Modifier" : "Créer"}
-                  </Button>
+                  {isAdmin() && (
+                    <Button variant="destructive" size="icon" className="h-11 w-11 sm:h-10 sm:w-10" onClick={() => { const id = selected.id; setSelected(null); handleDelete(id); }} title="Supprimer">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {loading ? (
-        <div className="flex justify-center p-8">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+        <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : actualites.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <Newspaper className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">
-              Aucune actualité pour le moment
-            </p>
-            {canManage() && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Cliquez sur "Nouvelle actualité" pour en créer une
-              </p>
-            )}
+            <Newspaper className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" />
+            <p className="text-muted-foreground">Aucune actualité pour le moment</p>
+            {canManage() && <p className="mt-2 text-sm text-muted-foreground">Cliquez sur « Nouvelle actualité » pour en créer une</p>}
           </CardContent>
         </Card>
       ) : (
         <Tabs defaultValue="upcoming" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="upcoming" data-testid="tab-actualites-upcoming">
-              Événements à venir
-            </TabsTrigger>
-            <TabsTrigger value="past" data-testid="tab-actualites-past">
-              Événements passés
-            </TabsTrigger>
+            <TabsTrigger value="upcoming" data-testid="tab-actualites-upcoming">À venir ({upcomingActualites.length})</TabsTrigger>
+            <TabsTrigger value="past" data-testid="tab-actualites-past">Passés ({pastActualites.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="upcoming" className="space-y-6 mt-0">
+          <TabsContent value="upcoming" className="mt-0 space-y-6">
             {upcomingActualites.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Newspaper className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-                  <p className="text-muted-foreground">
-                    Aucun événement à venir pour le moment
-                  </p>
-                </CardContent>
-              </Card>
+              <Card><CardContent className="p-8 text-center"><Newspaper className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" /><p className="text-muted-foreground">Aucun événement à venir pour le moment</p></CardContent></Card>
             ) : (
-              <div className="space-y-6">
-                {/* Featured / next event — leads the page with what matters most */}
+              <>
                 {featured && (
-                  <Card className="overflow-hidden card-hover animate-fadeIn">
-                    <div className="grid grid-cols-1 md:grid-cols-2">
-                      <div className="aspect-[32/9] md:aspect-auto bg-gradient-to-br from-primary/20 via-primary/10 to-transparent relative overflow-hidden min-h-[200px]">
-                        {featured.image_url ? (
-                          <img
-                            src={featured.image_url}
-                            alt={featured.titre}
-                            className="w-full h-full object-contain"
-                            onError={(e) => {
-                              e.target.style.display = "none";
-                            }}
-                            style={{
-                              maskImage:
-                                "radial-gradient(ellipse 45% 75% at 100% 0%, transparent 8%, black 55%)",
-                              WebkitMaskImage:
-                                "radial-gradient(ellipse 45% 75% at 100% 0%, transparent 8%, black 55%)",
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Newspaper className="w-16 h-16 text-primary/30" />
-                          </div>
-                        )}
+                  <article
+                    className="group relative cursor-pointer overflow-hidden rounded-2xl border bg-card shadow-sm animate-fadeIn"
+                    onClick={() => setSelected(featured)}
+                    data-testid="actualite-featured"
+                  >
+                    <div className="relative min-h-[260px] sm:min-h-[320px]">
+                      <div className="absolute inset-0"><Cover a={featured} className="transition-transform duration-500 group-hover:scale-[1.02]" /></div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10" />
+                      <div className="absolute left-4 top-4 flex items-center gap-2">
+                        <DateBlock a={featured} />
                         {featuredIsUpcoming && (
-                          <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground shadow-md">
-                            <Sparkles className="w-3 h-3 mr-1" /> Prochainement
-                          </Badge>
+                          <Badge className="hidden bg-primary text-primary-foreground shadow-md sm:inline-flex"><Sparkles className="mr-1 h-3 w-3" /> Prochainement</Badge>
                         )}
                       </div>
-                      <div className="p-6 flex flex-col">
-                        <div className="flex items-start justify-between gap-2">
-                          <h2 className="text-xl font-bold">
-                            {featured.titre}
-                          </h2>
-                          {renderActions(featured)}
-                        </div>
+                      <div className="absolute right-4 top-4 flex items-center gap-2"><CountdownChip a={featured} />{renderActions(featured)}</div>
+                      <div className="absolute inset-x-0 bottom-0 space-y-2 p-4 text-white sm:p-6">
+                        <h2 className="text-2xl font-bold leading-tight drop-shadow sm:text-3xl">{featured.titre}</h2>
                         {featured.date_evenement && (
-                          <div className="flex items-center gap-2 text-sm text-primary font-medium mt-2">
-                            <CalendarClock className="w-4 h-4" />
-                            {formatEventDate(featured)}
-                          </div>
+                          <p className="flex items-center gap-2 text-sm font-medium text-white/90"><CalendarClock className="h-4 w-4" />{formatEventDate(featured)}</p>
                         )}
-                        {featured.description && (
-                          <p className="text-muted-foreground text-sm mt-3 flex-1">
-                            {featured.description}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-4 pt-3 border-t border-border">
-                          Par {featured.created_by_name} •{" "}
-                          {new Date(featured.created_at).toLocaleDateString(
-                            "fr-FR",
-                          )}
-                        </p>
+                        {featured.description && <p className="line-clamp-2 max-w-3xl text-sm text-white/85">{featured.description}</p>}
+                        <InviteChip a={featured} />
                       </div>
                     </div>
-                  </Card>
+                  </article>
                 )}
 
-                {/* Remaining events */}
                 {rest.length > 0 && (
                   <div>
-                    {featured && (
-                      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                        Autres actualités
-                      </h2>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {rest.map((a) => (
-                        <Card
-                          key={a.id}
-                          className="overflow-hidden card-hover animate-fadeIn"
-                        >
-                          {a.image_url ? (
-                            <div className="aspect-[32/9] bg-muted relative overflow-hidden">
-                              <img
-                                src={a.image_url}
-                                alt={a.titre}
-                                className="w-full h-full object-contain"
-                                onError={(e) => {
-                                  e.target.style.display = "none";
-                                }}
-                                style={{
-                                  maskImage:
-                                    "radial-gradient(ellipse 45% 75% at 100% 0%, transparent 8%, black 55%)",
-                                  WebkitMaskImage:
-                                    "radial-gradient(ellipse 45% 75% at 100% 0%, transparent 8%, black 55%)",
-                                }}
-                              />
-                            </div>
-                          ) : (
-                            <div className="aspect-video bg-muted/50 flex items-center justify-center">
-                              <Newspaper className="w-10 h-10 text-muted-foreground/30" />
-                            </div>
-                          )}
-                          <CardHeader className="pt-4 pb-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <CardTitle className="text-lg">
-                                {a.titre}
-                              </CardTitle>
-                              {renderActions(a)}
-                            </div>
-                            {a.date_evenement && (
-                              <CardDescription className="flex items-center gap-2 text-sm">
-                                <Calendar className="w-4 h-4" />
-                                {formatEventDate(a)}
-                              </CardDescription>
-                            )}
-                          </CardHeader>
-                          {a.description && (
-                            <CardContent className="pt-0">
-                              <p className="text-muted-foreground text-sm line-clamp-3">
-                                {a.description}
-                              </p>
-                            </CardContent>
-                          )}
-                          <CardContent className="pt-0">
-                            <p className="text-xs text-muted-foreground">
-                              Par {a.created_by_name} •{" "}
-                              {new Date(a.created_at).toLocaleDateString(
-                                "fr-FR",
-                              )}
-                            </p>
-                          </CardContent>
-                        </Card>
-                      ))}
+                    <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Ensuite</h2>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {rest.map((a) => <EventCard key={a.id} a={a} />)}
                     </div>
                   </div>
                 )}
-              </div>
+              </>
             )}
           </TabsContent>
 
           <TabsContent value="past" className="mt-0">
             {pastActualites.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Newspaper className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-                  <p className="text-muted-foreground">
-                    Aucun événement passé pour le moment
-                  </p>
-                </CardContent>
-              </Card>
+              <Card><CardContent className="p-8 text-center"><Newspaper className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" /><p className="text-muted-foreground">Aucun événement passé pour le moment</p></CardContent></Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="space-y-2">
                 {pastActualites.map((a) => (
-                  <Card key={a.id} className="overflow-hidden opacity-90">
-                    {a.image_url ? (
-                      <div className="aspect-[32/9] bg-muted relative overflow-hidden">
-                        <img
-                          src={a.image_url}
-                          alt={a.titre}
-                          className="w-full h-full object-contain grayscale-[30%]"
-                          onError={(e) => {
-                            e.target.style.display = "none";
-                          }}
-                          style={{
-                            maskImage:
-                              "radial-gradient(ellipse 45% 75% at 100% 0%, transparent 8%, black 55%)",
-                            WebkitMaskImage:
-                              "radial-gradient(ellipse 45% 75% at 100% 0%, transparent 8%, black 55%)",
-                          }}
-                        />
+                  <Card key={a.id} className="cursor-pointer overflow-hidden transition hover:bg-muted/40" onClick={() => setSelected(a)} data-testid={`actualite-past-${a.id}`}>
+                    <CardContent className="flex items-center gap-3 p-3">
+                      <div className="h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-muted"><Cover a={a} past /></div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold">{a.titre}</p>
+                        {a.date_evenement && <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Calendar className="h-3.5 w-3.5" />{formatEventDate(a)}</p>}
+                        <div className="mt-1"><InviteChip a={a} /></div>
                       </div>
-                    ) : (
-                      <div className="aspect-video bg-muted/50 flex items-center justify-center">
-                        <Newspaper className="w-10 h-10 text-muted-foreground/30" />
-                      </div>
-                    )}
-                    <CardHeader className="pt-4 pb-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-lg">{a.titre}</CardTitle>
-                        {renderActions(a)}
-                      </div>
-                      {a.date_evenement && (
-                        <CardDescription className="flex items-center gap-2 text-sm">
-                          <Calendar className="w-4 h-4" />
-                          {formatEventDate(a)}
-                        </CardDescription>
-                      )}
-                    </CardHeader>
-                    {a.description && (
-                      <CardContent className="pt-0">
-                        <p className="text-muted-foreground text-sm line-clamp-3">
-                          {a.description}
-                        </p>
-                      </CardContent>
-                    )}
-                    <CardContent className="pt-0">
-                      <p className="text-xs text-muted-foreground">
-                        Par {a.created_by_name} •{" "}
-                        {new Date(a.created_at).toLocaleDateString("fr-FR")}
-                      </p>
+                      {renderActions(a)}
                     </CardContent>
                   </Card>
                 ))}

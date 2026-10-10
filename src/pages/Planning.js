@@ -79,6 +79,7 @@ import {
   Undo2,
 } from "lucide-react";
 import PlanningEvenementSection from "./PlanningEvenementSection";
+import { useLiveDoc, LivePresence, LiveStyle } from "../lib/useLiveDoc";
 import {
   getCachedTechniciens,
   setCachedTechniciens,
@@ -1337,6 +1338,8 @@ export default function Planning() {
   });
   const [dates, setDates] = useState({ dimanche: [], vendredi: [] });
   const [affectations, setAffectations] = useState({});
+  const affectationsRef = useRef({});
+  affectationsRef.current = affectations;
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
   const [notes, setNotes] = useState({ dimanche: "", vendredi: "" });
   const [absences, setAbsences] = useState({ dimanche: "", vendredi: "" });
@@ -1815,6 +1818,23 @@ export default function Planning() {
     [warnIfAbsent],
   );
 
+  // Édition à plusieurs en direct : présence (qui est dans quelle case) et
+  // mise à jour des cases modifiées par les collègues.
+  const liveRef = useRef(null);
+  const live = useLiveDoc({
+    kind: "planning",
+    id: planning?.id,
+    enabled: !!planning?.id && canManage(),
+    getLocal: () => affectationsRef.current,
+    onApply: setAffectations,
+    cellPrefix: `${activeDay}|`,
+  });
+  liveRef.current = live;
+  const liveSync = live.sync;
+  useEffect(() => {
+    if (planning?.id) liveSync(planning.updated_at, planning.affectations);
+  }, [planning, liveSync]);
+
   const buildPlanningPayload = useCallback(
     () => ({
       mois: currentMonth,
@@ -1828,6 +1848,7 @@ export default function Planning() {
       titre_overrides: titreOverrides,
       date_labels: dateLabels,
       affichage_noms: affichageNoms,
+      base_affectations: liveRef.current ? liveRef.current.getBase() : undefined,
     }),
     [
       currentMonth,
@@ -1977,7 +1998,8 @@ export default function Planning() {
       try {
         const data = buildPlanningPayload();
         if (planning?.id) {
-          await axios.put(`${API}/planning/${planning.id}`, data);
+          const res = await axios.put(`${API}/planning/${planning.id}`, data);
+          live.applyServer(res.data.affectations, res.data.updated_at, null, data.affectations);
         } else {
           const res = await axios.post(`${API}/planning`, data);
           setPlanning(res.data);
@@ -3238,6 +3260,7 @@ export default function Planning() {
                             return (
                               <td
                                 key={dateIdx}
+                                data-cell={`${activeDay}|${key}|${dateIdx}`}
                                 className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}`}
                                 onClick={() =>
                                   cellModeActive &&
@@ -3585,6 +3608,8 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               <span className="hidden sm:inline">Retour en arrière</span>
             </Button>
           )}
+          <LivePresence users={live.users} />
+          <LiveStyle users={live.users} flashes={live.flashes} cellPrefix={`${activeDay}|`} />
           {canManage() && planningEditMode && (
             <span
               className="text-xs text-muted-foreground flex items-center gap-1 print:hidden"

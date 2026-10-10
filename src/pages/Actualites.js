@@ -329,15 +329,19 @@ export default function Actualites() {
       </div>
     );
 
+  // Affiche entière (jamais recadrée : les titres des affiches restent lisibles), posée sur un fond flou de la même image.
   const Cover = ({ a, className = "", past }) =>
     a.image_url ? (
-      <img
-        src={a.image_url}
-        alt=""
-        loading="lazy"
-        className={`h-full w-full object-cover ${past ? "grayscale-[40%]" : ""} ${className}`}
-        onError={(e) => { e.target.style.display = "none"; }}
-      />
+      <div className="relative h-full w-full overflow-hidden bg-muted">
+        <img src={a.image_url} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl" onError={(e) => { e.target.style.display = "none"; }} />
+        <img
+          src={a.image_url}
+          alt=""
+          loading="lazy"
+          className={`relative h-full w-full object-contain ${past ? "grayscale-[40%]" : ""} ${className}`}
+          onError={(e) => { e.target.style.display = "none"; }}
+        />
+      </div>
     ) : (
       <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-transparent">
         <Newspaper className="h-10 w-10 text-primary/30" />
@@ -562,9 +566,9 @@ export default function Actualites() {
                     onClick={() => setSelected(featured)}
                     data-testid="actualite-featured"
                   >
-                    <div className="relative min-h-[260px] sm:min-h-[320px]">
+                    <div className="relative min-h-[300px] sm:min-h-[380px]">
                       <div className="absolute inset-0"><Cover a={featured} className="transition-transform duration-500 group-hover:scale-[1.02]" /></div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <div className="absolute left-4 top-4 flex items-center gap-2">
                         <DateBlock a={featured} />
                         {featuredIsUpcoming && (

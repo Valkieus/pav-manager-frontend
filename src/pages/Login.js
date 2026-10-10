@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
@@ -17,7 +17,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login, loginWithData } = useAuth();
   const [bioOk, setBioOk] = useState(false);
-  useEffect(() => { passkeySupported().then((ok) => setBioOk(ok && passkeyEnrolledHere())); }, []);
+  const autoTried = useRef(false);
 
   const handleBiometric = async () => {
     setError('');
@@ -34,6 +34,21 @@ export default function Login() {
     }
   };
   const navigate = useNavigate();
+
+  // Face ID / empreinte activé sur cet appareil : on le lance dès l'ouverture
+  // de l'app (une seule fois). Si le navigateur exige un toucher, ou si la
+  // personne annule, le bouton reste disponible.
+  useEffect(() => {
+    passkeySupported().then((ok) => {
+      const enrolled = ok && passkeyEnrolledHere();
+      setBioOk(enrolled);
+      if (enrolled && !autoTried.current) {
+        autoTried.current = true;
+        handleBiometric();
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -49,7 +49,7 @@ export default function BiometricCard() {
     if (!window.confirm(`Retirer « ${p.label} » ? Vous devrez utiliser votre mot de passe sur cet appareil.`)) return;
     await axios.delete(`${API}/auth/passkeys/${p.id}`);
     if (!passkeyEnrolledHere()) load();
-    try { localStorage.removeItem("pav_passkey_enrolled"); } catch (e) { /* ignore */ }
+    try { localStorage.removeItem("pav_passkey_enrolled"); localStorage.removeItem("pav_passkey_cred_id"); } catch (e) { /* ignore */ }
     load();
   };
 

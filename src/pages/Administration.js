@@ -1404,6 +1404,53 @@ export default function Administration() {
     }
   };
 
+  // Instantanés des données : choix du stockage / de la date, téléchargement, restauration des fiches manquantes.
+  const [snapSel, setSnapSel] = useState({}); // { [domaine]: { source, date, dates:[], busy } }
+  const patchSnap = (domain, patch) => setSnapSel((p) => ({ ...p, [domain]: { source: "auto", date: "latest", dates: [], ...(p[domain] || {}), ...patch } }));
+  const loadSnapDates = async (domain, source) => {
+    try {
+      const res = await axios.get(`${API}/admin/infra/data-backup/${domain}/snapshots`, { params: source && source !== "auto" ? { source } : {} });
+      patchSnap(domain, { dates: res.data.dates || [], source: source || "auto", date: "latest" });
+    } catch (err) {
+      patchSnap(domain, { dates: [], source: source || "auto", date: "latest" });
+    }
+  };
+  const snapParams = (domain) => {
+    const sel = snapSel[domain] || {};
+    const params = {};
+    if (sel.source && sel.source !== "auto") params.source = sel.source;
+    if (sel.date && sel.date !== "latest") params.date = sel.date;
+    return params;
+  };
+  const handleSnapDownload = async (domain) => {
+    patchSnap(domain, { busy: "download" });
+    try {
+      const sel = snapSel[domain] || {};
+      const res = await axios.get(`${API}/admin/infra/data-backup/${domain}/download`, { params: snapParams(domain), responseType: "blob" });
+      const filename = `${domain}-${sel.date && sel.date !== "latest" ? sel.date : "latest"}.json.gz`;
+      const status = await downloadOrShareFile(res.data, filename, { title: filename });
+      const msg = downloadStatusMessage(status);
+      if (status === "blocked") toast.error(msg); else toast.success(msg || "Sauvegarde téléchargée");
+    } catch (err) {
+      toast.error("Téléchargement impossible : cet instantané n'est pas disponible sur ce stockage");
+    } finally {
+      patchSnap(domain, { busy: null });
+    }
+  };
+  const handleSnapRestore = async (domain) => {
+    if (!window.confirm(`Restaurer les fiches manquantes de « ${domain} » depuis cette sauvegarde ?\nAucune fiche existante n'est modifiée ni supprimée : seules les fiches absentes sont ajoutées.`)) return;
+    patchSnap(domain, { busy: "restore" });
+    try {
+      const res = await axios.post(`${API}/admin/infra/data-restore`, null, { params: { domain, ...snapParams(domain) } });
+      const total = Object.values(res.data.restaurees || {}).reduce((a, b) => a + b, 0);
+      toast.success(total ? `${total} fiche(s) restaurée(s) depuis ${res.data.source}` : `Rien à restaurer : toutes les fiches sont déjà présentes (${res.data.source})`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Restauration impossible");
+    } finally {
+      patchSnap(domain, { busy: null });
+    }
+  };
+
   const fetchR2Status = async () => {
     try {
       const res = await axios.get(`${API}/admin/infra/r2-status`);
@@ -5843,6 +5890,35 @@ même limite pour éviter un 403 après coup. */}
                                   {t.ok ? "✓" : "✗"} {t.cible}
                                 </span>
                               ))}
+                            </div>
+                          )}
+                          {isSuperAdmin() && (
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                              <select
+                                className="h-7 rounded-md border border-input bg-background px-2 text-[11px]"
+                                value={snapSel[name]?.source || "auto"}
+                                onChange={(e) => loadSnapDates(name, e.target.value)}
+                                aria-label="Stockage"
+                              >
+                                <option value="auto">Stockage : automatique</option>
+                                {(dataBackup.stockages || []).map((st) => <option key={st} value={st}>{st}</option>)}
+                              </select>
+                              <select
+                                className="h-7 rounded-md border border-input bg-background px-2 text-[11px]"
+                                value={snapSel[name]?.date || "latest"}
+                                onFocus={() => { if (!(snapSel[name]?.dates || []).length) loadSnapDates(name, snapSel[name]?.source || "auto"); }}
+                                onChange={(e) => patchSnap(name, { date: e.target.value })}
+                                aria-label="Date de la sauvegarde"
+                              >
+                                <option value="latest">Dernière sauvegarde</option>
+                                {(snapSel[name]?.dates || []).filter((x) => x !== "latest").map((x) => <option key={x} value={x}>{x}</option>)}
+                              </select>
+                              <Button size="sm" variant="outline" className="h-7 text-[11px]" disabled={!!snapSel[name]?.busy} onClick={() => handleSnapDownload(name)}>
+                                {snapSel[name]?.busy === "download" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Download className="mr-1 h-3 w-3" />} Télécharger
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 text-[11px]" disabled={!!snapSel[name]?.busy} onClick={() => handleSnapRestore(name)}>
+                                {snapSel[name]?.busy === "restore" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />} Restaurer les fiches manquantes
+                              </Button>
                             </div>
                           )}
                           {d.warning && <p className="mt-1 text-amber-600">{d.warning}</p>}

@@ -65,6 +65,7 @@ import {
   PlusSquare,
   ArrowDown,
   Lightbulb,
+  FlaskConical,
 } from "lucide-react";
 import {
   isPushSupported,
@@ -1205,6 +1206,24 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
 
         {/* Page Content */}
         <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8">
+          {user?.beta_tester && (
+            <div
+              className="mb-4 flex items-start gap-3 rounded-xl border-2 border-violet-500 bg-violet-500/10 p-3 text-sm text-violet-900 dark:text-violet-200"
+              data-testid="beta-banner"
+              role="status"
+            >
+              <FlaskConical className="mt-0.5 h-5 w-5 shrink-0 text-violet-600 dark:text-violet-300" />
+              <div>
+                <p className="font-semibold">Vous êtes bêta testeur</p>
+                <p>
+                  Toute action faite ici n'impacte pas la production : vous travaillez sur une copie de test.
+                  {user.beta_until
+                    ? ` Accès bêta jusqu'au ${new Date(user.beta_until).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}.`
+                    : ""}
+                </p>
+              </div>
+            </div>
+          )}
           {viewAs && (
             <div className="mb-4 flex flex-col gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white sm:flex-row sm:items-center sm:justify-between" data-testid="view-as-banner">
               <span className="flex items-center gap-2">

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { ServerLoadCard, CloudinaryAccountsCard } from "../components/SupervisionExtras";
+import BetaTesters from "../components/BetaTesters";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -3781,6 +3782,7 @@ même limite pour éviter un 403 après coup. */}
         {/* GROUPS TAB — not exposed to Admin (lecture seule) */}
         {!isReadOnlyAdmin && (
           <TabsContent value="groups" className="space-y-4">
+            {isSuperAdmin() && <BetaTesters users={users} />}
             <div className="flex justify-end">
               <Dialog
                 open={groupDialogOpen}

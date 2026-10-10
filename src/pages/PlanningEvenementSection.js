@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useLiveDoc, LivePresence, LiveStyle } from '../lib/useLiveDoc';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
@@ -50,6 +51,7 @@ function FloatingBanner({ children, tone = 'amber' }) {
 
 const apiToCurrent = (d) => ({
   id: d.id,
+  updated_at: d.updated_at,
   titre: d.titre,
   rdv: d.rdv || '',
   modele: d.modele || null,
@@ -61,7 +63,7 @@ const apiToCurrent = (d) => ({
   blocked_cells: d.blocked_cells || {},
 });
 
-const currentToPayload = (c) => {
+const currentToPayload = (c, base) => {
   const n = c.cols.length;
   const ids = colsToIds(c.cols);
   const fill = (obj, empty) => Object.fromEntries(
@@ -81,6 +83,7 @@ const currentToPayload = (c) => {
     col_labels: Object.fromEntries(c.cols.map((x, i) => [ids[i], x.label || '']).filter(([, l]) => l)),
     rdv: c.rdv || null,
     modele: c.modele || null,
+    base_affectations: base,
   };
 };
 
@@ -452,7 +455,7 @@ export default function PlanningEvenementSection({ onBack, technicienNames = [],
     if (!current.titre.trim()) { toast.error('Titre requis'); return; }
     setSaving(true);
     try {
-      const res = await axios.put(`${API}/planning-evenements/${current.id}`, currentToPayload(current));
+      const res = await axios.put(`${API}/planning-evenements/${current.id}`, currentToPayload(current, live.getBase()));
       setCurrent(apiToCurrent(res.data));
       toast.success('Enregistré');
     } catch (err) {
@@ -502,6 +505,47 @@ export default function PlanningEvenementSection({ onBack, technicienNames = [],
   };
 
   const groups = useMemo(() => (current ? groupRoles(current.sections, current.roles) : []), [current]);
+
+  // Édition à plusieurs en direct (présence, cases des collègues, enregistrement auto).
+  const currentRef = useRef(null);
+  currentRef.current = current;
+  const live = useLiveDoc({
+    kind: 'evenement',
+    id: view === 'editor' ? current?.id : null,
+    enabled: view === 'editor' && !!current?.id,
+    getLocal: () => (currentRef.current ? currentRef.current.affectations : {}),
+    onApply: (merged) => setCurrent((p) => (p ? { ...p, affectations: merged } : p)),
+  });
+  const liveSync = live.sync;
+  const lastSavedRef = useRef('');
+  useEffect(() => {
+    if (current?.id) {
+      liveSync(current.updated_at, current.affectations);
+      lastSavedRef.current = JSON.stringify(current.affectations);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id, current?.updated_at, liveSync]);
+  const autosaveTimer = useRef(null);
+  useEffect(() => {
+    if (view !== 'editor' || !current?.id) return undefined;
+    const snap = JSON.stringify(current.affectations);
+    if (snap === lastSavedRef.current) return undefined;
+    clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(async () => {
+      const c = currentRef.current;
+      if (!c || !c.titre.trim()) return;
+      try {
+        const payload = currentToPayload(c, live.getBase());
+        const res = await axios.put(`${API}/planning-evenements/${c.id}`, payload);
+        lastSavedRef.current = JSON.stringify(c.affectations);
+        live.applyServer(res.data.affectations, res.data.updated_at, null, payload.affectations);
+      } catch {
+        // l'enregistrement manuel reste disponible
+      }
+    }, 1500);
+    return () => clearTimeout(autosaveTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.affectations, view]);
 
   // ==================== VUE LISTE ====================
   if (view === 'list') {
@@ -635,6 +679,8 @@ export default function PlanningEvenementSection({ onBack, technicienNames = [],
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <LivePresence users={live.users} />
+          <LiveStyle users={live.users} flashes={live.flashes} />
           <Button variant="outline" onClick={handlePrint} className="flex-1 sm:flex-none">
             <Printer className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Imprimer</span>
           </Button>
@@ -746,6 +792,7 @@ export default function PlanningEvenementSection({ onBack, technicienNames = [],
                             return (
                               <td
                                 key={ci}
+                                data-cell={`${affKey}|${ci}`}
                                 className={`${cellBorder} p-0.5 text-center ${blocked ? 'bg-gray-300' : 'bg-white'} ${blockMode ? 'cursor-pointer' : ''}`}
                                 onClick={() => cellClick(affKey, ci)}
                               >

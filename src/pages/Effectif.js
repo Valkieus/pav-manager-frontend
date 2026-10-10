@@ -1713,12 +1713,17 @@ export default function Effectif() {
                               return <span key={b} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${c.bg} ${c.text} ${c.border}`}><span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />{b}</span>;
                             })}
                             {branches.length > 3 && <span className="text-[11px] text-muted-foreground">+{branches.length - 3}</span>}
-                            {tech.niveau_technicien && <Badge className={`${getNiveauColor(tech.niveau_technicien)} ml-auto border-0 text-[11px]`}>{tech.niveau_technicien}</Badge>}
                           </div>
-                          {(tech.telephone || tech.email) && (
-                            <div className="flex items-center gap-1 border-t pt-2">
-                              {tech.telephone && <a href={`tel:${tech.telephone}`} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-muted"><Phone className="h-3.5 w-3.5" />{tech.telephone}</a>}
-                              {tech.email && <a href={`mailto:${tech.email}`} onClick={(e) => e.stopPropagation()} className="ml-auto rounded-md p-1.5 hover:bg-muted" title={tech.email}><Mail className="h-3.5 w-3.5" /></a>}
+                          {/* Niveau toujours sur sa propre ligne (jamais collé aux branches), contacts à droite */}
+                          {(tech.niveau_technicien || tech.telephone || tech.email) && (
+                            <div className="flex flex-wrap items-center justify-between gap-1 border-t pt-2">
+                              <span>
+                                {tech.niveau_technicien && <Badge className={`${getNiveauColor(tech.niveau_technicien)} border-0 text-[11px]`}>{tech.niveau_technicien}</Badge>}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                {tech.telephone && <a href={`tel:${tech.telephone}`} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-muted"><Phone className="h-3.5 w-3.5" />{tech.telephone}</a>}
+                                {tech.email && <a href={`mailto:${tech.email}`} onClick={(e) => e.stopPropagation()} className="rounded-md p-1.5 hover:bg-muted" title={tech.email}><Mail className="h-3.5 w-3.5" /></a>}
+                              </span>
                             </div>
                           )}
                         </CardContent>

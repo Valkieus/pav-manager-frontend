@@ -51,6 +51,11 @@ import {
   ChevronDown,
   FileSpreadsheet,
   FileText,
+  LayoutGrid,
+  List as ListIcon,
+  Phone,
+  Mail,
+  FilterX,
 } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
 import jsPDF from "jspdf";
@@ -135,6 +140,8 @@ const BRANCH_COLORS = {
   },
 };
 
+const NIVEAU_ORDER = { Expert: 0, Confirmé: 1, Intermédiaire: 2, Débutant: 3, Novice: 4 };
+
 const getBranchColor = (branche) =>
   BRANCH_COLORS[branche] || {
     bg: "bg-gray-100",
@@ -164,6 +171,12 @@ export default function Effectif() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterBranche, setFilterBranche] = useState("all");
   const [filterBadge, setFilterBadge] = useState("all"); // 'all' | 'avec' | 'sans' — KPI badge (#302)
+  // Présentation de la liste (mémorisée sur l'appareil) : cartes ou liste, tri, regroupement.
+  const readPref = (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
+  const [viewMode, setViewMode] = useState(() => readPref("effectif_view", "cards"));
+  const [sortBy, setSortBy] = useState(() => readPref("effectif_sort", "nom"));
+  const [groupBy, setGroupBy] = useState(() => readPref("effectif_group", "none"));
+  const savePref = (k, v, set) => { set(v); try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } };
   const [exportingListXlsx, setExportingListXlsx] = useState(false); // #578
   const [exportingFichePdf, setExportingFichePdf] = useState(false); // #578
   const [form, setForm] = useState({
@@ -726,9 +739,12 @@ export default function Effectif() {
 
   const filteredTechniciens = useMemo(() => {
     return techniciens.filter((t) => {
-      const matchSearch = t.nom
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
+      const q = searchTerm.trim().toLowerCase();
+      const matchSearch =
+        q === "" ||
+        [t.nom, t.poste_principal, t.telephone, t.email, ...(t.postes_secondaires || [])]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q));
       const branches = t.branches || [];
       const matchBranche =
         filterBranche === "all" || branches.includes(filterBranche);
@@ -739,6 +755,32 @@ export default function Effectif() {
       return matchSearch && matchBranche && matchBadge;
     });
   }, [techniciens, searchTerm, filterBranche, filterBadge]);
+
+  const sortedTechniciens = useMemo(() => {
+    const list = [...filteredTechniciens];
+    const byNom = (x, y) => (x.nom || "").localeCompare(y.nom || "", "fr", { sensitivity: "base" });
+    if (sortBy === "branche") list.sort((x, y) => ((x.branches || [])[0] || "~").localeCompare((y.branches || [])[0] || "~", "fr") || byNom(x, y));
+    else if (sortBy === "poste") list.sort((x, y) => (x.poste_principal || "~").localeCompare(y.poste_principal || "~", "fr") || byNom(x, y));
+    else if (sortBy === "niveau") list.sort((x, y) => (NIVEAU_ORDER[x.niveau_technicien] ?? 9) - (NIVEAU_ORDER[y.niveau_technicien] ?? 9) || byNom(x, y));
+    else list.sort(byNom);
+    return list;
+  }, [filteredTechniciens, sortBy]);
+
+  const groupedTechniciens = useMemo(() => {
+    if (groupBy === "none") return [{ key: "all", title: null, items: sortedTechniciens }];
+    const map = new Map();
+    sortedTechniciens.forEach((t) => {
+      const key = groupBy === "branche" ? (t.branches || [])[0] || "Sans branche"
+        : groupBy === "poste" ? t.poste_principal || "Sans poste principal"
+        : (t.nom || "?").charAt(0).toUpperCase();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(t);
+    });
+    return [...map.entries()].map(([key, items]) => ({ key, title: key, items }));
+  }, [sortedTechniciens, groupBy]);
+
+  const filtersActive = searchTerm !== "" || filterBranche !== "all" || filterBadge !== "all";
+  const resetFilters = () => { setSearchTerm(""); setFilterBranche("all"); setFilterBadge("all"); };
 
   // ---------------------------------------------------------------------
   // Export XLSX (liste complète, filtrée par recherche/branche/badge comme
@@ -1496,181 +1538,233 @@ export default function Effectif() {
         </div>
       </div>
 
-      {/* KPI badges (tâche #302) — vue d'ensemble qui a / n'a pas de badge.
-          Cliquer une carte filtre la liste ; recliquer revient à "tous". */}
-      {!loading && canManageBadges() && badgeCounts.total > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <Card
-            onClick={() =>
-              setFilterBadge(filterBadge === "avec" ? "all" : "avec")
-            }
-            className={`bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 ${filterBadge === "avec" ? "ring-2 ring-offset-1 ring-primary" : ""}`}
-          >
-            <CardContent className="p-3 text-center">
-              <IdCard className="w-4 h-4 mx-auto mb-1 text-emerald-600" />
-              <p className="font-semibold text-lg text-emerald-700 dark:text-emerald-400">
-                {badgeCounts.avec}
-              </p>
-              <p className="text-xs text-emerald-700 dark:text-emerald-400 opacity-80">
-                Avec badge
-              </p>
-            </CardContent>
-          </Card>
-          <Card
-            onClick={() =>
-              setFilterBadge(filterBadge === "sans" ? "all" : "sans")
-            }
-            className={`bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 ${filterBadge === "sans" ? "ring-2 ring-offset-1 ring-primary" : ""}`}
-          >
-            <CardContent className="p-3 text-center">
-              <IdCard className="w-4 h-4 mx-auto mb-1 text-amber-600" />
-              <p className="font-semibold text-lg text-amber-700 dark:text-amber-400">
-                {badgeCounts.sans}
-              </p>
-              <p className="text-xs text-amber-700 dark:text-amber-400 opacity-80">
-                Sans badge
-              </p>
-            </CardContent>
-          </Card>
-          {badgeCounts.enAttente > 0 && (
-            <Card className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900">
-              <CardContent className="p-3 text-center">
-                <Send className="w-4 h-4 mx-auto mb-1 text-blue-600" />
-                <p className="font-semibold text-lg text-blue-700 dark:text-blue-400">
-                  {badgeCounts.enAttente}
-                </p>
-                <p className="text-xs text-blue-700 dark:text-blue-400 opacity-80">
-                  Demande(s) en attente
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+      {/* Barre d'outils : recherche, filtres en pastilles (branches + badge), vue, tri, regroupement */}
+      {!loading && (
+        <Card data-testid="effectif-toolbar">
+          <CardContent className="space-y-3 p-3 sm:p-4">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher un nom, un poste, un téléphone…"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                  data-testid="effectif-search"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={sortBy} onValueChange={(v) => savePref("effectif_sort", v, setSortBy)}>
+                  <SelectTrigger className="w-[150px]" aria-label="Trier"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nom">Trier : nom</SelectItem>
+                    <SelectItem value="branche">Trier : branche</SelectItem>
+                    <SelectItem value="poste">Trier : poste</SelectItem>
+                    <SelectItem value="niveau">Trier : niveau</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={groupBy} onValueChange={(v) => savePref("effectif_group", v, setGroupBy)}>
+                  <SelectTrigger className="w-[160px]" aria-label="Regrouper"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sans regroupement</SelectItem>
+                    <SelectItem value="lettre">Par lettre</SelectItem>
+                    <SelectItem value="branche">Par branche</SelectItem>
+                    <SelectItem value="poste">Par poste</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="inline-flex rounded-md border p-0.5" role="group" aria-label="Affichage">
+                  <Button type="button" size="sm" variant={viewMode === "cards" ? "secondary" : "ghost"} className="h-8 px-2" onClick={() => savePref("effectif_view", "cards", setViewMode)} title="Cartes" data-testid="effectif-view-cards">
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" size="sm" variant={viewMode === "table" ? "secondary" : "ghost"} className="h-8 px-2" onClick={() => savePref("effectif_view", "table", setViewMode)} title="Liste" data-testid="effectif-view-table">
+                    <ListIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
 
-      {/* Overview par branche — cliquer une carte filtre la liste sur cette
-          branche ; recliquer la même carte revient à "toutes les branches". */}
-      {!loading && Object.keys(branchCounts).length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-          {Object.entries(branchCounts).map(([branche, count]) => {
-            const colors = getBranchColor(branche);
-            const isActive = filterBranche === branche;
-            return (
-              <Card
-                key={branche}
-                onClick={() => setFilterBranche(isActive ? "all" : branche)}
-                className={`${colors.bg} border ${colors.border} cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 ${isActive ? "ring-2 ring-offset-1 ring-primary" : ""}`}
+            <div className="flex flex-wrap items-center gap-1.5" data-testid="effectif-chips">
+              <button
+                type="button"
+                onClick={() => setFilterBranche("all")}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${filterBranche === "all" ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted"}`}
               >
-                <CardContent className="p-3 text-center">
-                  <div
-                    className={`w-3 h-3 rounded-full ${colors.dot} mx-auto mb-1`}
-                  />
-                  <p className={`font-semibold text-lg ${colors.text}`}>
-                    {count}
-                  </p>
-                  <p className={`text-xs ${colors.text} opacity-80`}>
-                    {branche}
-                  </p>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                Toutes ({techniciens.length})
+              </button>
+              {Object.entries(branchCounts).map(([branche, count]) => {
+                const c = getBranchColor(branche);
+                const active = filterBranche === branche;
+                return (
+                  <button
+                    key={branche}
+                    type="button"
+                    onClick={() => setFilterBranche(active ? "all" : branche)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${active ? `${c.bg} ${c.text} ${c.border} ring-2 ring-primary/40` : "hover:bg-muted"}`}
+                  >
+                    <span className={`h-2 w-2 rounded-full ${c.dot}`} />
+                    {branche} <span className="opacity-70">{count}</span>
+                  </button>
+                );
+              })}
+              {canManageBadges() && badgeCounts.total > 0 && (
+                <>
+                  <span className="mx-1 hidden h-5 w-px bg-border sm:inline-block" />
+                  <button
+                    type="button"
+                    onClick={() => setFilterBadge(filterBadge === "avec" ? "all" : "avec")}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${filterBadge === "avec" ? "border-emerald-400 bg-emerald-100 text-emerald-800 ring-2 ring-primary/40 dark:bg-emerald-900/30 dark:text-emerald-300" : "hover:bg-muted"}`}
+                  >
+                    <IdCard className="h-3.5 w-3.5 text-emerald-600" /> Avec badge <span className="opacity-70">{badgeCounts.avec}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterBadge(filterBadge === "sans" ? "all" : "sans")}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${filterBadge === "sans" ? "border-amber-400 bg-amber-100 text-amber-800 ring-2 ring-primary/40 dark:bg-amber-900/30 dark:text-amber-300" : "hover:bg-muted"}`}
+                  >
+                    <IdCard className="h-3.5 w-3.5 text-amber-600" /> Sans badge <span className="opacity-70">{badgeCounts.sans}</span>
+                  </button>
+                  {badgeCounts.enAttente > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800 dark:bg-blue-950/30 dark:text-blue-300">
+                      <Send className="h-3.5 w-3.5" /> {badgeCounts.enAttente} demande(s) en attente
+                    </span>
+                  )}
+                </>
+              )}
+              {filtersActive && (
+                <Button type="button" size="sm" variant="ghost" className="ml-auto h-7 text-xs" onClick={resetFilters}>
+                  <FilterX className="mr-1 h-3.5 w-3.5" /> Réinitialiser
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher par nom..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={filterBranche} onValueChange={setFilterBranche}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Toutes les branches" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Toutes les branches</SelectItem>
-            {enums.branches?.map((b) => (
-              <SelectItem key={b} value={b}>
-                {b}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Cards Grid */}
+      {/* Liste */}
       {loading ? (
         <div className="flex items-center justify-center min-h-[300px]">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      ) : filteredTechniciens.length === 0 ? (
+      ) : sortedTechniciens.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
             <Users className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
             <p className="text-muted-foreground">Aucun technicien trouvé</p>
+            {filtersActive && (
+              <Button variant="outline" size="sm" className="mt-3" onClick={resetFilters}>Réinitialiser les filtres</Button>
+            )}
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {filteredTechniciens.map((tech) => {
-            const mainBranch = (tech.branches || [])[0];
-            const branchColor = getBranchColor(mainBranch);
-            return (
-              <Card
-                key={tech.id}
-                className={`cursor-pointer card-hover border-l-4 ${branchColor.border}`}
-                onClick={() => handleCardClick(tech)}
-                data-testid={`tech-card-${tech.id}`}
-              >
-                <CardContent className="p-4 text-center">
-                  <div
-                    className={`w-12 h-12 mx-auto rounded-full ${branchColor.bg} flex items-center justify-center mb-3`}
-                  >
-                    <span
-                      className={`${branchColor.text} font-semibold text-lg`}
-                    >
-                      {tech.nom.charAt(0)}
-                    </span>
+        <div className="space-y-6">
+          {groupedTechniciens.map((g) => (
+            <section key={g.key} className="space-y-2">
+              {g.title && (
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                  {groupBy === "branche" && <span className={`h-2.5 w-2.5 rounded-full ${getBranchColor(g.title).dot}`} />}
+                  {g.title}
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">{g.items.length}</span>
+                </h2>
+              )}
+              {viewMode === "table" ? (
+                <Card className="overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[640px] text-sm">
+                      <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">Nom</th>
+                          <th className="px-3 py-2 font-medium">Branches</th>
+                          <th className="px-3 py-2 font-medium">Poste</th>
+                          <th className="px-3 py-2 font-medium">Niveau</th>
+                          <th className="px-3 py-2 font-medium">Badge</th>
+                          <th className="px-3 py-2 font-medium">Contact</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {g.items.map((tech) => {
+                          const bc = getBranchColor((tech.branches || [])[0]);
+                          return (
+                            <tr
+                              key={tech.id}
+                              className="cursor-pointer border-t transition hover:bg-muted/40"
+                              onClick={() => handleCardClick(tech)}
+                              data-testid={`tech-card-${tech.id}`}
+                            >
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${bc.bg} ${bc.text}`}>{(tech.nom || "?").charAt(0)}</span>
+                                  <span className="font-medium">{tech.nom}</span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex flex-wrap gap-1">
+                                  {(tech.branches || []).length === 0 ? <span className="text-xs text-muted-foreground">—</span> : (tech.branches || []).map((b) => {
+                                    const c = getBranchColor(b);
+                                    return <span key={b} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${c.bg} ${c.text} ${c.border}`}><span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />{b}</span>;
+                                  })}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2">{tech.poste_principal || <span className="text-muted-foreground">—</span>}</td>
+                              <td className="px-3 py-2">{tech.niveau_technicien ? <Badge className={`${getNiveauColor(tech.niveau_technicien)} border-0`}>{tech.niveau_technicien}</Badge> : <span className="text-muted-foreground">—</span>}</td>
+                              <td className="px-3 py-2"><IdCard className={`h-4 w-4 ${tech.badge_attribue ? "text-emerald-500" : "text-muted-foreground/30"}`} /></td>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-1">
+                                  {tech.telephone && <a href={`tel:${tech.telephone}`} onClick={(e) => e.stopPropagation()} className="rounded p-1.5 hover:bg-muted" title={tech.telephone}><Phone className="h-4 w-4" /></a>}
+                                  {tech.email && <a href={`mailto:${tech.email}`} onClick={(e) => e.stopPropagation()} className="rounded p-1.5 hover:bg-muted" title={tech.email}><Mail className="h-4 w-4" /></a>}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                  <p className="font-medium text-sm truncate">{tech.nom}</p>
-                  {/* Colored branch "bubble" — the branch name itself, not just
-                      a color, so it's identifiable at a glance without having
-                      to open the card or filter by branch first. */}
-                  <div className="mt-2 flex justify-center">
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium truncate max-w-full ${branchColor.bg} ${branchColor.text} ${branchColor.border}`}
-                      title={
-                        (tech.branches || []).join(", ") || "Aucune branche"
-                      }
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${branchColor.dot}`}
-                      />
-                      <span className="truncate">
-                        {mainBranch || "Sans branche"}
-                      </span>
-                      {(tech.branches || []).length > 1 && (
-                        <span className="shrink-0">
-                          +{tech.branches.length - 1}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 flex justify-center items-center gap-2">
-                    <IdCard
-                      className={`w-4 h-4 ${tech.badge_attribue ? "text-emerald-500" : "text-muted-foreground/30"}`}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {g.items.map((tech) => {
+                    const branches = tech.branches || [];
+                    const bc = getBranchColor(branches[0]);
+                    return (
+                      <Card
+                        key={tech.id}
+                        className={`cursor-pointer card-hover border-l-4 ${bc.border}`}
+                        onClick={() => handleCardClick(tech)}
+                        data-testid={`tech-card-${tech.id}`}
+                      >
+                        <CardContent className="space-y-2 p-3">
+                          <div className="flex items-center gap-3">
+                            <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg font-semibold ${bc.bg} ${bc.text}`}>{(tech.nom || "?").charAt(0)}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-semibold leading-tight">{tech.nom}</p>
+                              <p className="truncate text-xs text-muted-foreground">{tech.poste_principal || "Poste non renseigné"}</p>
+                            </div>
+                            <IdCard className={`h-4 w-4 shrink-0 ${tech.badge_attribue ? "text-emerald-500" : "text-muted-foreground/30"}`} title={tech.badge_attribue ? "Badge attribué" : "Sans badge"} />
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1">
+                            {branches.length === 0 ? (
+                              <span className="text-[11px] text-muted-foreground">Sans branche</span>
+                            ) : branches.slice(0, 3).map((b) => {
+                              const c = getBranchColor(b);
+                              return <span key={b} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${c.bg} ${c.text} ${c.border}`}><span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />{b}</span>;
+                            })}
+                            {branches.length > 3 && <span className="text-[11px] text-muted-foreground">+{branches.length - 3}</span>}
+                            {tech.niveau_technicien && <Badge className={`${getNiveauColor(tech.niveau_technicien)} ml-auto border-0 text-[11px]`}>{tech.niveau_technicien}</Badge>}
+                          </div>
+                          {(tech.telephone || tech.email) && (
+                            <div className="flex items-center gap-1 border-t pt-2">
+                              {tech.telephone && <a href={`tel:${tech.telephone}`} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-muted"><Phone className="h-3.5 w-3.5" />{tech.telephone}</a>}
+                              {tech.email && <a href={`mailto:${tech.email}`} onClick={(e) => e.stopPropagation()} className="ml-auto rounded-md p-1.5 hover:bg-muted" title={tech.email}><Mail className="h-3.5 w-3.5" /></a>}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          ))}
         </div>
       )}
 

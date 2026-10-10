@@ -475,7 +475,7 @@ const NOTIFICATION_DEFAULT_HINTS = {
   planning_publie: "Les personnes concernées",
   absence: "Coordination, Responsable de branche",
   actualite: "Tous les utilisateurs",
-  retard: "Paul, Delphine, Winchel, responsable(s) de branche",
+  retard: "Paul, Delphine, Winchel, superviseur du jour (planning), responsable(s) de branche",
   maintenance: "Rôles impactés par le mode maintenance",
   academy_assignment: "L'élève assigné",
   academy_correction: "Examinateur + Coordination",

@@ -2,6 +2,12 @@ import axios from "axios";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const ENROLLED_KEY = "pav_passkey_enrolled";
+// Identifiant de la clé Face ID de cet appareil : permet de lancer Face ID
+// directement, sans afficher la liste des « passkeys » à choisir.
+const CRED_KEY = "pav_passkey_cred_id";
+const savedCredId = () => { try { return localStorage.getItem(CRED_KEY); } catch (e) { return null; } };
+const saveCredId = (id) => { try { localStorage.setItem(CRED_KEY, id); } catch (e) { /* ignore */ } };
+export const forgetPasskeyCredId = () => { try { localStorage.removeItem(CRED_KEY); } catch (e) { /* ignore */ } };
 
 const toBuf = (b64u) => {
   const pad = "=".repeat((4 - (b64u.length % 4)) % 4);
@@ -52,16 +58,23 @@ export async function enrollPasskey(label) {
     },
   });
   try { localStorage.setItem(ENROLLED_KEY, "1"); } catch (e) { /* ignore */ }
+  saveCredId(cred.id);
 }
 
 // Connexion par Face ID / empreinte : renvoie { access_token, user } comme la connexion classique.
 export async function passkeyLogin() {
   const { data } = await axios.post(`${API}/auth/passkey/login/options`);
   const o = data.options;
+  const preferred = savedCredId();
+  const allow = preferred
+    ? [{ type: "public-key", id: toBuf(preferred) }]
+    : (o.allowCredentials || []).map((c) => ({ ...c, id: toBuf(c.id) }));
   const cred = await navigator.credentials.get({
-    publicKey: { ...o, challenge: toBuf(o.challenge), allowCredentials: (o.allowCredentials || []).map((c) => ({ ...c, id: toBuf(c.id) })) },
+    publicKey: { ...o, challenge: toBuf(o.challenge), allowCredentials: allow },
   });
-  const res = await axios.post(`${API}/auth/passkey/login/verify`, {
+  let res;
+  try {
+    res = await axios.post(`${API}/auth/passkey/login/verify`, {
     challenge_id: data.challenge_id,
     credential: {
       id: cred.id,
@@ -77,5 +90,11 @@ export async function passkeyLogin() {
       },
     },
   });
+  } catch (err) {
+    // Clé introuvable côté serveur (supprimée…) : on oublie l'identifiant mémorisé.
+    if (preferred) forgetPasskeyCredId();
+    throw err;
+  }
+  saveCredId(cred.id);
   return res.data;
 }

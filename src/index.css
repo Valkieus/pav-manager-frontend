@@ -219,7 +219,9 @@
         -webkit-tap-highlight-color: transparent;
     }
     body {
-        overflow-x: hidden;
+        /* pas d'overflow ici : « overflow-x: hidden » sur body en fait un conteneur
+           de défilement et empêche la barre latérale (position: sticky) de rester
+           collée ; le blocage du défilement horizontal est assuré par html. */
         overscroll-behavior-x: none;
         min-height: 100vh;
         min-height: 100dvh;

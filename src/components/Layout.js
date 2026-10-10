@@ -854,9 +854,9 @@ export const Layout = ({ children }) => {
 
       {/* Sidebar */}
       <aside
-        style={{ height: "100dvh", paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", paddingLeft: "env(safe-area-inset-left)" }}
+        style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", paddingLeft: "env(safe-area-inset-left)" }}
         className={`
-fixed lg:sticky top-0 left-0 z-50 h-screen w-72 sm:w-64
+fixed top-0 bottom-0 left-0 z-50 w-72 sm:w-64
 bg-card border-r border-border
 transform transition-transform duration-300 ease-in-out
 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
@@ -995,7 +995,7 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen min-w-0">
+      <div className="flex-1 flex flex-col min-h-screen min-w-0 lg:pl-64">
         {/* Header */}
         <header style={{ paddingTop: "env(safe-area-inset-top)" }} className="sticky top-0 z-30 bg-background/80 backdrop-blur-lg border-b border-border">
           <div className="flex items-center justify-between px-3 sm:px-4 md:px-6 h-14 sm:h-16">

@@ -2881,10 +2881,13 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                     <TableCell className="align-top">
                                       {(() => {
                                         const pr = principauxFor(s);
-                                        if (!pr.names.length) return null;
+                                        // Le principal déjà présent dans l'équipe n'est pas répété : son badge porte l'étoile.
+                                        const inTeam = new Set((s.equipe || []).filter((m) => (m.nom || '').trim()).map((m) => canonName(m.nom).toLowerCase()));
+                                        const solo = pr.names.filter((n) => !inTeam.has(canonName(n).toLowerCase()));
+                                        if (!solo.length) return null;
                                         return (
                                           <div className="mb-1 flex flex-wrap gap-1" title={pr.auto ? 'Cadreur principal prévu' : 'Cadreur principal'}>
-                                            {pr.names.map((n) => (
+                                            {solo.map((n) => (
                                               <span key={n} className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
                                                 ★ {n}
                                               </span>
@@ -2899,9 +2902,10 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                             .map((m, i) => (
                                               <span
                                                 key={i}
-                                                className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-xs"
-                                                title={ROLE_LABELS_FULL[(m.role || '').trim().toUpperCase()] || m.role || ''}
+                                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${principauxFor(s).names.some((n) => canonName(n).toLowerCase() === canonName(m.nom).toLowerCase()) ? 'border-primary/40 bg-primary/10 font-bold text-primary' : 'bg-background'}`}
+                                                title={principauxFor(s).names.some((n) => canonName(n).toLowerCase() === canonName(m.nom).toLowerCase()) ? `Cadreur principal — ${ROLE_LABELS_FULL[(m.role || '').trim().toUpperCase()] || m.role || ''}` : (ROLE_LABELS_FULL[(m.role || '').trim().toUpperCase()] || m.role || '')}
                                               >
+                                                {principauxFor(s).names.some((n) => canonName(n).toLowerCase() === canonName(m.nom).toLowerCase()) && '★'}
                                                 {m.role && (
                                                   <span className="font-bold text-primary">{(m.role || '').trim().toUpperCase().slice(0, 1)}</span>
                                                 )}

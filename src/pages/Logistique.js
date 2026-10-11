@@ -2718,7 +2718,7 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                             <p className="text-sm text-muted-foreground">Aucun culte enregistré sur ce poste</p>
                           </div>
                         ) : (
-                          <Table className="min-w-[900px]">
+                          <Table className="min-w-[760px]">
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="whitespace-nowrap min-w-[120px]">Date</TableHead>
@@ -2726,8 +2726,6 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                 <TableHead className="min-w-[150px]">Cadreurs</TableHead>
                                 <TableHead className="min-w-[200px]">Commentaire</TableHead>
                                 <TableHead className="whitespace-nowrap min-w-[110px]">Horaires</TableHead>
-                                <TableHead className="text-center min-w-[60px]">Éq.</TableHead>
-                                <TableHead className="text-right min-w-[110px]">Actions</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -2745,7 +2743,7 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                     const open = isYearOpen(yearKey, year);
                                     rows.push(
                                       <TableRow key={`year-${yearKey}`} className="bg-muted/50 hover:bg-muted cursor-pointer touch-manipulation" onClick={(e) => setYearOpen(poste, year, !open, e.currentTarget)}>
-                                        <TableCell colSpan={7} className="p-0 cursor-pointer">
+                                        <TableCell colSpan={5} className="p-0 cursor-pointer">
                                           {/* Vrai bouton (et non clic sur la ligne) : fiable au toucher sur iPad. */}
                                           <button
                                             type="button"
@@ -2776,7 +2774,7 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                     const pillKey = `${poste}__${currentYear}`;
                                     rows.push(
                                       <TableRow key={`pills-${poste}-${currentYear}`} className="hover:bg-transparent">
-                                        <TableCell colSpan={7} className="p-3">
+                                        <TableCell colSpan={5} className="p-3">
                                           <div className="flex flex-wrap items-center gap-2" data-testid="month-pills">
                                             {/* Liste déroulante native : fiable au toucher, même choix que les pastilles. */}
                                             <select
@@ -2835,14 +2833,14 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                 <Fragment key={s.id}>
                                   {thisWe && wkFirst && (
                                     <TableRow className="hover:bg-transparent">
-                                      <TableCell colSpan={7} className="border-4 border-blue-600 bg-blue-600 px-3 py-1.5 text-sm font-extrabold uppercase tracking-wider text-white">
+                                      <TableCell colSpan={5} className="border-4 border-blue-600 bg-blue-600 px-3 py-1.5 text-sm font-extrabold uppercase tracking-wider text-white">
                                         ▶ Ce week-end · {weFriday.getDate()}–{new Date(`${wk}T00:00:00`).getDate()} {MOIS_NOMS_FR[new Date(`${wk}T00:00:00`).getMonth()]}
                                       </TableCell>
                                     </TableRow>
                                   )}
                                   <TableRow
-                                    onClick={() => canManage() && handleEditSeance(s)}
-                                    className={`${weekendParite(s.date) === 1 ? 'bg-slate-300 hover:bg-slate-400/80 dark:bg-slate-700 dark:hover:bg-slate-600' : 'bg-background hover:bg-muted/40'} ${canManage() ? 'cursor-pointer' : ''} ${boxClass}`}
+                                    onClick={() => (canManage() ? handleEditSeance(s) : setExpandedSeance(expandedSeance === s.id ? null : s.id))}
+                                    className={`${weekendParite(s.date) === 1 ? 'bg-slate-300 hover:bg-slate-400/80 dark:bg-slate-700 dark:hover:bg-slate-600' : 'bg-background hover:bg-muted/40'} cursor-pointer ${boxClass}`}
                                   >
                                     <TableCell className={`font-medium align-top border-l-8 ${cameraCouleur(s.poste)?.border || 'border-l-transparent'}`}>
                                       <div className="flex flex-col gap-1">
@@ -2931,23 +2929,10 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                         );
                                       })}
                                     </TableCell>
-                                    <TableCell className="text-center align-top text-muted-foreground">{(s.equipements || []).length}</TableCell>
-                                    <TableCell className="text-right">
-                                      <div className="flex justify-end gap-1">
-                                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setExpandedSeance(expandedSeance === s.id ? null : s.id); }}>
-                                          {expandedSeance === s.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                        </Button>
-                                        {canManage() && (
-                                          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditSeance(s); }}>
-                                            <Edit className="w-4 h-4" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </TableCell>
                                   </TableRow>
                                   {expandedSeance === s.id && (
                                     <TableRow key={`${s.id}-detail`} className={boxDetailClass}>
-                                      <TableCell colSpan={7} className="bg-muted/30">
+                                      <TableCell colSpan={5} className="bg-muted/30">
                                         <div className="space-y-1 py-2">
                                           {(s.equipe || []).length > 0 && (
                                             <div className="flex flex-wrap gap-3 mb-2">

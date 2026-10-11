@@ -232,7 +232,10 @@
     img, video { height: auto; }
     /* tout contenu de carte peut rétrécir et retourne à la ligne au lieu de déborder */
     .grid > * { min-width: 0; }
-    td, th, p, h1, h2, h3, h4, label { overflow-wrap: anywhere; }
+    p, h1, h2, h3, h4, label { overflow-wrap: anywhere; }
+    /* Cellules de tableau : « break-word » (et non « anywhere ») pour que les colonnes gardent une largeur lisible
+       au lieu de se réduire à une lettre ; le tableau défile alors horizontalement sur tablette/téléphone. */
+    td, th { overflow-wrap: break-word; }
     /* tableaux : défilement horizontal dans leur cadre, jamais sur la page entière */
     table { max-width: 100%; }
     /* zones tactiles confortables et pas de zoom automatique de iOS sur les champs */

@@ -2718,16 +2718,16 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                             <p className="text-sm text-muted-foreground">Aucun culte enregistré sur ce poste</p>
                           </div>
                         ) : (
-                          <Table>
+                          <Table className="min-w-[900px]">
                             <TableHeader>
                               <TableRow>
-                                <TableHead className="whitespace-nowrap">Date</TableHead>
-                                <TableHead>Superviseur</TableHead>
-                                <TableHead>Cadreurs</TableHead>
+                                <TableHead className="whitespace-nowrap min-w-[120px]">Date</TableHead>
+                                <TableHead className="min-w-[130px]">Superviseur</TableHead>
+                                <TableHead className="min-w-[150px]">Cadreurs</TableHead>
                                 <TableHead className="min-w-[200px]">Commentaire</TableHead>
-                                <TableHead className="whitespace-nowrap">Horaires</TableHead>
-                                <TableHead className="text-center">Éq.</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="whitespace-nowrap min-w-[110px]">Horaires</TableHead>
+                                <TableHead className="text-center min-w-[60px]">Éq.</TableHead>
+                                <TableHead className="text-right min-w-[110px]">Actions</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>

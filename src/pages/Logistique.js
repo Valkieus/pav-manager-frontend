@@ -640,6 +640,13 @@ export default function Logistique({ kioskMode = false }) {
   const [incidentSubmitting, setIncidentSubmitting] = useState(false);
   const [filterIncidentPoste, setFilterIncidentPoste] = useState('all');
   const [filterSeancePoste, setFilterSeancePoste] = useState('all');
+  // Caméras indisponibles (ex. Caméra 1 jusqu'au 31/12) : {poste: {until}} — visibles mais verrouillées.
+  const [camIndispo, setCamIndispo] = useState({});
+  const loadCamIndispo = async () => { try { setCamIndispo((await axios.get(`${API}/logistique/cameras-indispo`)).data || {}); } catch { /* verrouillage non affiché */ } };
+  const fmtUntil = (iso) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('fr-FR') : '');
+  const reactivateCam = async (poste) => {
+    try { setCamIndispo((await axios.put(`${API}/logistique/cameras-indispo/${encodeURIComponent(poste)}`, { disabled: false })).data || {}); toast.success(`${poste} réactivée`); } catch (e) { toast.error(e.response?.data?.detail || 'Action impossible'); }
+  };
   const [incidentForm, setIncidentForm] = useState({
     poste: 'CAM 1',
     date: '',
@@ -655,6 +662,7 @@ export default function Logistique({ kioskMode = false }) {
 
   useEffect(() => {
     fetchAll();
+    loadCamIndispo();
   }, []);
 
   const fetchAll = async () => {
@@ -2146,6 +2154,19 @@ créer une fiche "événement" pour la date du jour. */}
                         {POSTES_CAM.map((poste) => {
                           const fiche = todaysFiches.find((s) => s.poste === poste);
                           const cam = cameraCouleur(poste);
+                          if (camIndispo[poste]) {
+                            return (
+                              <span key={poste} className="inline-flex items-center gap-2">
+                                <button type="button" disabled aria-disabled="true"
+                                  title={`${poste} indisponible jusqu'au ${fmtUntil(camIndispo[poste].until)}`}
+                                  className="inline-flex items-center gap-2 rounded-lg border-2 border-dashed bg-muted px-4 py-2 text-sm font-bold text-muted-foreground opacity-60 cursor-not-allowed line-through">
+                                  {poste}
+                                </button>
+                                <span className="text-xs text-muted-foreground">Indisponible jusqu'au {fmtUntil(camIndispo[poste].until)}</span>
+                                {isAdmin() && <Button size="sm" variant="outline" onClick={() => reactivateCam(poste)}>Réactiver</Button>}
+                              </span>
+                            );
+                          }
                           return (
                             <button
                               key={poste}
@@ -2254,8 +2275,10 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                     <button
                       key={p}
                       type="button"
+                      disabled={!!camIndispo[p]}
+                      title={camIndispo[p] ? `${p} indisponible jusqu'au ${fmtUntil(camIndispo[p].until)}` : undefined}
                       onClick={() => setFilterSeancePoste(p)}
-                      className={`shrink-0 px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                      className={`shrink-0 px-3 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${camIndispo[p] ? 'opacity-50 cursor-not-allowed line-through ' : ''}${
                         filterSeancePoste === p
                           ? 'border-primary text-primary'
                           : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'

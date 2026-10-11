@@ -11,6 +11,7 @@ import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+import PiecesButton from './Pieces';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -205,6 +206,7 @@ export default function AchatsTab({ fournisseurs, isAdmin }) {
                   {a.description && <p className="text-sm mt-1 whitespace-pre-line">{a.description}</p>}
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <PiecesButton kind="achat" doc={a} meId={me.id} canDeleteAll={me.admin} canUpload={me.can_view} onChanged={load} />
                   {todo === 'live' && <>
                     <Button size="sm" onClick={() => { setLiveForm({ fournisseur_id: a.fournisseur_id || '', montant: a.montant ?? '', note: '' }); setLiveFor(a); }}>Transmettre aux validateurs</Button>
                     <Button size="sm" variant="outline" onClick={() => setPrompt({ title: 'Refuser la demande', required: true, run: (t) => act(() => axios.post(`${API}/achats/${a.id}/reject`, { note: t }), 'Demande refusée') })}><X className="w-4 h-4 mr-1" /> Refuser</Button>

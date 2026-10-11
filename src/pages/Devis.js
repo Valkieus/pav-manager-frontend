@@ -40,6 +40,7 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { toast } from 'sonner';
+import AchatsTab from '../components/AchatsTab';
 import {
   Plus,
   FileText,
@@ -54,6 +55,7 @@ import {
   Download,
   Edit,
   RotateCcw,
+  ShoppingCart,
   Wallet,
   TrendingUp
 } from 'lucide-react';
@@ -419,10 +421,17 @@ export default function DevisAchat() {
           <TabsTrigger value="devis" className="flex items-center gap-2">
             <FileText className="w-4 h-4" /> Devis
           </TabsTrigger>
+          <TabsTrigger value="demandes" className="flex items-center gap-2" data-testid="tab-demandes">
+            <ShoppingCart className="w-4 h-4" /> Demandes achat / location
+          </TabsTrigger>
           <TabsTrigger value="fournisseurs" className="flex items-center gap-2">
             <UsersIcon className="w-4 h-4" /> Fournisseurs
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="demandes" className="space-y-4">
+          {activeTab === 'demandes' && <AchatsTab fournisseurs={fournisseurs} isAdmin={isAdmin()} />}
+        </TabsContent>
 
         {/* DEVIS TAB */}
         <TabsContent value="devis" className="space-y-4">

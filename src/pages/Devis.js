@@ -41,6 +41,7 @@ import {
 } from '../components/ui/table';
 import { toast } from 'sonner';
 import AchatsTab from '../components/AchatsTab';
+import PiecesButton from '../components/Pieces';
 import {
   Plus,
   FileText,
@@ -538,6 +539,7 @@ export default function DevisAchat() {
                         <TableCell className="text-muted-foreground">{new Date(d.created_at).toLocaleDateString('fr-FR')}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
+                            <PiecesButton kind="devis" doc={d} meId={user?.id} canDeleteAll={isAdmin()} onChanged={fetchData} />
                             <Button size="sm" variant="ghost" title="Modifier" onClick={() => handleEditDevis(d)}>
                               <Edit className="w-4 h-4" />
                             </Button>

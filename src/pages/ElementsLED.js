@@ -11,7 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
 import { toast } from 'sonner';
-import { Search, Loader2, FileText, Film, Lightbulb, Plus, Trash2, ExternalLink, Download } from 'lucide-react';
+import { Search, Loader2, FileText, Film, Lightbulb, Plus, Trash2, ExternalLink, Download, DownloadCloud } from 'lucide-react';
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND}/api`;
@@ -38,7 +38,7 @@ const downloadUrl = (m) => (m.storage === 'cloudinary'
 
 // Vidéo : lecture automatique (muette, le navigateur l'exige ; le son se réactive au clic), commandes, repli sur
 // les liens de secours si le premier ne répond pas, et téléchargement du fichier d'origine.
-function PlayableVideo({ m }) {
+function PlayableVideo({ m, onDownload }) {
   const cands = useMemo(
     () => (m.storage === 'cloudinary' ? [m.url, ...(m.alt_urls || [])] : [m.direct_url, ...(m.alt_urls || []), mediaUrl(m.url)]).filter(Boolean),
     [m],
@@ -50,12 +50,75 @@ function PlayableVideo({ m }) {
         onError={() => setI((x) => (x < cands.length - 1 ? x + 1 : x))} />
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="truncate">{m.filename}</span>
-        <a href={downloadUrl(m)} download={m.filename} target="_blank" rel="noreferrer"
+        <a href={downloadUrl(m)} download={m.filename} target="_blank" rel="noreferrer" onClick={() => onDownload && onDownload(m)}
           className="inline-flex shrink-0 items-center gap-1 rounded-md border px-2.5 py-1.5 font-medium text-foreground hover:bg-muted">
           <Download className="h-3.5 w-3.5" /> Télécharger
         </a>
       </div>
     </div>
+  );
+}
+
+const fmtDT = (iso) => { try { return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }); } catch (e) { return ''; } };
+
+// Bandeau « déjà téléchargé par… » (toujours affiché : « Jamais téléchargé » si personne ne l'a fait).
+function DownloadedBanner({ element }) {
+  const list = [...(element.downloads || [])].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  if (list.length === 0) {
+    return <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground"><DownloadCloud className="h-4 w-4" /> Jamais téléchargé pour l'instant.</div>;
+  }
+  return (
+    <div className="rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-100" role="status">
+      <p className="flex items-center gap-2"><DownloadCloud className="h-4 w-4" /><strong>Déjà téléchargé par :</strong></p>
+      <ul className="ml-6 mt-1 space-y-0.5 text-xs sm:text-sm">
+        {list.map((d) => (
+          <li key={`${d.user_id}-${d.filename}`}><strong>{d.nom}</strong><span className="opacity-80"> · {fmtDT(d.at)}{d.count > 1 ? ` · ${d.count} fois` : ''}{d.filename ? ` · ${d.filename}` : ''}</span></li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Journal : qui a téléchargé quoi (récents / par personne).
+function DownloadsDialog({ open, onOpenChange }) {
+  const [data, setData] = useState(null);
+  const [tab, setTab] = useState('recent');
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    if (!open) return;
+    setData(null);
+    axios.get(`${API}/led/downloads`).then((r) => setData(r.data)).catch((e) => { toast.error(e.response?.data?.detail || 'Lecture impossible'); setData({ rows: [], par_personne: [] }); });
+  }, [open]);
+  const s = q.trim().toLowerCase();
+  const rows = (data?.rows || []).filter((r) => !s || [r.nom, r.titre, r.filename, r.categorie].some((x) => (x || '').toLowerCase().includes(s)));
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><DownloadCloud className="h-5 w-5" /> Téléchargements</DialogTitle></DialogHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-md border p-0.5 text-sm">
+            {[['recent', 'Récents'], ['personne', 'Par personne']].map(([k, l]) => (
+              <button key={k} onClick={() => setTab(k)} className={`rounded px-3 py-1 ${tab === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>{l}</button>
+            ))}
+          </div>
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Personne, élément, fichier…" className="min-w-40 flex-1" />
+        </div>
+        {!data ? <div className="p-6 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></div>
+          : tab === 'recent' ? (rows.length === 0 ? <p className="p-6 text-center text-sm text-muted-foreground">Aucun téléchargement pour l'instant.</p> : (
+            <ul className="divide-y rounded-lg border">{rows.map((r) => (
+              <li key={`${r.element_id}-${r.user_id}-${r.filename}`} className="flex items-start gap-3 px-3 py-2">
+                <span className="min-w-0 flex-1"><span className="block text-sm"><strong>{r.nom}</strong> <span className="text-muted-foreground">a téléchargé</span></span>
+                  <span className="block truncate text-xs text-muted-foreground">{r.titre}{r.filename && r.filename !== r.titre ? ` · ${r.filename}` : ''}{r.categorie ? ` · ${r.categorie}` : ''}</span></span>
+                <span className="shrink-0 text-right text-xs text-muted-foreground">{fmtDT(r.at)}{r.count > 1 ? <><br />{r.count} fois</> : null}</span>
+              </li>))}</ul>))
+          : (
+            <ul className="divide-y rounded-lg border">{(data.par_personne || []).filter((u) => !s || (u.nom || '').toLowerCase().includes(s)).map((u) => (
+              <li key={u.user_id || u.nom} className="flex items-center gap-3 px-3 py-2">
+                <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{u.nom}</span><span className="block text-xs text-muted-foreground">dernier : {fmtDT(u.dernier)}</span></span>
+                <span className="text-right text-xs text-muted-foreground"><strong className="text-sm text-foreground">{u.telechargements}</strong> téléch.<br />{u.fichiers} fichier{u.fichiers > 1 ? 's' : ''}</span>
+              </li>))}</ul>)}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -66,6 +129,17 @@ export default function ElementsLED() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState(null);
+  const [showDownloads, setShowDownloads] = useState(false);
+
+  // Trace du téléchargement (jamais bloquante) puis mise à jour du bandeau.
+  const logDownload = (m) => {
+    if (!selected) return;
+    axios.post(`${API}/led-elements/${selected.id}/downloaded`, { filename: m?.filename })
+      .then((res) => {
+        setSelected((cur) => (cur && cur.id === selected.id ? { ...cur, downloads: res.data.downloads } : cur));
+        setElements((els) => els.map((e) => (e.id === selected.id ? { ...e, downloads: res.data.downloads } : e)));
+      }).catch(() => {});
+  };
 
   // catégories
   const [categories, setCategories] = useState([]);
@@ -199,6 +273,9 @@ export default function ElementsLED() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><Lightbulb className="w-6 h-6" /> Éléments LED</h1>
           <p className="text-muted-foreground">Recherche et bibliothèque d'éléments LED</p>
         </div>
+        <Button variant="outline" onClick={() => setShowDownloads(true)} data-testid="open-downloads-log">
+          <DownloadCloud className="w-4 h-4 mr-2" /> Téléchargements
+        </Button>
         <Button variant="outline" onClick={openLedSite} data-testid="open-led-site">
           <ExternalLink className="w-4 h-4 mr-2" /> Ouvrir le site LED
         </Button>
@@ -284,11 +361,13 @@ export default function ElementsLED() {
         </div>
       )}
 
+      <DownloadsDialog open={showDownloads} onOpenChange={setShowDownloads} />
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           {selected && (
             <>
               <DialogHeader><DialogTitle>{selected.titre}</DialogTitle></DialogHeader>
+              <DownloadedBanner element={selected} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {selected.medias?.map((m) => (
                   m.kind === 'image' ? (
@@ -296,12 +375,12 @@ export default function ElementsLED() {
                       <a href={mediaUrl(m.url)} target="_blank" rel="noreferrer">
                         <img src={mediaUrl(m.url)} alt={m.filename} className="w-full rounded" />
                       </a>
-                      <a href={downloadUrl(m)} download={m.filename} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs underline">
+                      <a href={downloadUrl(m)} download={m.filename} target="_blank" rel="noreferrer" onClick={() => logDownload(m)} className="inline-flex items-center gap-1 text-xs underline">
                         <Download className="h-3 w-3" /> Télécharger
                       </a>
                     </div>
                   ) : m.kind === 'video' ? (
-                    <PlayableVideo key={m.url} m={m} />
+                    <PlayableVideo key={m.url} m={m} onDownload={logDownload} />
                   ) : (
                     <a key={m.url} href={mediaUrl(m.url)} target="_blank" rel="noreferrer" className="underline text-sm">{m.filename}</a>
                   )

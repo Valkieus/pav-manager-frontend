@@ -1443,6 +1443,22 @@ export default function Administration() {
       patchSnap(domain, { busy: null });
     }
   };
+  // Répare les lignes du planning remplacées par 0,1,2… : aperçu, puis restauration depuis les sauvegardes.
+  const handlePlanningRepair = async () => {
+    patchSnap("planning", { busy: "repair" });
+    try {
+      const pre = (await axios.post(`${API}/admin/planning/repair-cells`, null, { params: { dry_run: true } })).data;
+      if (!pre.abimees) { toast.success("Aucune ligne abîmée : tout est en ordre"); return; }
+      const ok = window.confirm(`${pre.abimees} ligne(s) de planning abîmée(s) sur ${Object.keys(pre.plannings || {}).length} planning(s).\n${pre.restaurables} peuvent être restaurées depuis les sauvegardes (${(pre.instantanes_utilises || []).join(", ")}), ${pre.introuvables} introuvable(s).\n\nRestaurer maintenant ?`);
+      if (!ok) return;
+      const res = (await axios.post(`${API}/admin/planning/repair-cells`, null, { params: { dry_run: false } })).data;
+      toast.success(`${res.restaurables} ligne(s) restaurée(s)${res.introuvables ? `, ${res.introuvables} introuvable(s)` : ""}`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Réparation impossible");
+    } finally {
+      patchSnap("planning", { busy: null });
+    }
+  };
   const handleSnapRestore = async (domain) => {
     if (!window.confirm(`Restaurer les fiches manquantes de « ${domain} » depuis cette sauvegarde ?\nAucune fiche existante n'est modifiée ni supprimée : seules les fiches absentes sont ajoutées.`)) return;
     patchSnap(domain, { busy: "restore" });
@@ -5925,6 +5941,11 @@ même limite pour éviter un 403 après coup. */}
                               <Button size="sm" variant="outline" className="h-7 text-[11px]" disabled={!!snapSel[name]?.busy} onClick={() => handleSnapRestore(name)}>
                                 {snapSel[name]?.busy === "restore" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />} Restaurer les fiches manquantes
                               </Button>
+                              {name === "planning" && (
+                                <Button size="sm" variant="outline" className="h-7 text-[11px]" disabled={!!snapSel[name]?.busy} onClick={handlePlanningRepair}>
+                                  {snapSel[name]?.busy === "repair" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />} Réparer les cases du planning
+                                </Button>
+                              )}
                             </div>
                           )}
                           {d.warning && <p className="mt-1 text-amber-600">{d.warning}</p>}

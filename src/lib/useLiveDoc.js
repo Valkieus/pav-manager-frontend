@@ -21,21 +21,41 @@ export const colorFor = (id) => {
 
 const norm = (v) => (v === null || v === undefined || v === '__none__' ? '' : v);
 
+// Une ligne d'affectations est soit une liste [nom par colonne] (plannings événements), soit un objet
+// {"0": nom, "2": nom} (planning mensuel) : on la ramène à {indice: valeur}.
+const rowMap = (r) => {
+  const out = {};
+  if (Array.isArray(r)) r.forEach((v, i) => { out[i] = v; });
+  else if (r && typeof r === 'object') Object.keys(r).forEach((k) => { const i = Number(k); if (Number.isInteger(i)) out[i] = r[k]; });
+  return out;
+};
+
 // Fusion à 3 voies (identique à celle du serveur) : case non modifiée
 // localement (mine == base) => valeur du serveur ; sinon la valeur locale gagne.
+// La forme de chaque ligne (liste ou objet) est conservée.
 export function mergeCells(base, mine, current) {
   const out = {};
   const keys = new Set([...Object.keys(mine || {}), ...Object.keys(current || {})]);
   keys.forEach((k) => {
-    const m = (mine && mine[k]) || [];
-    const b = (base && base[k]) || [];
-    const c = (current && current[k]) || [];
-    const n = Math.max(m.length, c.length);
-    const row = [];
-    for (let i = 0; i < n; i++) {
-      row.push(norm(m[i]) === norm(b[i]) ? (c[i] === undefined ? '' : c[i]) : m[i]);
+    const mr = mine ? mine[k] : undefined;
+    const cr = current ? current[k] : undefined;
+    const m = rowMap(mr);
+    const b = rowMap(base ? base[k] : undefined);
+    const c = rowMap(cr);
+    const res = {};
+    new Set([...Object.keys(m), ...Object.keys(c)]).forEach((i) => {
+      const mv = m[i] === undefined ? '' : m[i];
+      const bv = b[i] === undefined ? '' : b[i];
+      const cv = c[i] === undefined ? '' : c[i];
+      res[i] = norm(mv) === norm(bv) ? cv : mv;
+    });
+    const asList = (Array.isArray(mr) || Array.isArray(cr)) && !(mr && !Array.isArray(mr) && typeof mr === 'object') && !(cr && !Array.isArray(cr) && typeof cr === 'object');
+    if (asList) {
+      const n = Object.keys(res).length ? Math.max(...Object.keys(res).map(Number)) + 1 : 0;
+      out[k] = Array.from({ length: n }, (_, i) => (res[i] === undefined ? '' : res[i]));
+    } else {
+      out[k] = res;
     }
-    out[k] = row;
   });
   return out;
 }
@@ -45,11 +65,11 @@ function diffCells(a, b) {
   const changed = [];
   const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
   keys.forEach((k) => {
-    const x = (a && a[k]) || [];
-    const y = (b && b[k]) || [];
-    for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const x = rowMap(a ? a[k] : undefined);
+    const y = rowMap(b ? b[k] : undefined);
+    new Set([...Object.keys(x), ...Object.keys(y)]).forEach((i) => {
       if (norm(x[i]) !== norm(y[i])) changed.push(`${k}|${i}`);
-    }
+    });
   });
   return changed;
 }

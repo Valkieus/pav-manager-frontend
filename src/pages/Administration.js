@@ -3869,6 +3869,19 @@ même limite pour éviter un 403 après coup. */}
         {/* GROUPS TAB — not exposed to Admin (lecture seule) */}
         {!isReadOnlyAdmin && (
           <TabsContent value="groups" className="space-y-4">
+            {isSuperAdmin() && currentUser?.username === "Guichard" && (
+              <Card>
+                <CardHeader><CardTitle className="text-base">Compte de secours</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Le mot de passe change chaque semaine et vous est envoyé par notification. Si vous ne l'avez pas reçu, générez-en un nouveau maintenant : il arrive dans vos notifications (cloche).</p>
+                  <Button variant="outline" onClick={async () => {
+                    if (!window.confirm("Générer un NOUVEAU mot de passe pour le compte de secours et me l'envoyer par notification ?")) return;
+                    try { await axios.post(`${API}/admin/secours/rotate-now`); toast.success("Nouveau mot de passe envoyé dans vos notifications"); }
+                    catch (e) { toast.error(e.response?.data?.detail || "Envoi impossible"); }
+                  }}>Recevoir un nouveau mot de passe du compte de secours</Button>
+                </CardContent>
+              </Card>
+            )}
             {isSuperAdmin() && <BetaTesters users={users} />}
             <div className="flex justify-end">
               <Dialog

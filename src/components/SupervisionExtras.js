@@ -388,3 +388,34 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
     </>
   );
 }
+
+// Stockages gratuits supplémentaires (variable EXTRA_S3_TARGETS côté serveur) : espace utilisé par fournisseur.
+export function ExtraStorageCard() {
+  const [data, setData] = useState(null);
+  const load = useCallback(async () => {
+    try { setData((await axios.get(`${API}/admin/infra/extra-storage`)).data); } catch (e) { setData({ targets: [], error: true }); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  return (
+    <Card className="border-border">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base"><Cloud className="w-5 h-5" /> Stockages gratuits supplémentaires</CardTitle>
+        <CardDescription>
+          Chaque fichier envoyé sur B2 est aussi copié ici (Oracle Cloud, Filebase, etc.). Lecture de secours en dernier recours.
+          Ajout : variable d'environnement <code>EXTRA_S3_TARGETS</code> sur Render, puis « Backfill fichiers existants » pour rattraper l'existant.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {!data ? <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          : data.targets.length === 0 ? <p className="text-sm text-muted-foreground">Aucun stockage supplémentaire configuré.</p>
+          : data.targets.map((t) => (
+            <div key={t.name} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+              <div><b>{t.name}</b> <span className="text-muted-foreground">· bucket {t.bucket}</span></div>
+              {t.ok ? <div>{fmtBytes(t.used_bytes)} / {t.limit_gb} Go · {t.files} fichier(s)</div> : <div className="text-red-500">Lecture impossible {t.error || ""}</div>}
+            </div>
+          ))}
+        <Button size="sm" variant="ghost" onClick={load}><RefreshCw className="w-4 h-4 mr-1.5" /> Actualiser</Button>
+      </CardContent>
+    </Card>
+  );
+}

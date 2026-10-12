@@ -1459,16 +1459,18 @@ export default function Administration() {
       patchSnap("planning", { busy: null });
     }
   };
-  // Remplit le planning d'octobre 2026 (vendredi + dimanche) d'après les exports fournis : aperçu puis application.
+  // Remplit le planning du mois en cours (vendredi + dimanche) d'après les exports fournis : aperçu puis application.
+  const fillNow = new Date();
+  const fillLabel = `${["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"][fillNow.getMonth()]} ${fillNow.getFullYear()}`;
   const handlePlanningFillOctobre = async () => {
     patchSnap("planning", { busy: "fill" });
     try {
-      const pre = (await axios.post(`${API}/admin/planning/fill-octobre-2026`, null, { params: { dry_run: true } })).data;
+      const pre = (await axios.post(`${API}/admin/planning/fill-from-export`, null, { params: { annee: fillNow.getFullYear(), mois: fillNow.getMonth() + 1, dry_run: true } })).data;
       const lignes = (j) => (pre[j]?.erreur ? `erreur : ${pre[j].erreur}` : `${pre[j]?.lignes_remplies ?? 0} ligne(s)`);
       const ok = window.confirm(`Planning ${pre.planning} : remplir les affectations d'après les exports.\nDimanche : ${lignes("dimanche")}\nVendredi : ${lignes("vendredi")}\n\nCela remplace les affectations actuelles de ces deux plannings. Continuer ?`);
       if (!ok) return;
-      await axios.post(`${API}/admin/planning/fill-octobre-2026`, null, { params: { dry_run: false } });
-      toast.success("Planning d'octobre 2026 rempli");
+      await axios.post(`${API}/admin/planning/fill-from-export`, null, { params: { annee: fillNow.getFullYear(), mois: fillNow.getMonth() + 1, dry_run: false } });
+      toast.success(`Planning de ${fillLabel} rempli`);
     } catch (err) {
       toast.error(err.response?.data?.detail || "Remplissage impossible");
     } finally {
@@ -5964,7 +5966,7 @@ même limite pour éviter un 403 après coup. */}
                               )}
                               {name === "planning" && (
                                 <Button size="sm" variant="outline" className="h-7 text-[11px]" disabled={!!snapSel[name]?.busy} onClick={handlePlanningFillOctobre}>
-                                  {snapSel[name]?.busy === "fill" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />} Remplir octobre 2026
+                                  {snapSel[name]?.busy === "fill" ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />} Remplir {fillLabel}
                                 </Button>
                               )}
                             </div>

@@ -71,7 +71,11 @@ export const AuthProvider = ({ children }) => {
     const id = axios.interceptors.request.use((config) => {
       const method = (config.method || "get").toLowerCase();
       if (!["get", "head", "options"].includes(method) && !String(config.url || "").includes("/auth/")) {
-        toast.info(`Aperçu « ${viewAsActive} » : lecture seule — quittez l'aperçu pour modifier.`);
+        // Battement de l'édition en direct : bloqué sans message (il se répète toutes les 3 s).
+        // Autres écritures : un seul message à la fois (id fixe) au lieu d'un par tentative.
+        if (!String(config.url || "").includes("/live/")) {
+          toast.info(`Aperçu « ${viewAsActive} » : lecture seule — quittez l'aperçu pour modifier.`, { id: "view-as-readonly", duration: 4000 });
+        }
         return Promise.reject(new axios.Cancel("Aperçu en lecture seule"));
       }
       return config;

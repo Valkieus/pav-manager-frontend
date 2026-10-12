@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { ServerLoadCard, CloudinaryAccountsCard } from "../components/SupervisionExtras";
+import { ServerLoadCard, CloudinaryAccountsCard, ExtraStorageCard } from "../components/SupervisionExtras";
 import BetaTesters from "../components/BetaTesters";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
@@ -5853,6 +5853,7 @@ même limite pour éviter un 403 après coup. */}
 
             {supSection === "backup" && (
             <>
+            <ExtraStorageCard />
             {/* PRA / PCA : copie Cloudflare R2 */}
             <Card className="border-border">
               <CardHeader>

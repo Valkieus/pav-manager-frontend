@@ -103,6 +103,7 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
   const [reb, setReb] = useState(null); // état de l'équilibrage
   const [rebPlan, setRebPlan] = useState(null);
   const [rebBusy, setRebBusy] = useState(false);
+  const [evacCloud, setEvacCloud] = useState(""); // compte à vider entièrement
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,6 +130,25 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
     setRebBusy(true);
     try { setRebPlan((await axios.post(`${API}/led/rebalance-cloudinary`, null, { params: { dry_run: true } })).data); }
     catch (err) { toast.error(err.response?.data?.detail || "Simulation impossible"); }
+    finally { setRebBusy(false); }
+  };
+  const simulateEvac = async () => {
+    if (!evacCloud) { toast.error("Choisissez le compte à vider"); return; }
+    setRebBusy(true);
+    try { setRebPlan((await axios.post(`${API}/led/rebalance-cloudinary`, null, { params: { dry_run: true, evacuate: evacCloud } })).data); }
+    catch (err) { toast.error(err.response?.data?.detail || "Simulation impossible"); }
+    finally { setRebBusy(false); }
+  };
+  const startEvac = async () => {
+    if (!evacCloud) { toast.error("Choisissez le compte à vider"); return; }
+    if (!window.confirm(`Vider ENTIÈREMENT le compte « ${evacCloud} » ? Ses médias passent vers les autres comptes Cloudinary puis vers B2. Chaque fichier n'est supprimé de ce compte qu'après copie réussie. Les passes s'enchaînent toutes seules.`)) return;
+    setRebBusy(true);
+    try {
+      await axios.post(`${API}/led/rebalance-cloudinary`, null, { params: { evacuate: evacCloud } });
+      toast.success("Vidage lancé en arrière-plan");
+      setRebPlan(null);
+      setTimeout(loadReb, 1500);
+    } catch (err) { toast.error(err.response?.data?.detail || "Lancement impossible"); }
     finally { setRebBusy(false); }
   };
   const startReb = async () => {
@@ -333,6 +353,19 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
                   <Button size="sm" onClick={startReb} disabled={rebBusy || reb?.running}>
                     {(rebBusy || reb?.running) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Équilibrer maintenant
                   </Button>
+                </div>
+              )}
+              {canEdit && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-2" data-testid="evacuate-box">
+                  <span className="text-xs text-muted-foreground">Vider entièrement un compte (ex. avant sa suspension) :</span>
+                  <select value={evacCloud} onChange={(e) => setEvacCloud(e.target.value)} className="h-8 rounded-md border bg-background px-2 text-sm">
+                    <option value="">— choisir le compte —</option>
+                    {(accounts || []).filter((a) => a.configured).map((a) => (
+                      <option key={a.account} value={a.cloud}>Compte {a.account} « {a.cloud} » — {a.usage?.credits_percent ?? "?"} %</option>
+                    ))}
+                  </select>
+                  <Button size="sm" variant="outline" onClick={simulateEvac} disabled={rebBusy || reb?.running || !evacCloud}>Simuler le vidage</Button>
+                  <Button size="sm" variant="destructive" onClick={startEvac} disabled={rebBusy || reb?.running || !evacCloud}>Vider ce compte</Button>
                 </div>
               )}
             </div>

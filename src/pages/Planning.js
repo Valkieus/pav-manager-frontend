@@ -306,6 +306,24 @@ function slugPoste(poste) {
 // Default planning structure — mirrors the reference paper planning exactly:
 // two tables per day (REGIE+CADREURS, then REGISSEURS+DIFFUSION), with a
 // standalone "Supervision" row above the REGIE band on the first table.
+// À partir de novembre 2026, le planning du dimanche a une « Caméra 7 », identique à la Caméra 6 (2 postes).
+// Appliqué à la lecture (plannings existants) et à la création : la structure enregistrée n'est jamais modifiée avant.
+const withCamera7 = (sections, annee, mois) => {
+  if (!sections || !sections.dimanche || Number(annee) * 100 + Number(mois) < 202611) return sections;
+  const next = JSON.parse(JSON.stringify(sections));
+  ["table1", "table2"].forEach((tk) => {
+    (next.dimanche[tk] || []).forEach((sec) => {
+      const roles = sec.roles || [];
+      const keys = roles.map((r) => r.key);
+      if (keys.includes("camera_6") && !keys.includes("camera_7")) {
+        roles.splice(keys.indexOf("camera_6") + 1, 0, { key: "camera_7", label: "Caméra 7", slots: 2 });
+        sec.roles = roles;
+      }
+    });
+  });
+  return next;
+};
+
 const DEFAULT_SECTIONS = {
   dimanche: {
     table1: [
@@ -1598,7 +1616,7 @@ export default function Planning() {
         setNotPublished(false);
         setDates(planningRes.data.dates || { dimanche: [], vendredi: [] });
         setAffectations(planningRes.data.affectations || {});
-        setSections(planningRes.data.sections || DEFAULT_SECTIONS);
+        setSections(withCamera7(planningRes.data.sections || DEFAULT_SECTIONS, currentYear, currentMonth));
         setNotes(planningRes.data.notes || { dimanche: "", vendredi: "" });
         setAbsences(
           planningRes.data.absences || { dimanche: "", vendredi: "" },
@@ -1622,7 +1640,7 @@ export default function Planning() {
         const vendredis = getDaysOfMonth(currentYear, currentMonth, 5);
         setDates({ dimanche: dimanches, vendredi: vendredis });
         setAffectations({});
-        setSections(DEFAULT_SECTIONS);
+        setSections(withCamera7(DEFAULT_SECTIONS, currentYear, currentMonth));
         setNotes({ dimanche: "", vendredi: "" });
         setAbsences({ dimanche: "", vendredi: "" });
         setBlockedCells({});
@@ -2306,7 +2324,7 @@ export default function Planning() {
 
     setSections((prev) => ({
       ...prev,
-      [activeDay]: DEFAULT_SECTIONS[activeDay],
+      [activeDay]: withCamera7(DEFAULT_SECTIONS, currentYear, currentMonth)[activeDay],
     }));
     setAffectations(stripKeys);
     setBlockedCells(stripKeys);
@@ -3481,16 +3499,16 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               <Button
                 variant="outline"
                 data-testid="export-menu-btn"
-                className="flex-1 sm:flex-none"
+                className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
               >
-                <Download className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Exporter</span>
-                <ChevronDown className="w-3.5 h-3.5 ml-1 hidden sm:inline" />
+                <Download className="w-4 h-4 shrink-0 mr-2" />
+                <span className="text-xs sm:text-sm">Exporter</span>
+                <ChevronDown className="w-3.5 h-3.5 ml-1" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handlePrint} data-testid="print-btn">
-                <Printer className="w-4 h-4 mr-2" />
+                <Printer className="w-4 h-4 shrink-0 mr-2" />
                 Imprimer
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -3499,9 +3517,9 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 data-testid="export-png-btn"
               >
                 {exportingPng ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 shrink-0 mr-2 animate-spin" />
                 ) : (
-                  <ImageDown className="w-4 h-4 mr-2" />
+                  <ImageDown className="w-4 h-4 shrink-0 mr-2" />
                 )}
                 Enregistrer en PNG
               </DropdownMenuItem>
@@ -3511,9 +3529,9 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 data-testid="export-xlsx-btn"
               >
                 {exportingXlsx ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 shrink-0 mr-2 animate-spin" />
                 ) : (
-                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  <FileSpreadsheet className="w-4 h-4 shrink-0 mr-2" />
                 )}
                 Enregistrer en Excel
               </DropdownMenuItem>
@@ -3524,10 +3542,10 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               variant="outline"
               onClick={() => setEvenementView(true)}
               data-testid="planning-evenement-btn"
-              className="flex-1 sm:flex-none"
+              className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
             >
-              <PartyPopper className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Planning événement</span>
+              <PartyPopper className="w-4 h-4 shrink-0 mr-2" />
+              <span className="text-xs sm:text-sm">Planning événement</span>
             </Button>
           )}
           {canValidate() &&
@@ -3537,10 +3555,10 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 variant="outline"
                 onClick={handleResetPlanningVierge}
                 data-testid="reset-planning-btn"
-                className="flex-1 sm:flex-none text-destructive hover:text-destructive"
+                className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none text-destructive hover:text-destructive"
               >
-                <Eraser className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Planning vierge</span>
+                <Eraser className="w-4 h-4 shrink-0 mr-2" />
+                <span className="text-xs sm:text-sm">Planning vierge</span>
               </Button>
             )}
           {canManage() && planningEditMode && planning?.id && (
@@ -3549,15 +3567,15 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               onClick={openDuplicate}
               disabled={duplicating || saving}
               data-testid="duplicate-last-month-btn"
-              className="flex-1 sm:flex-none"
+              className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
               title="Remplir les cases vides avec le mois précédent"
             >
               {duplicating ? (
-                <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
+                <Loader2 className="w-4 h-4 shrink-0 mr-2 animate-spin" />
               ) : (
-                <CopyPlus className="w-4 h-4 sm:mr-2" />
+                <CopyPlus className="w-4 h-4 shrink-0 mr-2" />
               )}
-              <span className="hidden sm:inline">
+              <span className="text-xs sm:text-sm">
                 Dupliquer le mois dernier
               </span>
             </Button>
@@ -3567,11 +3585,11 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               variant="outline"
               onClick={() => setCopyDaysDialog(true)}
               data-testid="copy-between-days-btn"
-              className="flex-1 sm:flex-none"
+              className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
               title="Copier ce qui est rempli d'un jour vers l'autre (même mois)"
             >
-              <ArrowLeftRight className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">
+              <ArrowLeftRight className="w-4 h-4 shrink-0 mr-2" />
+              <span className="text-xs sm:text-sm">
                 Copier Dimanche ⇄ Vendredi
               </span>
             </Button>
@@ -3581,14 +3599,14 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               onClick={handleSave}
               disabled={saving}
               data-testid="save-btn"
-              className="flex-1 sm:flex-none"
+              className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
             >
               {saving ? (
-                <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
+                <Loader2 className="w-4 h-4 shrink-0 mr-2 animate-spin" />
               ) : (
-                <Save className="w-4 h-4 sm:mr-2" />
+                <Save className="w-4 h-4 shrink-0 mr-2" />
               )}
-              <span className="hidden sm:inline">Enregistrer</span>
+              <span className="text-xs sm:text-sm">Enregistrer</span>
             </Button>
           )}
           {canManage() && planningEditMode && (
@@ -3597,15 +3615,15 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               onClick={handleUndo}
               disabled={undoStack.length === 0}
               data-testid="undo-btn"
-              className="flex-1 sm:flex-none"
+              className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
               title={
                 undoStack.length === 0
                   ? "Aucune action à annuler"
                   : "Annuler la dernière action effectuée sur ce planning"
               }
             >
-              <Undo2 className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Retour en arrière</span>
+              <Undo2 className="w-4 h-4 shrink-0 mr-2" />
+              <span className="text-xs sm:text-sm">Retour en arrière</span>
             </Button>
           )}
           <LivePresence users={live.users} />
@@ -3647,30 +3665,30 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 onClick={handleUnpublish}
                 disabled={publishing}
                 data-testid="unpublish-btn"
-                className="flex-1 sm:flex-none"
+                className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
                 title="Repasser en brouillon (invisible pour les Techniciens)"
               >
                 {publishing ? (
-                  <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 shrink-0 mr-2 animate-spin" />
                 ) : (
-                  <EyeOff className="w-4 h-4 sm:mr-2" />
+                  <EyeOff className="w-4 h-4 shrink-0 mr-2" />
                 )}
-                <span className="hidden sm:inline">Dépublier</span>
+                <span className="text-xs sm:text-sm">Dépublier</span>
               </Button>
             ) : (
               <Button
                 onClick={handlePublish}
                 disabled={publishing}
                 data-testid="publish-btn"
-                className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700"
+                className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none bg-emerald-600 hover:bg-emerald-700"
                 title="Rendre ce planning visible pour tous les Techniciens"
               >
                 {publishing ? (
-                  <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 shrink-0 mr-2 animate-spin" />
                 ) : (
-                  <CheckCircle2 className="w-4 h-4 sm:mr-2" />
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mr-2" />
                 )}
-                <span className="hidden sm:inline">Publier</span>
+                <span className="text-xs sm:text-sm">Publier</span>
               </Button>
             ))}
           {canManage() && (
@@ -3678,14 +3696,14 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               variant={planningEditMode ? "secondary" : "default"}
               onClick={toggleEditMode}
               data-testid="toggle-edit-mode-btn"
-              className="flex-1 sm:flex-none"
+              className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
             >
               {planningEditMode ? (
-                <X className="w-4 h-4 sm:mr-2" />
+                <X className="w-4 h-4 shrink-0 mr-2" />
               ) : (
-                <Pencil className="w-4 h-4 sm:mr-2" />
+                <Pencil className="w-4 h-4 shrink-0 mr-2" />
               )}
-              <span className="hidden sm:inline">
+              <span className="text-xs sm:text-sm">
                 {planningEditMode ? "Terminer l'édition" : "Editer"}
               </span>
             </Button>

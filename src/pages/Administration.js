@@ -2492,8 +2492,8 @@ export default function Administration() {
   };
 
   const handleResetPassword = async () => {
-    if (!newPassword || newPassword.length < 6) {
-      toast.error("Le mot de passe doit faire au moins 6 caractères");
+    if (!newPassword || newPassword.length < 8) {
+      toast.error("Le mot de passe doit faire au moins 8 caractères");
       return;
     }
     setSubmitting(true);

@@ -71,6 +71,7 @@ import {
 import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { sanitizeContainer } from '../lib/safeHtml';
 import {
   downloadOrShareFile,
   downloadStatusMessage,
@@ -1812,6 +1813,7 @@ export default function Logistique({ kioskMode = false }) {
         ${wantSection('seances') ? buildSectionTableHtml('Entrées / Sorties', ['Poste', 'Date', 'Superviseur', 'Signature'], seanceRows) : ''}
       </div>
     `;
+    sanitizeContainer(container);
     document.body.appendChild(container);
     try {
       const canvas = await html2canvas(container, { scale: 2, backgroundColor: '#ffffff' });

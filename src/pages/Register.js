@@ -46,8 +46,8 @@ export default function Register() {
       setError('Choisissez votre nom dans la liste');
       return;
     }
-    if (password.length < 6) {
-      setError('Le mot de passe doit faire au moins 6 caractères');
+    if (password.length < 8) {
+      setError('Le mot de passe doit faire au moins 8 caractères');
       return;
     }
     if (password !== confirmPassword) {
@@ -148,7 +148,7 @@ export default function Register() {
                 <Input
                   id="reg-password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Minimum 6 caractères"
+                  placeholder="Minimum 8 caractères"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

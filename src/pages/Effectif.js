@@ -68,6 +68,7 @@ import {
 import { invalidateTechniciensCache } from "../lib/technicienCache";
 import TeamAbsenceDashboard from "./TeamAbsenceDashboard";
 
+import { sanitizeContainer } from '../lib/safeHtml';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Couleurs distinctives par branche
@@ -942,6 +943,7 @@ export default function Effectif() {
         </div>
       </div>
     `;
+    sanitizeContainer(container);
     document.body.appendChild(container);
     try {
       const canvas = await html2canvas(container, { scale: 2, backgroundColor: "#ffffff" });

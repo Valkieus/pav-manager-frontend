@@ -177,9 +177,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const changePassword = async (newPassword) => {
-    await axios.post(`${API}/auth/change-password`, {
+    const res = await axios.post(`${API}/auth/change-password`, {
       new_password: newPassword,
     });
+    if (res.data?.access_token) {
+      localStorage.setItem("token", res.data.access_token);
+      axios.defaults.headers.common["Authorization"] = `Bearer ${res.data.access_token}`;
+      setToken(res.data.access_token);
+    }
     setMustChangePassword(false);
     setUser((prev) => ({ ...prev, must_change_password: false }));
   };

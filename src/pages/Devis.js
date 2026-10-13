@@ -42,6 +42,7 @@ import {
 import { toast } from 'sonner';
 import AchatsTab from '../components/AchatsTab';
 import PiecesButton from '../components/Pieces';
+import { sanitizeContainer } from '../lib/safeHtml';
 import {
   Plus,
   FileText,
@@ -351,6 +352,7 @@ export default function DevisAchat() {
         </div>
       </div>
     `;
+    sanitizeContainer(container);
     document.body.appendChild(container);
     try {
       const canvas = await html2canvas(container, { scale: 2, backgroundColor: '#ffffff' });

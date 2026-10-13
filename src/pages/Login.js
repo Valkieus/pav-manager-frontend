@@ -42,14 +42,27 @@ export default function Login() {
   // de l'app (une seule fois). Si le navigateur exige un toucher, ou si la
   // personne annule, le bouton reste disponible.
   useEffect(() => {
+    let cancelled = false;
+    let timer = null;
     passkeySupported().then((ok) => {
+      if (cancelled) return;
       const enrolled = ok && passkeyEnrolledHere();
       setBioOk(enrolled);
-      if (enrolled && !autoBiometricDone) {
+      if (!enrolled || autoBiometricDone) return;
+      // Petit délai : si la page de connexion est remontée aussitôt (chargement de session, double rendu), le
+      // lancement de cette instance est annulé et seule la dernière ouvre l'écran Face ID — jamais deux.
+      timer = setTimeout(() => {
+        if (cancelled || autoBiometricDone || document.visibilityState === 'hidden') return;
+        // Un rechargement de page (mise à jour de l'app) ne doit pas relancer Face ID dans les 30 secondes.
+        let last = 0;
+        try { last = Number(sessionStorage.getItem('pav_bio_auto_at') || 0); } catch (e) { /* ignore */ }
+        if (Date.now() - last < 30000) return;
+        try { sessionStorage.setItem('pav_bio_auto_at', String(Date.now())); } catch (e) { /* ignore */ }
         autoBiometricDone = true;
         handleBiometric();
-      }
+      }, 350);
     });
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

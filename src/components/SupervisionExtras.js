@@ -104,6 +104,14 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
   const [rebPlan, setRebPlan] = useState(null);
   const [rebBusy, setRebBusy] = useState(false);
   const [evacCloud, setEvacCloud] = useState(""); // compte à vider entièrement
+  const [orph, setOrph] = useState(null); // analyse des fichiers non utilisés
+  const scanOrphans = async () => {
+    if (!evacCloud) { toast.error("Choisissez le compte à analyser"); return; }
+    setRebBusy(true); setOrph(null);
+    try { setOrph((await axios.get(`${API}/admin/infra/cloudinary-orphans`, { params: { cloud: evacCloud }, timeout: 120000 })).data); }
+    catch (err) { toast.error(err.response?.data?.detail || "Analyse impossible"); }
+    finally { setRebBusy(false); }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -355,6 +363,17 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
                   </Button>
                 </div>
               )}
+              {orph && (
+                <div className="rounded-md border p-2 text-xs space-y-1" data-testid="orphans-result">
+                  <p className="font-semibold">Compte « {orph.cloud} » : {Object.entries(orph.types || {}).map(([t, v]) => `${v.count} ${t} (${fmtBytes(v.bytes)})`).join(" · ")}</p>
+                  <p>Utilisés par l'application : {orph.used_count} fichier(s), {fmtBytes(orph.used_bytes)}. <b>Non utilisés : {orph.orphans_count} fichier(s), {fmtBytes(orph.orphans_bytes)}.</b>{orph.partial ? " (analyse partielle : compte très grand)" : ""}{orph.error ? ` Erreur : ${orph.error}` : ""}</p>
+                  {orph.top?.length > 0 && (
+                    <ul className="list-disc pl-4 text-muted-foreground">
+                      {orph.top.slice(0, 10).map((o) => (<li key={o.public_id}>{o.public_id} ({o.type}, {fmtBytes(o.bytes)})</li>))}
+                    </ul>
+                  )}
+                </div>
+              )}
               {canEdit && (
                 <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-2" data-testid="evacuate-box">
                   <span className="text-xs text-muted-foreground">Vider entièrement un compte (ex. avant sa suspension) :</span>
@@ -365,6 +384,7 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
                     ))}
                   </select>
                   <Button size="sm" variant="outline" onClick={simulateEvac} disabled={rebBusy || reb?.running || !evacCloud}>Simuler le vidage</Button>
+                  <Button size="sm" variant="outline" onClick={scanOrphans} disabled={rebBusy || reb?.running || !evacCloud}>Analyser les fichiers non utilisés</Button>
                   <Button size="sm" variant="destructive" onClick={startEvac} disabled={rebBusy || reb?.running || !evacCloud}>Vider ce compte</Button>
                 </div>
               )}

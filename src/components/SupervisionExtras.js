@@ -324,8 +324,8 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
             <div className="space-y-2 rounded-lg border border-dashed p-3">
               <p className="font-semibold">Équilibrage des comptes</p>
               <p className="text-xs text-muted-foreground">
-                Automatique (toutes les 6 h) : les fichiers les plus lourds passent du compte le plus chargé vers le moins chargé (écart de plus de 10 points,
-                destinataire sous 70 %) ; au-dessus de 90 %, le surplus part sur B2 gratuit. Les crédits affichés se mettent à jour sous 24 h.
+                Automatique (toutes les 2 h) : les fichiers les plus lourds passent du compte le plus chargé vers le moins chargé (écart de plus de 10 points,
+                destinataire sous 70 %) ; au-dessus de 90 %, le surplus part sur B2 gratuit ; dès 100 %, mode urgence (destinataires jusqu'à 85 %, surplus vers B2). Les crédits affichés se mettent à jour sous 24 h.
               </p>
               {reb?.message && (
                 <p className="text-xs">

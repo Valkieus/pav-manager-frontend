@@ -50,7 +50,7 @@ function PlayableVideo({ m, onDownload }) {
         onError={() => setI((x) => (x < cands.length - 1 ? x + 1 : x))} />
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="truncate">{m.filename}</span>
-        <a href={downloadUrl(m)} download={m.filename} target="_blank" rel="noreferrer" onClick={() => onDownload && onDownload(m)}
+        <a href={downloadUrl(m)} download={m.filename} target="_blank" rel="noreferrer" onClick={(e) => onDownload && onDownload(e, m)}
           className="inline-flex shrink-0 items-center gap-1 rounded-md border px-2.5 py-1.5 font-medium text-foreground hover:bg-muted">
           <Download className="h-3.5 w-3.5" /> Télécharger
         </a>
@@ -131,14 +131,20 @@ export default function ElementsLED() {
   const [selected, setSelected] = useState(null);
   const [showDownloads, setShowDownloads] = useState(false);
 
-  // Trace du téléchargement (jamais bloquante) puis mise à jour du bandeau.
-  const logDownload = (m) => {
+  // Téléchargement TRACÉ par le serveur : enregistre qui télécharge quoi, puis ouvre le fichier d'origine
+  // (pièce jointe). Si l'enregistrement échoue, on le dit et le fichier s'ouvre quand même.
+  const startDownload = async (e, m) => {
+    e.preventDefault();
     if (!selected) return;
-    axios.post(`${API}/led-elements/${selected.id}/downloaded`, { filename: m?.filename })
-      .then((res) => {
-        setSelected((cur) => (cur && cur.id === selected.id ? { ...cur, downloads: res.data.downloads } : cur));
-        setElements((els) => els.map((e) => (e.id === selected.id ? { ...e, downloads: res.data.downloads } : e)));
-      }).catch(() => {});
+    try {
+      const res = await axios.post(`${API}/led-elements/${selected.id}/download`, { filename: m?.filename });
+      setSelected((cur) => (cur && cur.id === selected.id ? { ...cur, downloads: res.data.downloads } : cur));
+      setElements((els) => els.map((x) => (x.id === selected.id ? { ...x, downloads: res.data.downloads } : x)));
+      window.location.assign(mediaUrl(res.data.url));
+    } catch (err) {
+      toast.error(`Téléchargement non enregistré (${err.response?.data?.detail || 'serveur injoignable'}) — le fichier s'ouvre quand même.`);
+      window.open(downloadUrl(m), '_blank');
+    }
   };
 
   // catégories
@@ -375,12 +381,12 @@ export default function ElementsLED() {
                       <a href={mediaUrl(m.url)} target="_blank" rel="noreferrer">
                         <img src={mediaUrl(m.url)} alt={m.filename} className="w-full rounded" />
                       </a>
-                      <a href={downloadUrl(m)} download={m.filename} target="_blank" rel="noreferrer" onClick={() => logDownload(m)} className="inline-flex items-center gap-1 text-xs underline">
+                      <a href={downloadUrl(m)} download={m.filename} target="_blank" rel="noreferrer" onClick={(e) => startDownload(e, m)} className="inline-flex items-center gap-1 text-xs underline">
                         <Download className="h-3 w-3" /> Télécharger
                       </a>
                     </div>
                   ) : m.kind === 'video' ? (
-                    <PlayableVideo key={m.url} m={m} onDownload={logDownload} />
+                    <PlayableVideo key={m.url} m={m} onDownload={startDownload} />
                   ) : (
                     <a key={m.url} href={mediaUrl(m.url)} target="_blank" rel="noreferrer" className="underline text-sm">{m.filename}</a>
                   )

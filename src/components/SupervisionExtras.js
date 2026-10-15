@@ -367,6 +367,13 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
                 <div className="rounded-md border p-2 text-xs space-y-1" data-testid="orphans-result">
                   <p className="font-semibold">Compte « {orph.cloud} » : {Object.entries(orph.types || {}).map(([t, v]) => `${v.count} ${t} (${fmtBytes(v.bytes)})`).join(" · ")}</p>
                   <p>Utilisés par l'application : {orph.used_count} fichier(s), {fmtBytes(orph.used_bytes)}. <b>Non utilisés : {orph.orphans_count} fichier(s), {fmtBytes(orph.orphans_bytes)}.</b>{orph.partial ? " (analyse partielle : compte très grand)" : ""}{orph.error ? ` Erreur : ${orph.error}` : ""}</p>
+                  {typeof orph.broken_count === "number" && (
+                    <p className={orph.broken_count ? "font-semibold text-red-500" : "text-green-600"}>
+                      {orph.broken_count
+                        ? `⚠ ${orph.broken_count} lien(s) de l'application pointent vers un fichier absent de ce compte (ex. ${(orph.broken_sample || []).slice(0, 3).join(", ")}).`
+                        : "Aucun lien cassé : tout ce que l'application référence sur ce compte existe."}
+                    </p>
+                  )}
                   {orph.top?.length > 0 && (
                     <ul className="list-disc pl-4 text-muted-foreground">
                       {orph.top.slice(0, 10).map((o) => (<li key={o.public_id}>{o.public_id} ({o.type}, {fmtBytes(o.bytes)})</li>))}

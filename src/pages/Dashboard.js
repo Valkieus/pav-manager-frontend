@@ -949,8 +949,8 @@ export default function Dashboard() {
 d'empiler deux cartes pleine largeur) : ça évite au calendrier de
 s'étirer sur toute la largeur de page, ce qui rendait ses cases
 démesurément grandes sur PC. */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="min-w-0">
       {/* Résumé rapide — personalized quick-info summary, shown to every
 role (Membre included): prochain service, invités à venir, accès
 rapide absence/formations, et un rappel des horaires de service. */}
@@ -1045,11 +1045,11 @@ rapide absence/formations, et un rappel des horaires de service. */}
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 pt-1">
             <Button
               size="sm"
               variant="outline"
-              className="justify-start"
+              className="justify-start h-auto min-h-8 whitespace-normal text-left py-1.5"
               onClick={() => navigate("/mon-espace")}
             >
               <CalendarOff className="w-3.5 h-3.5 mr-1.5" />
@@ -1058,10 +1058,10 @@ rapide absence/formations, et un rappel des horaires de service. */}
             <Button
               size="sm"
               variant="outline"
-              className="justify-start"
+              className="justify-start h-auto min-h-8 whitespace-normal text-left py-1.5"
               onClick={() => navigate("/formations")}
             >
-              <GraduationCap className="w-3.5 h-3.5 mr-1.5" />
+              <GraduationCap className="w-3.5 h-3.5 mr-1.5 shrink-0" />
               {formationsCount} formation{formationsCount !== 1 ? "s" : ""}{" "}
               disponible{formationsCount !== 1 ? "s" : ""}, découvrir ici
             </Button>
@@ -1121,7 +1121,7 @@ rapide absence/formations, et un rappel des horaires de service. */}
       </Card>
 
       </div>
-      <div className="lg:col-span-2">
+      <div className="min-w-0">
       {/* Calendrier du mois — vue basique, non-navigable, des jours de
 service et des événements Actualités du mois en cours. Visible à
 tous les rôles comme le Résumé rapide. Col-span réduit à 2 (comme le

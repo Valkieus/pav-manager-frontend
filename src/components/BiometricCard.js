@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Loader2, ScanFace, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { enrollPasskey, passkeySupported, passkeyEnrolledHere } from "../lib/passkey";
+import { enrollPasskey, passkeySupported, passkeyEnrolledHere, prefetchPasskeyOptions } from "../lib/passkey";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -32,7 +32,11 @@ export default function BiometricCard() {
       setServerOk(r.data.available !== false);
     } catch (e) { setList([]); }
   }, []);
-  useEffect(() => { passkeySupported().then(setSupported); load(); }, [load]);
+  useEffect(() => {
+    // Défi demandé à l'avance : au toucher, la fenêtre Face ID s'ouvre tout de suite (Safari l'exige).
+    passkeySupported().then((ok) => { setSupported(ok); if (ok) prefetchPasskeyOptions("register").catch(() => {}); });
+    load();
+  }, [load]);
 
   const enable = async () => {
     setBusy(true);
@@ -43,6 +47,7 @@ export default function BiometricCard() {
     } catch (err) {
       if (err?.name === "NotAllowedError") toast.info("Activation annulée");
       else toast.error(err.response?.data?.detail || "Activation impossible sur cet appareil");
+      prefetchPasskeyOptions("register").catch(() => {});
     } finally { setBusy(false); }
   };
   const remove = async (p) => {

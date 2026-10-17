@@ -7,7 +7,7 @@ import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Loader2, LogIn, AlertCircle, Eye, EyeOff, ScanFace } from 'lucide-react';
-import { passkeyLogin, passkeySupported, passkeyEnrolledHere } from '../lib/passkey';
+import { passkeyLogin, passkeySupported, passkeyEnrolledHere, prefetchPasskeyOptions, isIOS } from '../lib/passkey';
 
 // Lancement automatique de Face ID : une seule fois par chargement de page (la page de connexion peut être remontée
 // plusieurs fois pendant le chargement de la session, ce qui ouvrait l'écran « passkey » deux fois).
@@ -25,13 +25,20 @@ export default function Login() {
   const handleBiometric = async () => {
     setError('');
     setLoading(true);
+    const t0 = Date.now();
     try {
       const data = await passkeyLogin();
       await loginWithData(data);
       const next = sessionStorage.getItem('post_login_next');
       navigate(['/sso-led', '/sso-academy'].includes(next) ? next : '/');
     } catch (err) {
-      if (err?.name !== 'NotAllowedError') setError(err.response?.data?.detail || 'Face ID / empreinte indisponible : utilisez votre mot de passe');
+      if (err?.name === 'NotAllowedError') {
+        // Refus immédiat (moins d'une seconde) = le navigateur n'a pas reconnu le toucher ; plus tard = annulé par la personne.
+        if (Date.now() - t0 < 1000) setError('Touchez à nouveau « Se connecter avec Face ID ».');
+      } else {
+        setError(err.response?.data?.detail || 'Face ID / empreinte indisponible : utilisez votre mot de passe');
+      }
+      prefetchPasskeyOptions('login').catch(() => {});  // nouveau défi prêt pour la prochaine tentative
     } finally {
       setLoading(false);
     }
@@ -48,7 +55,10 @@ export default function Login() {
       if (cancelled) return;
       const enrolled = ok && passkeyEnrolledHere();
       setBioOk(enrolled);
-      if (!enrolled || autoBiometricDone) return;
+      if (!enrolled) return;
+      prefetchPasskeyOptions('login').catch(() => {});  // défi demandé à l'avance : au toucher, Face ID s'ouvre sans attendre le serveur
+      // iPhone / iPad : Safari refuse Face ID sans toucher ; pas de lancement automatique, le bouton est là.
+      if (autoBiometricDone || isIOS()) return;
       // Petit délai : si la page de connexion est remontée aussitôt (chargement de session, double rendu), le
       // lancement de cette instance est annulé et seule la dernière ouvre l'écran Face ID — jamais deux.
       timer = setTimeout(() => {
@@ -62,7 +72,10 @@ export default function Login() {
         handleBiometric();
       }, 350);
     });
-    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+    // Retour sur l'app (après un moment en arrière-plan) : défi rafraîchi s'il est trop ancien.
+    const onVisible = () => { if (document.visibilityState === 'visible' && passkeyEnrolledHere()) prefetchPasskeyOptions('login').catch(() => {}); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { cancelled = true; if (timer) clearTimeout(timer); document.removeEventListener('visibilitychange', onVisible); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

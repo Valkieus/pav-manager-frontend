@@ -27,31 +27,7 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { toast } from 'sonner';
-import {
-  Plus,
-  Building2,
-  Loader2,
-  Clock,
-  Link as LinkIcon,
-  Calendar,
-  Check,
-  X,
-  Copy,
-  Trash2,
-  Edit,
-  Users,
-  ExternalLink,
-  CalendarClock,
-  ShieldCheck,
-  Timer,
-  Sparkles,
-  Wifi,
-  RefreshCw,
-  Mail,
-  UserPlus,
-  Save,
-  RotateCcw
-} from 'lucide-react';
+import { Plus, Building2, Loader2, Clock, Link as LinkIcon, Calendar, Check, X, Copy, Trash2, Edit, Users, ExternalLink, CalendarClock, ShieldCheck, Timer, Sparkles, Wifi, RefreshCw, Mail, UserPlus, Save, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -329,6 +305,21 @@ export default function SallesAdmin({ embedded = false }) {
     });
     setEditingSalle(salle);
     setSalleDialogOpen(true);
+  };
+
+  // Ordre d'affichage : la première salle est la salle principale (sélectionnée par défaut dans le planning).
+  const moveSalle = async (index, delta) => {
+    const j = index + delta;
+    if (j < 0 || j >= salles.length) return;
+    const next = [...salles];
+    [next[index], next[j]] = [next[j], next[index]];
+    setSalles(next);
+    try {
+      await axios.put(`${API}/salles/order`, { ids: next.map((x) => x.id) });
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Impossible d'enregistrer l'ordre");
+      fetchData();
+    }
   };
 
   const handleDeleteSalle = async (id) => {
@@ -610,7 +601,7 @@ export default function SallesAdmin({ embedded = false }) {
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {salles.map((salle) => (
+              {salles.map((salle, idx) => (
                 <Card key={salle.id} className="card-hover overflow-hidden" data-testid={`salle-${salle.id}`}>
                   <div className="h-1.5 bg-gradient-to-r from-primary to-primary/40" />
                   <CardHeader className="pb-2">
@@ -620,7 +611,7 @@ export default function SallesAdmin({ embedded = false }) {
                           <Building2 className="w-4.5 h-4.5 text-primary" />
                         </div>
                         <span className="min-w-0">
-                          <span className="block truncate">{salle.nom}</span>
+                          <span className="block truncate">{salle.nom}{idx === 0 && <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Principale</span>}</span>
                           {salle.type && SALLE_TYPES.find((t) => t.id === salle.type) && (
                             <span className="block truncate text-[11px] font-normal text-muted-foreground">{SALLE_TYPES.find((t) => t.id === salle.type).label}</span>
                           )}
@@ -628,6 +619,12 @@ export default function SallesAdmin({ embedded = false }) {
                       </span>
                       {isAdmin() && (
                         <div className="flex gap-1 shrink-0">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" disabled={idx === 0} title="Avancer dans l'ordre" aria-label="Avancer dans l'ordre" onClick={() => moveSalle(idx, -1)}>
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" disabled={idx === salles.length - 1} title="Reculer dans l'ordre" aria-label="Reculer dans l'ordre" onClick={() => moveSalle(idx, 1)}>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditSalle(salle)}>
                             <Edit className="w-3.5 h-3.5" />
                           </Button>

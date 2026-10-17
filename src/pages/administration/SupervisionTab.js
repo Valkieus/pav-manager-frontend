@@ -9,6 +9,7 @@ import { SupDatabase } from './supervision/SupDatabase';
 import { SupBackup } from './supervision/SupBackup';
 import { SupCloudinaryMigration } from './supervision/SupCloudinaryMigration';
 import { SupB2Return } from './supervision/SupB2Return';
+import { SupDedupe } from './supervision/SupDedupe';
 import { SupRedundancy } from './supervision/SupRedundancy';
 import { SupInfra } from './supervision/SupInfra';
 import { SupOverview } from './supervision/SupOverview';
@@ -269,6 +270,8 @@ export function SupervisionTab({
       )}
 
       {supSection === "cloudinary" && <SupB2Return isSuperAdmin={isSuperAdmin} />}
+
+      {(supSection === "cloudinary" || supSection === "backup") && <SupDedupe isSuperAdmin={isSuperAdmin} />}
 
       {supSection === "backup" && (
       <SupBackup

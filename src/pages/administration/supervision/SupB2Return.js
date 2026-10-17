@@ -12,6 +12,7 @@ const fmtBytes = (n) => (n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2)} Go` : `
 export function SupB2Return({ isSuperAdmin }) {
   const [plan, setPlan] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [freeCloud, setFreeCloud] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -32,7 +33,7 @@ export function SupB2Return({ isSuperAdmin }) {
   const start = async (limit) => {
     setBusy(true);
     try {
-      await axios.post(`${API}/led/b2-return/start`, { limit });
+      await axios.post(`${API}/led/b2-return/start`, { limit, free_cloudinary: freeCloud });
       toast.success(limit ? `Copie de ${limit} fichiers lancée` : 'Copie lancée');
       await load();
     } catch (e) {
@@ -40,6 +41,17 @@ export function SupB2Return({ isSuperAdmin }) {
     } finally {
       setBusy(false);
     }
+  };
+  const freeCloudinary = async () => {
+    if (!window.confirm("Supprimer chez Cloudinary les originaux des fichiers déjà copiés et vérifiés sur B2 ?\n\nC'est définitif : le retour arrière ne sera plus possible pour eux.")) return;
+    setBusy(true);
+    try {
+      const res = await axios.post(`${API}/led/b2-return/free-cloudinary`, {});
+      toast.success(`${res.data.freed} original(aux) supprimé(s) chez Cloudinary${res.data.skipped ? ` · ${res.data.skipped} ignoré(s)` : ''}`);
+      await load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Échec');
+    } finally { setBusy(false); }
   };
   const rollback = async () => {
     if (!window.confirm('Remettre sur Cloudinary tous les fichiers déjà copiés vers B2 ?')) return;
@@ -73,8 +85,9 @@ export function SupB2Return({ isSuperAdmin }) {
           <HardDrive className="w-5 h-5" /> Retour des fichiers LED vers B2
         </CardTitle>
         <CardDescription>
-          Chaque fichier est copié sur B2 et vérifié avant d'être basculé : le site LED reste utilisable pendant toute l'opération. Rien n'est
-          supprimé chez Cloudinary et l'opération peut être annulée. Conseil : lancer d'abord un essai de 5 fichiers.
+          Chaque fichier est copié UNE SEULE fois sur B2 (sans copie vers les autres stockages) et vérifié avant d'être basculé : le site LED reste
+          utilisable pendant toute l'opération. Sans la case ci-dessous, l'original reste chez Cloudinary et l'opération peut être annulée.
+          Conseil : lancer d'abord un essai de 5 fichiers.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -94,9 +107,16 @@ export function SupB2Return({ isSuperAdmin }) {
           </ul>
         )}
         {isSuperAdmin() && (
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-1 w-4 h-4" checked={freeCloud} onChange={(e) => setFreeCloud(e.target.checked)} />
+            <span>Supprimer l'original chez Cloudinary dès que la copie sur B2 est vérifiée <span className="text-muted-foreground">(une seule copie, pas de doublon ; le retour arrière n'est alors plus possible pour ces fichiers)</span></span>
+          </label>
+        )}
+        {isSuperAdmin() && (
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" disabled={busy || plan.running || !plan.b2_enabled || plan.on_cloudinary === 0} onClick={() => start(5)}>Essai : 5 fichiers</Button>
             <Button size="sm" disabled={busy || plan.running || !plan.b2_enabled || plan.on_cloudinary === 0} onClick={() => start(0)}>Tout copier vers B2</Button>
+            <Button size="sm" variant="outline" disabled={busy || plan.running} onClick={freeCloudinary}>Libérer Cloudinary (fichiers déjà copiés)</Button>
             <Button size="sm" variant="outline" disabled={busy || plan.running} onClick={rollback}>Annuler (remettre sur Cloudinary)</Button>
             <Button size="sm" variant="ghost" onClick={() => setMode(plan.mode === 'b2' ? 'cloudinary' : 'b2')}>
               {plan.mode === 'b2' ? 'Réactiver la copie vers Cloudinary' : 'Passer en « B2 seul »'}

@@ -566,7 +566,7 @@ export default function Actualites() {
                     onClick={() => setSelected(featured)}
                     data-testid="actualite-featured"
                   >
-                    <div className="relative min-h-[300px] sm:min-h-[380px]">
+                    <div className="relative min-h-[300px] bg-black sm:min-h-[380px]">
                       <div className="absolute inset-0"><Cover a={featured} className="transition-transform duration-500 group-hover:scale-[1.02]" /></div>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <div className="absolute left-4 top-4 flex items-center gap-2">

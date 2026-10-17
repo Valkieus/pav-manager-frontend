@@ -7,9 +7,6 @@ import { Badge } from '../components/ui/badge';
 import { TableHead } from '../components/ui/table';
 import { toast } from 'sonner';
 import { Loader2, LayoutDashboard, ArrowRightLeft, StickyNote, Boxes, Contact2, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
-import * as XLSX from 'xlsx-js-style';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { sanitizeContainer } from '../lib/safeHtml';
 import {
   downloadOrShareFile,
@@ -23,6 +20,9 @@ import { LogistiqueStock } from './logistique/LogistiqueStock';
 import { LogistiqueEntreesSorties } from './logistique/LogistiqueEntreesSorties';
 import { LogistiqueDashboard } from './logistique/LogistiqueDashboard';
 import { LogistiqueHeader } from './logistique/LogistiqueHeader';
+// Bibliothèque lourde (~330 Ko) : chargée seulement quand on exporte, pas à l'ouverture de la page.
+let XLSX;
+const loadXLSX = async () => { XLSX = XLSX || (await import('xlsx-js-style')); };
 
 
 
@@ -1473,6 +1473,7 @@ export default function Logistique({ kioskMode = false }) {
   const handleExportRegisseursXlsx = async () => {
     setExportingXlsx(true);
     try {
+      await loadXLSX();
       const wb = XLSX.utils.book_new();
       if (wantSection('materiel')) XLSX.utils.book_append_sheet(wb, buildMaterielSheet(), 'Stock & Matériel');
       if (wantSection('contact')) XLSX.utils.book_append_sheet(wb, buildContactSheet(), 'Contact');
@@ -1553,6 +1554,7 @@ export default function Logistique({ kioskMode = false }) {
     sanitizeContainer(container);
     document.body.appendChild(container);
     try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
       const canvas = await html2canvas(container, { scale: 2, backgroundColor: '#ffffff' });
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
       const pageWidth = pdf.internal.pageSize.getWidth();

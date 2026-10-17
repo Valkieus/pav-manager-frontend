@@ -16,7 +16,6 @@ import {
   downloadStatusMessage,
   reserveTabForIOSFallback,
 } from "../utils/fileDownload";
-import * as XLSX from "xlsx-js-style";
 import { API, MAINTENANCE_PAGES, SUPERVISED_COLLECTIONS_LABELS } from './administration/constants';
 import { FicheEffectifSection } from './administration/panels';
 import { NotificationsTab } from './administration/NotificationsTab';
@@ -26,6 +25,9 @@ import { RightsTab } from './administration/RightsTab';
 import { GroupsTab } from './administration/GroupsTab';
 import { UsersTab } from './administration/UsersTab';
 import { MaintenanceTab } from './administration/MaintenanceTab';
+// Bibliothèque lourde (~330 Ko) : chargée seulement quand on exporte, pas à l'ouverture de la page.
+let XLSX;
+const loadXLSX = async () => { XLSX = XLSX || (await import('xlsx-js-style')); };
 
 
 
@@ -1076,6 +1078,7 @@ export default function Administration() {
         `${API}/admin/supervision/entity/${entitySelected}/export`,
       );
       const rows = Array.isArray(res.data) ? res.data : [];
+      await loadXLSX();
       const blob = buildEntityXLSX(entitySelected, rows);
       const filename = `${entitySelected}-${new Date().toISOString().slice(0, 10)}.xlsx`;
       const status = await downloadOrShareFile(blob, filename, {

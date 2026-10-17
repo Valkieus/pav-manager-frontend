@@ -1,5 +1,7 @@
 import { delimiterGroup, MOIS_NOMS, applyNameCase, MOIS_ABBR, DEFAULT_SECTIONS } from './constants';
-import * as XLSX from 'xlsx-js-style';
+// Bibliothèque lourde (~330 Ko) : chargée seulement quand on exporte, pas à l'ouverture de la page.
+let XLSX;
+export const loadXLSX = async () => { XLSX = XLSX || (await import('xlsx-js-style')); };
 
 // ---------------------------------------------------------------------------
 // PNG export engine — dedicated, data-driven, independent of the on-screen

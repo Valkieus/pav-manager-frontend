@@ -57,9 +57,6 @@ import {
   Mail,
   FilterX,
 } from "lucide-react";
-import * as XLSX from "xlsx-js-style";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import {
   downloadOrShareFile,
   downloadStatusMessage,
@@ -69,6 +66,9 @@ import { invalidateTechniciensCache } from "../lib/technicienCache";
 import TeamAbsenceDashboard from "./TeamAbsenceDashboard";
 
 import { sanitizeContainer } from '../lib/safeHtml';
+// Bibliothèque lourde (~330 Ko) : chargée seulement quand on exporte, pas à l'ouverture de la page.
+let XLSX;
+const loadXLSX = async () => { XLSX = XLSX || (await import('xlsx-js-style')); };
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Couleurs distinctives par branche
@@ -853,6 +853,7 @@ export default function Effectif() {
   const handleExportListXlsx = async () => {
     setExportingListXlsx(true);
     try {
+      await loadXLSX();
       const blob = buildEffectifListXLSX(filteredTechniciens);
       const filename = `effectif-${new Date().toISOString().slice(0, 10)}.xlsx`;
       const status = await downloadOrShareFile(blob, filename, { title: filename });
@@ -946,6 +947,7 @@ export default function Effectif() {
     sanitizeContainer(container);
     document.body.appendChild(container);
     try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
       const canvas = await html2canvas(container, { scale: 2, backgroundColor: "#ffffff" });
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });

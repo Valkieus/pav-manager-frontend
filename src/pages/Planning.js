@@ -25,7 +25,7 @@ import {
   reserveTabForIOSFallback,
 } from "../utils/fileDownload";
 import { API, DEFAULT_SECTIONS, MOIS_NOMS, THEME, canonPoste, delimiterGroup, slugPoste, stripAccents, withCamera7 } from './planning/constants';
-import { buildPlanningExportSVG, buildPlanningExportXLSX, svgToPngDataUrl } from './planning/exportUtils';
+import { buildPlanningExportSVG, buildPlanningExportXLSX, loadXLSX, svgToPngDataUrl } from './planning/exportUtils';
 import { PlanningCell } from './planning/cells';
 import { EditDatesDialog } from './planning/EditDatesDialog';
 import { CopyDaysDialog } from './planning/CopyDaysDialog';
@@ -1250,6 +1250,7 @@ export default function Planning() {
   const handleExportXlsx = async () => {
     setExportingXlsx(true);
     try {
+      await loadXLSX();
       const blob = buildPlanningExportXLSX({
         currentMonth,
         currentYear,

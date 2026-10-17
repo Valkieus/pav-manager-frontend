@@ -620,6 +620,60 @@ ${isClickable ? "cursor-pointer hover:bg-primary/20 transition-colors" : ""}`}
           Date clé
         </span>
       </div>
+
+      {(() => {
+        // Agenda du mois : le NOM de chaque date clé / service / événement, lisible sans survol (téléphone compris).
+        const rows = {};
+        const add = (day, item) => { (rows[day] = rows[day] || []).push(item); };
+        datesClesOf(year).forEach((e) => {
+          if (e.date.getMonth() === month - 1) add(e.date.getDate(), { dot: "bg-pink-500", text: `${e.emoji} ${e.nom}` });
+        });
+        Object.keys(serviceByDate).forEach((ds) => {
+          if (ds.startsWith(`${year}-${pad(month)}-`)) {
+            const sv = serviceByDate[ds];
+            add(Number(ds.slice(8, 10)), { dot: "bg-primary", text: `Service (${sv.jour}${sv.poste ? ` — ${sv.poste}` : ""})` });
+          }
+        });
+        Object.keys(eventsByDate).forEach((ds) => {
+          if (ds.startsWith(`${year}-${pad(month)}-`)) {
+            eventsByDate[ds].forEach((e) => {
+              const kind = e.invite
+                ? { dot: "bg-amber-500", label: "Invité" }
+                : e.type === "absence"
+                  ? { dot: "bg-slate-400", label: "Absence" }
+                  : e.type === "formation"
+                    ? { dot: "bg-violet-500", label: "Formation" }
+                    : { dot: "bg-blue-500", label: "Événement" };
+              add(Number(ds.slice(8, 10)), { dot: kind.dot, text: `${kind.label} : ${e.titre}` });
+            });
+          }
+        });
+        const days = Object.keys(rows).map(Number).sort((x, y) => x - y);
+        if (days.length === 0) return null;
+        const WD = ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."];
+        return (
+          <div className="mt-4 border-t pt-3" data-testid="calendar-agenda">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Ce mois-ci</p>
+            <ul className="space-y-1.5">
+              {days.map((d) => (
+                <li key={d} className={`flex items-start gap-2 text-sm ${`${year}-${pad(month)}-${pad(d)}` === todayStr ? "font-semibold" : ""}`}>
+                  <span className="w-14 shrink-0 rounded-md bg-muted/60 px-1.5 py-0.5 text-center text-xs font-medium tabular-nums">
+                    {WD[new Date(year, month - 1, d).getDay()]} {d}
+                  </span>
+                  <span className="min-w-0 flex-1 space-y-0.5">
+                    {rows[d].map((it, i) => (
+                      <span key={i} className="flex items-start gap-1.5">
+                        <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${it.dot}`} />
+                        <span className="break-words">{it.text}</span>
+                      </span>
+                    ))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
     </div>
   );
 };
@@ -954,7 +1008,7 @@ démesurément grandes sur PC. */}
       {/* Résumé rapide — personalized quick-info summary, shown to every
 role (Membre included): prochain service, invités à venir, accès
 rapide absence/formations, et un rappel des horaires de service. */}
-      <Card className="animate-fadeIn border-primary/20">
+      <Card className="animate-fadeIn border-primary/20 rounded-2xl shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-lg">
             <PartyPopper className="w-5 h-5 text-primary" />
@@ -1127,7 +1181,7 @@ service et des événements Actualités du mois en cours. Visible à
 tous les rôles comme le Résumé rapide. Col-span réduit à 2 (comme le
 Résumé rapide) pour équilibrer la largeur — sinon le calendrier
 paraît disproportionné sur desktop. */}
-      <Card className="animate-fadeIn">
+      <Card className="animate-fadeIn rounded-2xl border-primary/10 shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-lg capitalize">
             <Calendar className="w-5 h-5 text-primary" />
@@ -1225,13 +1279,13 @@ cases du calendrier deviennent démesurées sur grand écran. */}
       {/* Stats Grid — operational KPIs, not relevant for a plain Membre */}
       {!isMembre && (
         <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3"><span className="w-1 h-4 rounded-full gradient-primary" />
             Vue d'ensemble
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {isCoordinationPlus && (
               <Card
-                className="card-hover animate-fadeIn cursor-pointer"
+                className="card-hover animate-fadeIn cursor-pointer rounded-2xl border-primary/10 shadow-sm"
                 data-testid="stat-effectif"
                 onClick={() => navigate("/effectif")}
               >
@@ -1241,15 +1295,15 @@ cases du calendrier deviennent démesurées sur grand écran. */}
                       <p className="text-sm text-muted-foreground">
                         Effectif Total
                       </p>
-                      <p className="text-3xl font-bold mt-1">
+                      <p className="text-4xl font-bold tracking-tight mt-1">
                         {stats?.total_techniciens || 0}
                       </p>
                       <p className="text-xs text-muted-foreground mt-2">
                         Techniciens actifs
                       </p>
                     </div>
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Users className="w-6 h-6 text-primary" />
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 shadow-md flex items-center justify-center">
+                      <Users className="w-6 h-6 text-white" />
                     </div>
                   </div>
                 </CardContent>
@@ -1263,7 +1317,7 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
               isResponsableRole &&
               (user?.branches || []).length > 0 && (
                 <Card
-                  className="card-hover animate-fadeIn cursor-pointer"
+                  className="card-hover animate-fadeIn cursor-pointer rounded-2xl border-primary/10 shadow-sm"
                   data-testid="stat-mon-equipe"
                   onClick={() => navigate("/effectif")}
                 >
@@ -1273,15 +1327,15 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                         <p className="text-sm text-muted-foreground">
                           Mon équipe
                         </p>
-                        <p className="text-3xl font-bold mt-1">
+                        <p className="text-4xl font-bold tracking-tight mt-1">
                           {myTeamCount}
                         </p>
                         <p className="text-xs text-muted-foreground mt-2">
                           {user.branches.join(", ")}
                         </p>
                       </div>
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <Users className="w-6 h-6 text-primary" />
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-md flex items-center justify-center">
+                        <Users className="w-6 h-6 text-white" />
                       </div>
                     </div>
                   </CardContent>
@@ -1298,7 +1352,7 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Badges</p>
-                      <p className="text-3xl font-bold mt-1">
+                      <p className="text-4xl font-bold tracking-tight mt-1">
                         {stats?.badges_attribues || 0}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
@@ -1310,8 +1364,8 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                         </span>
                       </div>
                     </div>
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                      <IdCard className="w-6 h-6 text-emerald-500" />
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md flex items-center justify-center">
+                      <IdCard className="w-6 h-6 text-white" />
                     </div>
                   </div>
                 </CardContent>
@@ -1327,7 +1381,7 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Matériel</p>
-                    <p className="text-3xl font-bold mt-1">
+                    <p className="text-4xl font-bold tracking-tight mt-1">
                       {stats?.total_materiel || 0}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
@@ -1337,8 +1391,8 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                       disponible
                     </p>
                   </div>
-                  <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
-                    <Package className="w-6 h-6 text-violet-500" />
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-md flex items-center justify-center">
+                    <Package className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </CardContent>
@@ -1375,8 +1429,8 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                         </div>
                       </div>
                     </div>
-                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                      <AlertCircle className="w-6 h-6 text-amber-500" />
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-md flex items-center justify-center">
+                      <AlertCircle className="w-6 h-6 text-white" />
                     </div>
                   </div>
                 </CardContent>
@@ -1399,15 +1453,15 @@ Régisseurs, puisque les devis matériel le concernent directement
                       <p className="text-sm text-muted-foreground">
                         Devis en attente
                       </p>
-                      <p className="text-3xl font-bold mt-1">
+                      <p className="text-4xl font-bold tracking-tight mt-1">
                         {stats?.devis_en_attente || 0}
                       </p>
                       <p className="text-xs text-muted-foreground mt-2">
                         Régisseurs
                       </p>
                     </div>
-                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                      <AlertCircle className="w-6 h-6 text-amber-500" />
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-md flex items-center justify-center">
+                      <AlertCircle className="w-6 h-6 text-white" />
                     </div>
                   </div>
                 </CardContent>
@@ -1423,7 +1477,7 @@ Régisseurs, puisque les devis matériel le concernent directement
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Salles</p>
-                    <p className="text-3xl font-bold mt-1">
+                    <p className="text-4xl font-bold tracking-tight mt-1">
                       {stats?.total_salles || 0}
                     </p>
                     <div className="flex items-center gap-2 mt-2">
@@ -1452,7 +1506,7 @@ Régisseurs, puisque les devis matériel le concernent directement
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Incidents</p>
-                    <p className="text-3xl font-bold mt-1">
+                    <p className="text-4xl font-bold tracking-tight mt-1">
                       {stats?.incidents_ouverts || 0}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
@@ -1463,8 +1517,8 @@ Régisseurs, puisque les devis matériel le concernent directement
                       au total
                     </p>
                   </div>
-                  <div className="w-12 h-12 rounded-xl bg-rose-500/10 flex items-center justify-center">
-                    <AlertTriangle className="w-6 h-6 text-rose-500" />
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 shadow-md flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </CardContent>
@@ -1476,7 +1530,7 @@ Régisseurs, puisque les devis matériel le concernent directement
 
 
       {/* Portail Charisma */}
-      <Card className="animate-fadeIn stagger-4 overflow-hidden">
+      <Card className="animate-fadeIn stagger-4 overflow-hidden rounded-2xl border-primary/10 shadow-sm">
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -1842,7 +1896,7 @@ Louange ci-dessus. */}
             </Dialog>
 
       {/* Organigramme — visible to everyone, Membre included */}
-      <Card className="animate-fadeIn stagger-5">
+      <Card className="animate-fadeIn stagger-5 rounded-2xl border-primary/10 shadow-sm">
         <CardHeader>
           <CardTitle>Organigramme PAV</CardTitle>
         </CardHeader>

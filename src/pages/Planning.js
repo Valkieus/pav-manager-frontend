@@ -1776,6 +1776,7 @@ export default function Planning() {
   // présente dans « Absences de l'équipe » (sans dates exploitables), un
   // avertissement orange rappelle la ligne. Dédoublonné par personne + jour
   // pour ne pas se répéter à chaque frappe.
+  const [absentAlert, setAbsentAlert] = useState(null); // fenêtre « cette personne est absente »
   const warnIfAbsent = useCallback(
     (value, dateIdx) => {
       const norm = (t) =>
@@ -1798,10 +1799,11 @@ export default function Planning() {
             day: "2-digit",
             month: "2-digit",
           });
-        toast.error(
-          `${hit.full_name} est absent(e) ce jour-là (${hit.raison}, du ${fmtD(hit.date_debut)} au ${fmtD(hit.date_fin)})`,
-          { id: `absent-${hit.id}-${iso}`, duration: 4000 },
-        );
+        setAbsentAlert({
+          level: "error",
+          title: `${hit.full_name} est absent(e) ce jour-là`,
+          text: `${hit.raison || "Absence déclarée"} — du ${fmtD(hit.date_debut)} au ${fmtD(hit.date_fin)}. Vérifie avant de l'affecter.`,
+        });
         return;
       }
       const line = (absences[activeDay] || "")
@@ -1812,9 +1814,10 @@ export default function Planning() {
           return head.length > 0 && typed.every((t) => head.includes(t));
         });
       if (line) {
-        toast.warning(`À vérifier : « ${line} »`, {
-          id: `absent-line-${typed.join("-")}`,
-          duration: 4000,
+        setAbsentAlert({
+          level: "warning",
+          title: "À vérifier : absence possible",
+          text: `« ${line} » figure dans « Absences de l'équipe » pour ce jour.`,
         });
       }
     },
@@ -3467,6 +3470,19 @@ export default function Planning() {
 
   return (
     <div className="space-y-6 print:space-y-0" data-testid="planning-page">
+      <Dialog open={!!absentAlert} onOpenChange={(o) => { if (!o) setAbsentAlert(null); }}>
+        <DialogContent className="max-w-md print:hidden" data-testid="absent-popup">
+          <DialogHeader>
+            <DialogTitle className={`flex items-center gap-2 ${absentAlert?.level === "error" ? "text-destructive" : "text-amber-600"}`}>
+              <CalendarOff className="w-5 h-5 shrink-0" /> {absentAlert?.title}
+            </DialogTitle>
+            <DialogDescription>{absentAlert?.text}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setAbsentAlert(null)} data-testid="absent-popup-ok">OK, compris</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <style>{`
 @media print {
 @page { size: landscape; margin: 8mm; }

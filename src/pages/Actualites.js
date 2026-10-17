@@ -329,16 +329,16 @@ export default function Actualites() {
       </div>
     );
 
-  // Affiche entière (jamais recadrée : les titres des affiches restent lisibles), posée sur un fond flou de la même image.
-  const Cover = ({ a, className = "", past }) =>
+  // Affiche entière, jamais recadrée ni floutée : les titres des affiches restent lisibles.
+  // `natural` : la carte prend la hauteur réelle de l'image (pas de bandes vides autour).
+  const Cover = ({ a, className = "", past, natural }) =>
     a.image_url ? (
-      <div className="relative h-full w-full overflow-hidden bg-muted">
-        <img src={a.image_url} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl" onError={(e) => { e.target.style.display = "none"; }} />
+      <div className={`relative w-full overflow-hidden ${natural ? "" : "h-full"}`}>
         <img
           src={a.image_url}
           alt=""
           loading="lazy"
-          className={`relative h-full w-full object-contain ${past ? "grayscale-[40%]" : ""} ${className}`}
+          className={`relative w-full ${natural ? "h-auto" : "h-full object-contain"} ${past ? "grayscale-[40%]" : ""} ${className}`}
           onError={(e) => { e.target.style.display = "none"; }}
         />
       </div>
@@ -354,8 +354,8 @@ export default function Actualites() {
       onClick={() => setSelected(a)}
       data-testid={`actualite-card-${a.id}`}
     >
-      <div className="relative aspect-[16/9] overflow-hidden bg-muted">
-        <Cover a={a} className="transition-transform duration-300 group-hover:scale-[1.03]" />
+      <div className={`relative overflow-hidden bg-muted ${a.image_url ? "" : "aspect-[16/9]"}`}>
+        <Cover a={a} natural className="transition-transform duration-300 group-hover:scale-[1.03]" />
         <div className="absolute left-3 top-3"><DateBlock a={a} /></div>
         <div className="absolute right-3 top-3"><CountdownChip a={a} /></div>
       </div>

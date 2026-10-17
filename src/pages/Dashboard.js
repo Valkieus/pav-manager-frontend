@@ -621,59 +621,6 @@ ${isClickable ? "cursor-pointer hover:bg-primary/20 transition-colors" : ""}`}
         </span>
       </div>
 
-      {(() => {
-        // Agenda du mois : le NOM de chaque date clé / service / événement, lisible sans survol (téléphone compris).
-        const rows = {};
-        const add = (day, item) => { (rows[day] = rows[day] || []).push(item); };
-        datesClesOf(year).forEach((e) => {
-          if (e.date.getMonth() === month - 1) add(e.date.getDate(), { dot: "bg-pink-500", text: `${e.emoji} ${e.nom}` });
-        });
-        Object.keys(serviceByDate).forEach((ds) => {
-          if (ds.startsWith(`${year}-${pad(month)}-`)) {
-            const sv = serviceByDate[ds];
-            add(Number(ds.slice(8, 10)), { dot: "bg-primary", text: `Service (${sv.jour}${sv.poste ? ` — ${sv.poste}` : ""})` });
-          }
-        });
-        Object.keys(eventsByDate).forEach((ds) => {
-          if (ds.startsWith(`${year}-${pad(month)}-`)) {
-            eventsByDate[ds].forEach((e) => {
-              const kind = e.invite
-                ? { dot: "bg-amber-500", label: "Invité" }
-                : e.type === "absence"
-                  ? { dot: "bg-slate-400", label: "Absence" }
-                  : e.type === "formation"
-                    ? { dot: "bg-violet-500", label: "Formation" }
-                    : { dot: "bg-blue-500", label: "Événement" };
-              add(Number(ds.slice(8, 10)), { dot: kind.dot, text: `${kind.label} : ${e.titre}` });
-            });
-          }
-        });
-        const days = Object.keys(rows).map(Number).sort((x, y) => x - y);
-        if (days.length === 0) return null;
-        const WD = ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."];
-        return (
-          <div className="mt-4 border-t pt-3" data-testid="calendar-agenda">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Ce mois-ci</p>
-            <ul className="space-y-1.5">
-              {days.map((d) => (
-                <li key={d} className={`flex items-start gap-2 text-sm ${`${year}-${pad(month)}-${pad(d)}` === todayStr ? "font-semibold" : ""}`}>
-                  <span className="w-14 shrink-0 rounded-md bg-muted/60 px-1.5 py-0.5 text-center text-xs font-medium tabular-nums">
-                    {WD[new Date(year, month - 1, d).getDay()]} {d}
-                  </span>
-                  <span className="min-w-0 flex-1 space-y-0.5">
-                    {rows[d].map((it, i) => (
-                      <span key={i} className="flex items-start gap-1.5">
-                        <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${it.dot}`} />
-                        <span className="break-words">{it.text}</span>
-                      </span>
-                    ))}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        );
-      })()}
     </div>
   );
 };

@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { FlaskConical, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronDown, FlaskConical, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -27,6 +27,8 @@ const selectCls = "h-10 w-full rounded-md border border-input bg-background px-3
 export default function BetaTesters({ users = [] }) {
   const [data, setData] = useState({ testers: [], sandbox: {} });
   const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem("beta_card_open") === "1"; } catch { return false; } });
+  const toggleOpen = () => setOpen((o) => { const n = !o; try { localStorage.setItem("beta_card_open", n ? "1" : "0"); } catch { /* ignore */ } return n; });
   const [userId, setUserId] = useState("");
   const [duration, setDuration] = useState("14");
   const [untilDate, setUntilDate] = useState("");
@@ -108,17 +110,19 @@ export default function BetaTesters({ users = [] }) {
 
   return (
     <Card data-testid="beta-testers-card">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+      <CardHeader className={open ? "" : "py-4"}>
+        <button type="button" onClick={toggleOpen} aria-expanded={open} className="flex w-full items-center gap-2 text-left" data-testid="beta-toggle">
           <FlaskConical className="h-5 w-5 text-violet-600" />
-          Groupe Bêta testeurs
-        </CardTitle>
-        <CardDescription>
+          <CardTitle className="flex-1">Groupe Bêta testeurs</CardTitle>
+          <Badge variant="secondary" className="font-normal">{(data.testers || []).length} testeur{(data.testers || []).length > 1 ? "s" : ""}</Badge>
+          <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+        {open && <CardDescription>
           Ces comptes voient et font tout, mais sur une copie de test : rien de ce qu'ils font n'atteint la production.
           Une bannière le leur rappelle sur chaque page. À la fin de la période, le compte redevient normal.
-        </CardDescription>
+        </CardDescription>}
       </CardHeader>
-      <CardContent className="space-y-4">
+      {open && <CardContent className="space-y-4">
         <div className="grid gap-2 sm:grid-cols-[1fr_12rem_auto]">
           <select className={selectCls} value={userId} onChange={(e) => setUserId(e.target.value)} aria-label="Utilisateur">
             <option value="">Choisir un utilisateur…</option>
@@ -184,7 +188,7 @@ export default function BetaTesters({ users = [] }) {
             <RefreshCw className="mr-2 h-4 w-4" /> Réinitialiser la copie
           </Button>
         </div>
-      </CardContent>
+      </CardContent>}
     </Card>
   );
 }

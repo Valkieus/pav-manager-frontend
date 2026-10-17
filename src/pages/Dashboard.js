@@ -1008,7 +1008,7 @@ démesurément grandes sur PC. */}
       {/* Résumé rapide — personalized quick-info summary, shown to every
 role (Membre included): prochain service, invités à venir, accès
 rapide absence/formations, et un rappel des horaires de service. */}
-      <Card className="animate-fadeIn border-primary/20">
+      <Card className="animate-fadeIn border-primary/20 rounded-2xl shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-lg">
             <PartyPopper className="w-5 h-5 text-primary" />
@@ -1181,7 +1181,7 @@ service et des événements Actualités du mois en cours. Visible à
 tous les rôles comme le Résumé rapide. Col-span réduit à 2 (comme le
 Résumé rapide) pour équilibrer la largeur — sinon le calendrier
 paraît disproportionné sur desktop. */}
-      <Card className="animate-fadeIn">
+      <Card className="animate-fadeIn rounded-2xl border-primary/10 shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-lg capitalize">
             <Calendar className="w-5 h-5 text-primary" />
@@ -1279,13 +1279,13 @@ cases du calendrier deviennent démesurées sur grand écran. */}
       {/* Stats Grid — operational KPIs, not relevant for a plain Membre */}
       {!isMembre && (
         <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3"><span className="w-1 h-4 rounded-full gradient-primary" />
             Vue d'ensemble
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {isCoordinationPlus && (
               <Card
-                className="card-hover animate-fadeIn cursor-pointer"
+                className="card-hover animate-fadeIn cursor-pointer rounded-2xl border-primary/10 shadow-sm"
                 data-testid="stat-effectif"
                 onClick={() => navigate("/effectif")}
               >
@@ -1295,15 +1295,15 @@ cases du calendrier deviennent démesurées sur grand écran. */}
                       <p className="text-sm text-muted-foreground">
                         Effectif Total
                       </p>
-                      <p className="text-3xl font-bold mt-1">
+                      <p className="text-4xl font-bold tracking-tight mt-1">
                         {stats?.total_techniciens || 0}
                       </p>
                       <p className="text-xs text-muted-foreground mt-2">
                         Techniciens actifs
                       </p>
                     </div>
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Users className="w-6 h-6 text-primary" />
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 shadow-md flex items-center justify-center">
+                      <Users className="w-6 h-6 text-white" />
                     </div>
                   </div>
                 </CardContent>
@@ -1317,7 +1317,7 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
               isResponsableRole &&
               (user?.branches || []).length > 0 && (
                 <Card
-                  className="card-hover animate-fadeIn cursor-pointer"
+                  className="card-hover animate-fadeIn cursor-pointer rounded-2xl border-primary/10 shadow-sm"
                   data-testid="stat-mon-equipe"
                   onClick={() => navigate("/effectif")}
                 >
@@ -1327,15 +1327,15 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                         <p className="text-sm text-muted-foreground">
                           Mon équipe
                         </p>
-                        <p className="text-3xl font-bold mt-1">
+                        <p className="text-4xl font-bold tracking-tight mt-1">
                           {myTeamCount}
                         </p>
                         <p className="text-xs text-muted-foreground mt-2">
                           {user.branches.join(", ")}
                         </p>
                       </div>
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <Users className="w-6 h-6 text-primary" />
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-md flex items-center justify-center">
+                        <Users className="w-6 h-6 text-white" />
                       </div>
                     </div>
                   </CardContent>
@@ -1352,7 +1352,7 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Badges</p>
-                      <p className="text-3xl font-bold mt-1">
+                      <p className="text-4xl font-bold tracking-tight mt-1">
                         {stats?.badges_attribues || 0}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
@@ -1364,8 +1364,8 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                         </span>
                       </div>
                     </div>
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                      <IdCard className="w-6 h-6 text-emerald-500" />
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md flex items-center justify-center">
+                      <IdCard className="w-6 h-6 text-white" />
                     </div>
                   </div>
                 </CardContent>
@@ -1381,7 +1381,7 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Matériel</p>
-                    <p className="text-3xl font-bold mt-1">
+                    <p className="text-4xl font-bold tracking-tight mt-1">
                       {stats?.total_materiel || 0}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
@@ -1391,8 +1391,8 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                       disponible
                     </p>
                   </div>
-                  <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
-                    <Package className="w-6 h-6 text-violet-500" />
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-md flex items-center justify-center">
+                    <Package className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </CardContent>
@@ -1429,8 +1429,8 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                         </div>
                       </div>
                     </div>
-                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                      <AlertCircle className="w-6 h-6 text-amber-500" />
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-md flex items-center justify-center">
+                      <AlertCircle className="w-6 h-6 text-white" />
                     </div>
                   </div>
                 </CardContent>
@@ -1453,15 +1453,15 @@ Régisseurs, puisque les devis matériel le concernent directement
                       <p className="text-sm text-muted-foreground">
                         Devis en attente
                       </p>
-                      <p className="text-3xl font-bold mt-1">
+                      <p className="text-4xl font-bold tracking-tight mt-1">
                         {stats?.devis_en_attente || 0}
                       </p>
                       <p className="text-xs text-muted-foreground mt-2">
                         Régisseurs
                       </p>
                     </div>
-                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                      <AlertCircle className="w-6 h-6 text-amber-500" />
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-md flex items-center justify-center">
+                      <AlertCircle className="w-6 h-6 text-white" />
                     </div>
                   </div>
                 </CardContent>
@@ -1477,7 +1477,7 @@ Régisseurs, puisque les devis matériel le concernent directement
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Salles</p>
-                    <p className="text-3xl font-bold mt-1">
+                    <p className="text-4xl font-bold tracking-tight mt-1">
                       {stats?.total_salles || 0}
                     </p>
                     <div className="flex items-center gap-2 mt-2">
@@ -1506,7 +1506,7 @@ Régisseurs, puisque les devis matériel le concernent directement
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Incidents</p>
-                    <p className="text-3xl font-bold mt-1">
+                    <p className="text-4xl font-bold tracking-tight mt-1">
                       {stats?.incidents_ouverts || 0}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
@@ -1517,8 +1517,8 @@ Régisseurs, puisque les devis matériel le concernent directement
                       au total
                     </p>
                   </div>
-                  <div className="w-12 h-12 rounded-xl bg-rose-500/10 flex items-center justify-center">
-                    <AlertTriangle className="w-6 h-6 text-rose-500" />
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 shadow-md flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </CardContent>
@@ -1530,7 +1530,7 @@ Régisseurs, puisque les devis matériel le concernent directement
 
 
       {/* Portail Charisma */}
-      <Card className="animate-fadeIn stagger-4 overflow-hidden">
+      <Card className="animate-fadeIn stagger-4 overflow-hidden rounded-2xl border-primary/10 shadow-sm">
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -1896,7 +1896,7 @@ Louange ci-dessus. */}
             </Dialog>
 
       {/* Organigramme — visible to everyone, Membre included */}
-      <Card className="animate-fadeIn stagger-5">
+      <Card className="animate-fadeIn stagger-5 rounded-2xl border-primary/10 shadow-sm">
         <CardHeader>
           <CardTitle>Organigramme PAV</CardTitle>
         </CardHeader>

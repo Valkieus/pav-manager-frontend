@@ -7,6 +7,7 @@ import { BadgeWizard } from './BadgeWizard';
 import { SHEET_CLASS, getBranchColor } from './constants';
 
 export function TechDetailDialog({
+  badgeReadOnly,
   autoOpenWizard,
   setAutoOpenWizard,
   badgeActionBusy,
@@ -215,7 +216,7 @@ export function TechDetailDialog({
                         </p>
                       )}
 
-                      {badgeDetail.badge_status === "en_attente_validation" &&
+                      {badgeDetail.badge_status === "en_attente_validation" && !badgeReadOnly &&
                         (rejectingBadge ? (
                           <div className="space-y-2">
                             <textarea
@@ -275,7 +276,7 @@ export function TechDetailDialog({
                           </div>
                         ))}
 
-                      {badgeDetail.badge_status === "pret_a_recuperer" && (
+                      {badgeDetail.badge_status === "pret_a_recuperer" && !badgeReadOnly && (
                         <Button
                           size="sm"
                           disabled={badgeActionBusy}
@@ -289,7 +290,7 @@ export function TechDetailDialog({
                         </Button>
                       )}
 
-                      {badgeDetail.badge_status && (
+                      {badgeDetail.badge_status && !badgeReadOnly && (
                         <div className="flex gap-2 pt-2 border-t">
                           <Button
                             size="sm"
@@ -363,6 +364,7 @@ export function TechDetailDialog({
         open={wizardOpen}
         onOpenChange={setWizardOpen}
         tech={selectedTech}
+        readOnly={badgeReadOnly}
         badgeDetail={badgeDetail}
         badgeActionBusy={badgeActionBusy}
         handleConfirmBadge={handleConfirmBadge}

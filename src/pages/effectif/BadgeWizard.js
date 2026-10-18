@@ -7,7 +7,7 @@ import { renderBadge, splitName, badgeFileName, downloadPng, downloadPdf } from 
 
 // Badge en deux pages : 1. validation de la photo, 2. badge fabriqué (aperçu, PNG, PDF).
 export function BadgeWizard({
-  open, onOpenChange, tech, badgeDetail, badgeActionBusy,
+  open, onOpenChange, tech, readOnly, badgeDetail, badgeActionBusy,
   handleConfirmBadge, handleRejectBadge, rejectMessage, setRejectMessage,
 }) {
   const status = badgeDetail?.badge_status;
@@ -61,7 +61,7 @@ export function BadgeWizard({
               <p className="text-sm text-muted-foreground">Aucune photo envoyée pour le moment.</p>
             )}
             {badgeDetail?.badge_motif && <p className="text-xs text-muted-foreground">Motif : {badgeDetail.badge_motif}</p>}
-            {status === 'en_attente_validation' ? (
+            {status === 'en_attente_validation' && !readOnly ? (
               rejecting ? (
                 <div className="space-y-2">
                   <Input value={rejectMessage} onChange={(e) => setRejectMessage(e.target.value)} placeholder="Motif du refus (visible par la personne)" />

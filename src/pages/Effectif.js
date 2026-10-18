@@ -411,7 +411,9 @@ export default function Effectif() {
   // ---- Gestion des badges — Coordination+ (fusionné dans la fiche technicien) ----
   // Explicitly excludes Responsable (visibilité badge retirée des droits Responsable).
   const canManageBadges = () =>
-    ["Super Admin", "Admin", "Coordination"].includes(user?.niveau_acces);
+    ["Super Admin", "Admin", "Coordination", "Admin (lecture seule)"].includes(user?.niveau_acces);
+  // Admin (lecture seule) voit tout (demandes, photos, badge fabriqué) mais ne valide / archive / supprime rien.
+  const badgeReadOnly = user?.niveau_acces === "Admin (lecture seule)";
   const [badgeDetail, setBadgeDetail] = useState(null);
   const [badgeDetailLoading, setBadgeDetailLoading] = useState(false);
   const [badgeActionBusy, setBadgeActionBusy] = useState(false);
@@ -1145,6 +1147,7 @@ export default function Effectif() {
 
       {/* Fiche d'un technicien (PC : fenêtre ; téléphone : plein écran) */}
       <TechDetailDialog
+            badgeReadOnly={badgeReadOnly}
             autoOpenWizard={autoOpenWizard}
             setAutoOpenWizard={setAutoOpenWizard}
             badgeActionBusy={badgeActionBusy}

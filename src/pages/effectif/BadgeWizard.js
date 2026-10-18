@@ -32,7 +32,8 @@ export function BadgeWizard({
     const t = setTimeout(() => {
       if (!canvasRef.current) return;
       renderBadge(canvasRef.current, { photoUrl, ...names })
-        .catch(() => !cancelled && setError("Impossible de dessiner le badge (photo introuvable ?)"))
+        .then((res) => { if (!cancelled && res && res.photoOk === false) setError("La photo n'a pas pu être chargée dans l'aperçu (le texte reste modifiable)."); })
+        .catch(() => !cancelled && setError("Impossible de dessiner le badge"))
         .finally(() => !cancelled && setRendering(false));
     }, 150);
     return () => { cancelled = true; clearTimeout(t); };
@@ -89,8 +90,8 @@ export function BadgeWizard({
         {step === 2 && (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <Input value={names.prenom} onChange={(e) => setNames({ ...names, prenom: e.target.value })} placeholder="Prénom" />
-              <Input value={names.nom} onChange={(e) => setNames({ ...names, nom: e.target.value.toUpperCase() })} placeholder="NOM" />
+              <Input className="font-bold" value={names.prenom} onChange={(e) => setNames({ ...names, prenom: e.target.value })} placeholder="Prénom" />
+              <Input className="font-bold uppercase" value={names.nom} onChange={(e) => setNames({ ...names, nom: e.target.value.toUpperCase() })} placeholder="NOM" />
             </div>
             <div className="relative">
               <canvas ref={canvasRef} className="w-full rounded-lg border shadow-sm" data-testid="badge-canvas" />
@@ -98,11 +99,11 @@ export function BadgeWizard({
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex flex-wrap gap-2">
-              <Button disabled={rendering || !!error} data-testid="badge-png"
+              <Button disabled={rendering} data-testid="badge-png"
                 onClick={() => downloadPng(canvasRef.current, badgeFileName(names.prenom, names.nom, 'png'))}>
                 <Download className="w-4 h-4 mr-1" /> Enregistrer en PNG
               </Button>
-              <Button variant="outline" disabled={rendering || !!error} data-testid="badge-pdf"
+              <Button variant="outline" disabled={rendering} data-testid="badge-pdf"
                 onClick={() => downloadPdf(canvasRef.current, badgeFileName(names.prenom, names.nom, 'pdf'))}>
                 <FileText className="w-4 h-4 mr-1" /> Enregistrer en PDF
               </Button>

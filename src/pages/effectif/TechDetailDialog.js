@@ -358,8 +358,6 @@ export function TechDetailDialog({
             </>
           );
         })()}
-      </DialogContent>
-    </Dialog>
     {selectedTech && (
       <BadgeWizard
         open={wizardOpen}
@@ -373,6 +371,8 @@ export function TechDetailDialog({
         setRejectMessage={setRejectMessage}
       />
     )}
+      </DialogContent>
+    </Dialog>
     </>
   );
 }

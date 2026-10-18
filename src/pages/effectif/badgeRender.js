@@ -45,12 +45,14 @@ export async function renderBadge(canvas, { photoUrl, prenom, nom }) {
   const template = await loadImage(`${process.env.PUBLIC_URL || ''}/badge-template.png`);
   ctx.drawImage(template, 0, 0, W, H);
 
+  // Le texte d'abord : il doit apparaître même si la photo ne peut pas être chargée.
+  drawNames(ctx, prenom, nom);
+
+  let photoOk = true;
   if (photoUrl) {
-    // fetch -> blob : évite qu'une image d'un autre domaine « salisse » le canvas (export impossible)
-    const blob = await (await fetch(photoUrl)).blob();
-    const objUrl = URL.createObjectURL(blob);
-    try {
-      const img = await loadImage(objUrl);
+    photoOk = false;
+    const img = await loadPhoto(photoUrl);
+    if (img) {
       const { x, y, w, h, r, inset } = PHOTO;
       const ix = x + inset, iy = y + inset, iw = w - inset * 2, ih = h - inset * 2;
       ctx.save();
@@ -60,11 +62,33 @@ export async function renderBadge(canvas, { photoUrl, prenom, nom }) {
       const dw = img.width * s, dh = img.height * s;
       ctx.drawImage(img, ix + (iw - dw) / 2, iy + (ih - dh) / 2, dw, dh);
       ctx.restore();
-    } finally {
-      URL.revokeObjectURL(objUrl);
+      photoOk = true;
     }
   }
+  return { canvas, photoOk };
+}
 
+// Plusieurs essais : <img> avec CORS, puis fetch -> blob (selon ce que le navigateur / le service worker acceptent).
+async function loadPhoto(url) {
+  try {
+    return await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = `${url}${url.includes('?') ? '&' : '?'}cb=1`;
+    });
+  } catch (e) { /* essai suivant */ }
+  try {
+    const blob = await (await fetch(url, { cache: 'reload' })).blob();
+    const objUrl = URL.createObjectURL(blob);
+    try { return await loadImage(objUrl); } finally { URL.revokeObjectURL(objUrl); }
+  } catch (e) {
+    return null;
+  }
+}
+
+function drawNames(ctx, prenom, nom) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#2f2f2f';
@@ -73,7 +97,6 @@ export async function renderBadge(canvas, { photoUrl, prenom, nom }) {
   ctx.fillText(prenom, cx, NAME_BOX.cy - 38);
   fitText(ctx, nom, 800, 60, NAME_BOX.w);
   ctx.fillText(nom, cx, NAME_BOX.cy + 38);
-  return canvas;
 }
 
 export const badgeFileName = (prenom, nom, ext) =>

@@ -1,5 +1,6 @@
 import { useRef, useState, useMemo, useLayoutEffect } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Maximize2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { eventsOf as datesClesOf } from '../../components/DatesCles';
 
 export const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -121,6 +122,12 @@ border-left: 2.5px solid #94a3b8;
 border-color: #64748b;
 }
 /* Branche latérale (ex. COORDINATION) : un trait vertical sous le parent, et un trait horizontal vers la boîte */
+@media (max-width: 767px) {
+.org-tree li { padding-left: 3px; padding-right: 3px; }
+.org-box { padding: 5px 7px !important; border-radius: 8px; border-width: 1.5px; }
+.org-box p:first-child { font-size: 11px; line-height: 1.15; }
+.org-box p + p { font-size: 9px; line-height: 1.15; margin-top: 1px; }
+}
 .org-side-row { position: relative; width: 100%; height: 84px; }
 .org-side-row .stem { position: absolute; left: 50%; top: 0; bottom: 0; border-left: 2.5px solid #94a3b8; }
 .org-side-row .branch { position: absolute; left: 50%; top: 42px; width: 28px; border-top: 2.5px solid #94a3b8; }
@@ -138,7 +145,7 @@ export const OrgNodeBox = ({ node, onNodeClick, isClickable, size = "md", fullWi
       onClick={clickable ? () => onNodeClick(node) : undefined}
       className={`
 ${pad} rounded-xl border-2 text-center shadow-sm transition-all duration-200
-hover:shadow-lg hover:-translate-y-0.5 ${fullWidth ? "w-full whitespace-normal" : "whitespace-nowrap"}
+org-box hover:shadow-lg hover:-translate-y-0.5 ${fullWidth ? "w-full whitespace-normal" : "whitespace-nowrap"}
 ${getBranchColor(node.name)}
 ${clickable ? "cursor-pointer" : ""}
 `}
@@ -424,6 +431,7 @@ export const OrgTreeMobileWithLines = ({ node, onNodeClick, isClickable }) => {
 
 // Organigramme Component - Professional design with responsive layouts
 export const OrgChart = ({ data, onNodeClick, allowedNodes }) => {
+  const [zoomOpen, setZoomOpen] = useState(false);
   if (!data) return null;
 
   const isClickable = (name) =>
@@ -434,22 +442,43 @@ export const OrgChart = ({ data, onNodeClick, allowedNodes }) => {
     <div className="w-full">
       <OrgTreeStyles />
 
-      <div className="hidden md:block py-6 px-2">
+      {/* Même arbre partout (PC, tablette, téléphone) : il se réduit pour tenir dans la largeur.
+          Sur téléphone, « Agrandir » ouvre l'organigramme en plein écran à taille lisible (défilement / pincement). */}
+      <div className="py-4 px-1 md:py-6 md:px-2">
+        <div className="md:hidden flex justify-end mb-2">
+          <button
+            type="button"
+            onClick={() => setZoomOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium shadow-sm"
+            data-testid="org-zoom-btn"
+          >
+            <Maximize2 className="w-3.5 h-3.5" /> Agrandir
+          </button>
+        </div>
         <FitToWidth>
           <ul className="org-tree inline-flex">
-            <OrgTreeNode
-              node={data}
-              onNodeClick={onNodeClick}
-              isClickable={isClickable}
-              isRoot
-            />
+            <OrgTreeNode node={data} onNodeClick={onNodeClick} isClickable={isClickable} isRoot />
           </ul>
         </FitToWidth>
       </div>
 
-      <div className="md:hidden py-4 px-1">
-        <OrgTreeVertical node={data} onNodeClick={onNodeClick} isClickable={isClickable} />
-      </div>
+      <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
+        <DialogContent className="!fixed !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !w-screen !h-[100dvh] !rounded-none !p-0 !gap-0 flex flex-col">
+          <DialogHeader className="px-4 py-3 border-b">
+            <DialogTitle className="text-base">Organigramme PAV</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto p-4" style={{ touchAction: "pan-x pan-y pinch-zoom", WebkitOverflowScrolling: "touch" }}>
+            <ul className="org-tree inline-flex mx-auto">
+              <OrgTreeNode
+                node={data}
+                onNodeClick={(n) => { setZoomOpen(false); onNodeClick && onNodeClick(n); }}
+                isClickable={isClickable}
+                isRoot
+              />
+            </ul>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

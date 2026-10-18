@@ -8,6 +8,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Badge } from '../../components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { NIVEAUX_ACCES } from './constants';
+import { ServiceAppsCard } from './ServiceAppsCard';
 
 export function UsersTab({
   createKioskAccount,
@@ -541,6 +542,7 @@ même limite pour éviter un 403 après coup. */}
           </CardContent>
         </Card>
       )}
+      {isSuperAdmin && <ServiceAppsCard />}
     </TabsContent>
   );
 }

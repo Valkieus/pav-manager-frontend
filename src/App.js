@@ -64,6 +64,18 @@ const ProtectedRoute = ({ children }) => {
     return <KioskShell />;
   }
 
+  // Compte de service (ex. « incrustation ») : pas de PAV Manager, on l'envoie
+  // directement vers l'application à laquelle il a droit (CEC Songs).
+  if (user?.service_account) {
+    return (user.service_apps || []).includes("songs") ? (
+      <SsoSongs />
+    ) : (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 text-center text-sm text-muted-foreground">
+        Ce compte n'a accès à aucune application pour le moment. Contactez un administrateur.
+      </div>
+    );
+  }
+
   return (
     <>
       <IdleGuard />

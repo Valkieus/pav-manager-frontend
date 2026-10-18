@@ -149,7 +149,11 @@ ${clickable ? "cursor-pointer" : ""}
         {node.name}
       </p>
       {node.responsable && (
-        <p className="text-xs opacity-90 mt-0.5 italic whitespace-normal max-w-[11rem] mx-auto">{node.responsable}</p>
+        <p className="text-xs opacity-90 mt-0.5 italic">
+          {node.responsable.split(/,\s*/).map((part, i, arr) => (
+            <span key={i} className="block whitespace-nowrap">{i < arr.length - 1 ? `${part},` : part}</span>
+          ))}
+        </p>
       )}
     </div>
   );

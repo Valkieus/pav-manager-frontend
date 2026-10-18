@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Globe, ExternalLink, Youtube, Palette, Loader2, Award, Music, BookOpen } from 'lucide-react';
+import { openSongsSite } from '../../lib/songs';
 
 export function CharismaDialog({
   academySsoLoading,
@@ -111,11 +112,10 @@ l'accès academy.examiner ou academy.student. */}
       {/* Cahier de Louange (CEC songs) — #417 : masqué pour
 Technicien, reste visible à partir de Responsable. */}
       {!isMembre && (
-        <a
-          href="https://cec-songs.netlify.app/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex shrink-0 items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border hover:border-amber-500/50 hover:shadow-md transition-all group"
+        <button
+          type="button"
+          onClick={openSongsSite}
+          className="flex shrink-0 items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border text-left hover:border-amber-500/50 hover:shadow-md transition-all group"
         >
           <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
             <Music className="w-4 h-4 text-amber-600" />
@@ -125,11 +125,11 @@ Technicien, reste visible à partir de Responsable. */}
               Cahier de Louange
             </p>
             <p className="text-xs text-muted-foreground">
-              cec-songs.netlify.app
+              Connexion avec PAV Manager
             </p>
           </div>
           <ExternalLink className="w-3.5 h-3.5 text-muted-foreground ml-1 shrink-0" />
-        </a>
+        </button>
       )}
 
       {/* SongSpot — même règle de visibilité que le Cahier de Louange

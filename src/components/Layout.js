@@ -82,6 +82,7 @@ import {
   isIOSDevice,
   isSafariDesktop,
 } from "../utils/pwaInstall";
+import { openSongsSite } from "../lib/songs";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -554,18 +555,8 @@ export const Layout = ({ children }) => {
     return `il y a ${days} j`;
   };
 
-  // Ouvre CEC Songs directement depuis le menu, déjà connecté (SSO : jeton à usage unique, 2 min). La fenêtre est ouverte
-  // tout de suite (clic utilisateur) pour éviter le blocage des fenêtres surgissantes.
-  const openSongsSite = async () => {
-    const win = window.open("", "_blank");
-    try {
-      const res = await axios.post(`${API}/songs/sso-handoff`);
-      if (win) win.location.href = res.data.redirect_url;
-      else window.location.href = res.data.redirect_url;
-    } catch (err) {
-      if (win) win.close();
-      toast.error(err.response?.data?.detail || "Impossible d'ouvrir CEC Songs");
-    }
+  const openSongsSiteFromMenu = async () => {
+    await openSongsSite();
     setSidebarOpen(false);
   };
 
@@ -931,7 +922,7 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
                     <button
                       key={item.path}
                       type="button"
-                      onClick={openSongsSite}
+                      onClick={openSongsSiteFromMenu}
                       className={`sidebar-link w-full text-left ${nested ? "text-sm" : ""}`}
                       data-testid="nav-songs"
                       title="Ouvre CEC Songs dans un nouvel onglet (connexion automatique)"

@@ -122,7 +122,7 @@ Technicien, reste visible à partir de Responsable. */}
           </div>
           <div className="whitespace-nowrap">
             <p className="font-medium text-sm group-hover:text-amber-600 transition-colors">
-              Cahier de Louange
+              CEC Songs
             </p>
             <p className="text-xs text-muted-foreground">
               Connexion avec PAV Manager

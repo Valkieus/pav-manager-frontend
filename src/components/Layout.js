@@ -200,14 +200,6 @@ const navItems = [
     groupPerms: ["led.read", "led.write"],
   },
   {
-    path: "/songs",
-    icon: Music,
-    label: "CEC Songs",
-    minRole: "Technicien",
-    external: "songs",  // pas de page : un clic ouvre le site CEC Songs, déjà connecté (SSO)
-    hideIfNoSongs: true,  // accès retiré à cette personne (Administration > Utilisateurs)
-  },
-  {
     path: "/devis",
     icon: FileText,
     label: "Devis & Achat",
@@ -249,7 +241,7 @@ const NAV_STRUCTURE = [
   { path: "/logistique" }, // Régisseurs : inchangé, au premier niveau
   { folder: "Ressources humaines", icon: Users, paths: ["/effectif", "/formations"] },
   { folder: "Matériel & achats", icon: Package, paths: ["/elements-led", "/devis"] },
-  { folder: "Communication", icon: MessageSquare, paths: ["/actualites", "/communication", "/documents", "/songs"] },
+  { folder: "Communication", icon: MessageSquare, paths: ["/actualites", "/communication", "/documents"] },
   { path: "/administration" },
 ];
 const NAV_FOLDERS_KEY = "nav_open_folders";

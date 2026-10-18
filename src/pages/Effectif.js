@@ -28,6 +28,7 @@ import { EffectifList } from './effectif/EffectifList';
 import { EffectifToolbar } from './effectif/EffectifToolbar';
 import { TechEditDialog } from './effectif/TechEditDialog';
 import { PosteManagerDialog } from './effectif/PosteManagerDialog';
+import { BadgesQueueDialog } from './effectif/BadgesQueueDialog';
 import { PendingTechniciensDialog } from './effectif/PendingTechniciensDialog';
 
 
@@ -57,6 +58,7 @@ export default function Effectif() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTech, setSelectedTech] = useState(null);
+  const [autoOpenWizard, setAutoOpenWizard] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -876,6 +878,22 @@ export default function Effectif() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {canManageBadges() && (
+            <BadgesQueueDialog
+              onOpenRequest={(r) => {
+                const norm = (x) => String(x || "").trim().toLowerCase();
+                const tech =
+                  techniciens.find((t) => r.technicien_id && t.id === r.technicien_id) ||
+                  techniciens.find((t) => norm(t.nom) === norm(r.full_name));
+                if (!tech) {
+                  toast.error("Fiche technicien introuvable pour cette demande.");
+                  return;
+                }
+                setAutoOpenWizard(true);
+                setSelectedTech(tech);
+              }}
+            />
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -914,21 +932,6 @@ export default function Effectif() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {canApproveTechniciens() && (
-            <PendingTechniciensDialog
-            handleApprovePending={handleApprovePending}
-            handleRejectPending={handleRejectPending}
-            pendingActionBusy={pendingActionBusy}
-            pendingManagerOpen={pendingManagerOpen}
-            pendingRejectMessage={pendingRejectMessage}
-            pendingTechs={pendingTechs}
-            pendingTechsLoading={pendingTechsLoading}
-            rejectingPendingId={rejectingPendingId}
-            setPendingManagerOpen={setPendingManagerOpen}
-            setPendingRejectMessage={setPendingRejectMessage}
-            setRejectingPendingId={setRejectingPendingId}
-          />
-          )}
           {/* Tâche #295 : dashboard des absences d'équipe — Responsable et
             Coordination+ (le filtrage par équipe/branche est déjà fait
             côté serveur, voir GET /absences). */}
@@ -1142,6 +1145,8 @@ export default function Effectif() {
 
       {/* Fiche d'un technicien (PC : fenêtre ; téléphone : plein écran) */}
       <TechDetailDialog
+            autoOpenWizard={autoOpenWizard}
+            setAutoOpenWizard={setAutoOpenWizard}
             badgeActionBusy={badgeActionBusy}
             badgeDetail={badgeDetail}
             badgeDetailLoading={badgeDetailLoading}

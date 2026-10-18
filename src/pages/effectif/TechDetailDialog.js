@@ -2,11 +2,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from '../../components/ui/badge';
 import { IdCard, Phone, Mail, Loader2, Download, Check, X, Archive, Trash2, Edit, FileText } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BadgeWizard } from './BadgeWizard';
 import { SHEET_CLASS, getBranchColor } from './constants';
 
 export function TechDetailDialog({
+  autoOpenWizard,
+  setAutoOpenWizard,
   badgeActionBusy,
   badgeDetail,
   badgeDetailLoading,
@@ -35,6 +37,13 @@ export function TechDetailDialog({
   setRejectingBadge,
 }) {
   const [wizardOpen, setWizardOpen] = useState(false);
+  // Arrivée depuis la vue « Badges » : on ouvre directement validation + badge dès que le détail est chargé.
+  useEffect(() => {
+    if (autoOpenWizard && badgeDetail?.badge_photo_url) {
+      setWizardOpen(true);
+      setAutoOpenWizard(false);
+    }
+  }, [autoOpenWizard, badgeDetail, setAutoOpenWizard]);
   return (
     <>
     <Dialog open={!!selectedTech} onOpenChange={handleCloseDetail}>

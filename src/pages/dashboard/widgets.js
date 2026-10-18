@@ -11,6 +11,9 @@ export const BRANCH_MEMBER_MATCH = {
   INCRUSTATION: (t) =>
     (t.branches || []).includes("Live") &&
     (t.sous_branches || []).includes("Incrustation"),
+  CAPTATION: (t) =>
+    (t.branches || []).includes("Live") &&
+    (t.sous_branches || []).includes("Cadreur"),
   DIFFUSION: (t) =>
     (t.branches || []).includes("Live") &&
     (t.sous_branches || []).includes("Diffusion"),
@@ -24,7 +27,7 @@ export const BRANCH_MEMBER_MATCH = {
 // Reverse map: which org-chart nodes a branch-scoped user (Coordination /
 // Responsable with a limited `branches` list) is allowed to click into.
 export const BRANCH_TO_NODES = {
-  Live: ["LIVE", "INCRUSTATION", "DIFFUSION"],
+  Live: ["LIVE", "CAPTATION", "INCRUSTATION", "DIFFUSION"],
   Animation: ["ANIMATION"],
   Régisseurs: ["RÉGISSEURS"],
   Coordination: ["COORDINATION"],
@@ -41,6 +44,7 @@ export const getBranchColor = (name) => {
     COORDINATION: "bg-blue-500 text-white border-blue-600",
     PRODUCTION: "bg-emerald-500 text-white border-emerald-600",
     LIVE: "bg-red-500 text-white border-red-600",
+    CAPTATION: "bg-red-400 text-white border-red-500",
     INCRUSTATION: "bg-red-400 text-white border-red-500",
     DIFFUSION: "bg-red-400 text-white border-red-500",
     ANIMATION: "bg-orange-500 text-white border-orange-600",

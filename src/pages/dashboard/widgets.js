@@ -71,8 +71,7 @@ position: relative;
 display: flex;
 flex-direction: column;
 align-items: center;
-flex: 1 1 0;
-min-width: 0;
+flex: 0 0 auto;
 padding: 28px 7px 0 7px;
 }
 /* Sibling connector: each li draws its own half of the shared horizontal
@@ -156,11 +155,7 @@ ${clickable ? "cursor-pointer" : ""}
         {node.name}
       </p>
       {node.responsable && (
-        <p className="text-xs opacity-90 mt-0.5 italic">
-          {node.responsable.split(/,\s*/).map((part, i, arr) => (
-            <span key={i} className="block whitespace-nowrap">{i < arr.length - 1 ? `${part},` : part}</span>
-          ))}
-        </p>
+        <p className="text-xs opacity-90 mt-0.5 italic whitespace-nowrap">{node.responsable}</p>
       )}
     </div>
   );

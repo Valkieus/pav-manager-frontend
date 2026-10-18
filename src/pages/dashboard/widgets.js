@@ -396,6 +396,8 @@ export const MiniCalendar = ({
   month,
   serviceDates = [],
   events = [],
+  cours = {},
+  canEditCours = false,
   onDayClick,
 }) => {
   const pad = (n) => String(n).padStart(2, "0");
@@ -453,7 +455,10 @@ export const MiniCalendar = ({
                   : "";
           const isToday = dateStr === todayStr;
           const dateCle = datesCles[d];
+          const dayCours = cours[dateStr]?.courses || [];
           const tipLines = [];
+          if (dayCours.length)
+            tipLines.push({ dot: "bg-teal-500", text: `Cours : ${dayCours.join(", ")}` });
           if (dateCle)
             tipLines.push({ dot: "bg-pink-500", text: `${dateCle.emoji} ${dateCle.nom}` });
           if (isService)
@@ -477,7 +482,7 @@ export const MiniCalendar = ({
           const title = tipLines.map((l) => l.text).join(" — ");
           // Cliquable dès qu'il y a quelque chose à voir ce jour-là : un
           // service OU un événement (Actualités, absence, formation).
-          const isClickable = isService || dayEvents.length > 0;
+          const isClickable = isService || dayEvents.length > 0 || dayCours.length > 0 || canEditCours;
           const Tag = isClickable ? "button" : "div";
           return (
             <Tag
@@ -515,6 +520,9 @@ ${isClickable ? "cursor-pointer hover:bg-primary/20 transition-colors" : ""}`}
                 >
                   {dateCle.emoji}
                 </span>
+              )}
+              {dayCours.length > 0 && (
+                <span className="absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full bg-teal-500" />
               )}
               {dayEvents.length > 0 && (
                 <span className="absolute bottom-0.5 flex items-center gap-0.5">
@@ -556,6 +564,10 @@ ${isClickable ? "cursor-pointer hover:bg-primary/20 transition-colors" : ""}`}
         <span className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5">
           <span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block" />{" "}
           Ma formation
+        </span>
+        <span className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-teal-500 inline-block" />{" "}
+          Cours
         </span>
         <span className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5">
           <span className="w-3 h-3 rounded border-2 border-pink-500 bg-pink-500/10 inline-block" />{" "}

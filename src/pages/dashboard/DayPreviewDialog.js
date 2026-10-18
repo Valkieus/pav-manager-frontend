@@ -1,14 +1,39 @@
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog';
 import { Calendar, Clock } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
 export function DayPreviewDialog({
+  cours,
+  canEditCours,
+  onCoursSaved,
   brief,
   dayPreview,
   navigate,
   setDayPreview,
 }) {
+  const current = cours?.days?.[dayPreview?.date]?.courses || [];
+  const [sel, setSel] = useState([]);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => setSel(current), [dayPreview?.date, cours]); // eslint-disable-line react-hooks/exhaustive-deps
+  const save = async (reset) => {
+    setSaving(true);
+    try {
+      if (reset) await axios.delete(`${API}/dashboard/cours/${dayPreview.date}`);
+      else await axios.put(`${API}/dashboard/cours/${dayPreview.date}`, { courses: sel });
+      toast.success("Cours mis à jour");
+      onCoursSaved?.();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Erreur");
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
     <Dialog
       open={!!dayPreview}
@@ -93,6 +118,45 @@ export function DayPreviewDialog({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          {(canEditCours || current.length > 0) && (
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">Cours</p>
+              {canEditCours ? (
+                <>
+                  {(cours?.available || []).map((c) => (
+                    <label key={c} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={sel.includes(c)}
+                        onChange={(e) =>
+                          setSel((v) => (e.target.checked ? [...v, c] : v.filter((x) => x !== c)))
+                        }
+                      />
+                      {c}
+                    </label>
+                  ))}
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" disabled={saving} onClick={() => save(false)}>
+                      Enregistrer
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={saving} onClick={() => save(true)}>
+                      Valeurs par défaut
+                    </Button>
+                  </div>
+                  {sel.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Aucun cours ce jour-là.</p>
+                  )}
+                </>
+              ) : (
+                current.map((c) => (
+                  <div key={c} className="flex items-center gap-2 rounded-md border p-2.5 text-sm">
+                    <span className="w-2 h-2 rounded-full bg-teal-500" />
+                    {c}
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>

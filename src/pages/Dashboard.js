@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
@@ -95,6 +95,18 @@ export default function Dashboard() {
       cancelled = true;
     };
   }, [calView, isCurrentCalMonth]);
+  const [cours, setCours] = useState({ days: {}, available: [] });
+  const loadCours = useCallback(() => {
+    axios
+      .get(`${API}/dashboard/cours`, {
+        params: { year: calView.year, month: calView.month },
+      })
+      .then((res) => setCours(res.data))
+      .catch(() => setCours({ days: {}, available: [] }));
+  }, [calView]);
+  useEffect(() => {
+    loadCours();
+  }, [loadCours]);
   const shiftCalMonth = (delta) =>
     setCalView((v) => {
       const d = new Date(v.year, v.month - 1 + delta, 1);
@@ -364,6 +376,8 @@ paraît disproportionné sur desktop. */}
       <DashboardMonthCard
             brief={brief}
             calOtherEvents={calOtherEvents}
+            cours={cours}
+            canEditCours={isAdmin()}
             calView={calView}
             isCurrentCalMonth={isCurrentCalMonth}
             setCalView={setCalView}
@@ -450,6 +464,9 @@ aujourd'hui (les deux vérifiés côté serveur également). */}
       <DayPreviewDialog
             brief={brief}
             dayPreview={dayPreview}
+            cours={cours}
+            canEditCours={isAdmin()}
+            onCoursSaved={loadCours}
             navigate={navigate}
             setDayPreview={setDayPreview}
           />

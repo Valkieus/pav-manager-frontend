@@ -6,6 +6,8 @@ import { MiniCalendar } from './widgets';
 export function DashboardMonthCard({
   brief,
   calOtherEvents,
+  cours,
+  canEditCours,
   calView,
   isCurrentCalMonth,
   setCalView,
@@ -77,6 +79,8 @@ cases du calendrier deviennent démesurées sur grand écran. */}
                 ]
               : calOtherEvents
           }
+          cours={cours?.days || {}}
+          canEditCours={canEditCours}
           onDayClick={(dateStr, serviceInfo, dayEvents) =>
             setDayPreview({
               date: dateStr,

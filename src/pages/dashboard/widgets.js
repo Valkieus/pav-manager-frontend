@@ -105,6 +105,7 @@ border-radius: 0 8px 0 0;
 /* Vertical stub from a parent box down to its own children's shared
 horizontal bar — drawn INSIDE the reserved padding-top gap (top: 0),
 never crossing back up over the parent box itself. */
+.org-tree > li > ul::before,
 .org-tree ul ul::before {
 content: '';
 position: absolute;
@@ -115,13 +116,20 @@ height: 28px;
 border-left: 2.5px solid #94a3b8;
 }
 .dark .org-tree li::before, .dark .org-tree li::after,
-.dark .org-tree li:last-child::before, .dark .org-tree ul ul::before {
+.dark .org-tree li:last-child::before, .dark .org-tree ul ul::before,
+.dark .org-tree > li > ul::before {
 border-color: #64748b;
 }
+/* Branche latérale (ex. COORDINATION) : un trait vertical sous le parent, et un trait horizontal vers la boîte */
+.org-side-row { position: relative; width: 100%; height: 84px; }
+.org-side-row .stem { position: absolute; left: 50%; top: 0; bottom: 0; border-left: 2.5px solid #94a3b8; }
+.org-side-row .branch { position: absolute; left: 50%; top: 42px; width: 28px; border-top: 2.5px solid #94a3b8; }
+.org-side-row .box { position: absolute; left: calc(50% + 28px); top: 42px; transform: translateY(-50%); }
+.dark .org-side-row .stem, .dark .org-side-row .branch { border-color: #64748b; }
 `}</style>
 );
 
-export const OrgNodeBox = ({ node, onNodeClick, isClickable, size = "md" }) => {
+export const OrgNodeBox = ({ node, onNodeClick, isClickable, size = "md", fullWidth = false }) => {
   const clickable = isClickable(node.name);
   const pad =
     size === "lg" ? "px-7 py-4" : size === "sm" ? "px-3 py-2" : "px-3.5 py-2.5";
@@ -130,7 +138,7 @@ export const OrgNodeBox = ({ node, onNodeClick, isClickable, size = "md" }) => {
       onClick={clickable ? () => onNodeClick(node) : undefined}
       className={`
 ${pad} rounded-xl border-2 text-center shadow-sm transition-all duration-200
-hover:shadow-lg hover:-translate-y-0.5 whitespace-nowrap
+hover:shadow-lg hover:-translate-y-0.5 ${fullWidth ? "w-full whitespace-normal" : "whitespace-nowrap"}
 ${getBranchColor(node.name)}
 ${clickable ? "cursor-pointer" : ""}
 `}
@@ -141,39 +149,38 @@ ${clickable ? "cursor-pointer" : ""}
         {node.name}
       </p>
       {node.responsable && (
-        <p className="text-xs opacity-90 mt-0.5 italic">{node.responsable}</p>
+        <p className="text-xs opacity-90 mt-0.5 italic whitespace-normal max-w-[11rem] mx-auto">{node.responsable}</p>
       )}
     </div>
   );
 };
 
 // Recursive <li> node for the desktop/tablet CSS tree.
-// Les enfants marqués `side` (ex. COORDINATION) sont rattachés au parent par un trait horizontal,
-// à côté de sa boîte, et ne font pas partie de la rangée des enfants.
+// Les enfants marqués `side` (ex. COORDINATION) pendent à un trait vertical sous le parent
+// (trait horizontal vers leur boîte), au-dessus de la rangée des autres enfants.
 export const OrgTreeNode = ({ node, onNodeClick, isClickable, isRoot }) => {
   const kids = node.children || [];
   const sideKids = kids.filter((c) => c.side);
   const mainKids = kids.filter((c) => !c.side);
   return (
     <li>
-      <div className="relative">
-        <OrgNodeBox
-          node={node}
-          onNodeClick={onNodeClick}
-          isClickable={isClickable}
-          size={isRoot ? "lg" : "md"}
-        />
-        {sideKids.length > 0 && (
-          <div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center">
+      <OrgNodeBox
+        node={node}
+        onNodeClick={onNodeClick}
+        isClickable={isClickable}
+        size={isRoot ? "lg" : "md"}
+      />
+      {sideKids.length > 0 && (
+        <div className="org-side-row" aria-hidden={false}>
+          <span className="stem" />
+          <span className="branch" />
+          <div className="box">
             {sideKids.map((c) => (
-              <div key={c.name} className="flex items-center">
-                <span className="block w-8 border-t-[2.5px] border-slate-400 dark:border-slate-500" />
-                <OrgNodeBox node={c} onNodeClick={onNodeClick} isClickable={isClickable} size="md" />
-              </div>
+              <OrgNodeBox key={c.name} node={c} onNodeClick={onNodeClick} isClickable={isClickable} size="md" />
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
       {mainKids.length > 0 && (
         <ul>
           {mainKids.map((child) => (
@@ -187,6 +194,59 @@ export const OrgTreeNode = ({ node, onNodeClick, isClickable, isRoot }) => {
         </ul>
       )}
     </li>
+  );
+};
+
+// Réduit l'arbre pour qu'il tienne toujours dans la largeur disponible (jamais de défilement horizontal).
+const FitToWidth = ({ children }) => {
+  const outerRef = useRef(null);
+  const innerRef = useRef(null);
+  const [fit, setFit] = useState({ scale: 1, height: null });
+  useLayoutEffect(() => {
+    const measure = () => {
+      const outer = outerRef.current;
+      const inner = innerRef.current;
+      if (!outer || !inner) return;
+      const natural = inner.scrollWidth;
+      const scale = natural > 0 ? Math.min(1, outer.clientWidth / natural) : 1;
+      setFit({ scale, height: inner.scrollHeight * scale });
+    };
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    if (ro) { ro.observe(outerRef.current); ro.observe(innerRef.current); }
+    window.addEventListener("resize", measure);
+    return () => { if (ro) ro.disconnect(); window.removeEventListener("resize", measure); };
+  }, []);
+  return (
+    <div ref={outerRef} className="w-full overflow-hidden" style={{ height: fit.height || undefined }}>
+      <div
+        ref={innerRef}
+        className="inline-block"
+        style={{ transform: `scale(${fit.scale})`, transformOrigin: "top left", marginLeft: `max(0px, calc((100% - ${(innerRef.current?.scrollWidth || 0) * fit.scale}px) / 2))` }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
+// Téléphone : arbre vertical lisible (chaque niveau décalé, traits de liaison), tout visible sans défiler.
+export const OrgTreeVertical = ({ node, onNodeClick, isClickable, depth = 0 }) => {
+  const kids = node.children || [];
+  return (
+    <div>
+      <div className={depth ? "relative" : ""}>
+        {depth > 0 && <span className="absolute -left-4 top-6 w-4 border-t-2 border-slate-400 dark:border-slate-500" />}
+        <OrgNodeBox node={node} onNodeClick={onNodeClick} isClickable={isClickable} size={depth === 0 ? "lg" : "md"} fullWidth />
+      </div>
+      {kids.length > 0 && (
+        <div className="ml-5 mt-2 space-y-2 border-l-2 border-slate-400 pl-4 dark:border-slate-500">
+          {kids.map((c) => (
+            <OrgTreeVertical key={c.name} node={c} onNodeClick={onNodeClick} isClickable={isClickable} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -370,38 +430,21 @@ export const OrgChart = ({ data, onNodeClick, allowedNodes }) => {
     <div className="w-full">
       <OrgTreeStyles />
 
-      <div className="hidden lg:flex justify-center overflow-x-auto py-8 px-4">
-        <ul className="org-tree inline-flex">
-          <OrgTreeNode
-            node={data}
-            onNodeClick={onNodeClick}
-            isClickable={isClickable}
-            isRoot
-          />
-        </ul>
+      <div className="hidden md:block py-6 px-2">
+        <FitToWidth>
+          <ul className="org-tree inline-flex">
+            <OrgTreeNode
+              node={data}
+              onNodeClick={onNodeClick}
+              isClickable={isClickable}
+              isRoot
+            />
+          </ul>
+        </FitToWidth>
       </div>
 
-      <div className="hidden md:flex lg:hidden justify-center overflow-x-auto py-6 px-2">
-        <ul className="org-tree inline-flex scale-90 origin-top">
-          <OrgTreeNode
-            node={data}
-            onNodeClick={onNodeClick}
-            isClickable={isClickable}
-            isRoot
-          />
-        </ul>
-      </div>
-
-      {/* Phones: wrapping tree with real measured connector lines (see
-OrgTreeMobileWithLines above) — no horizontal scroll needed,
-everything fits by wrapping down the screen, and it still looks
-like a proper family tree with lines linking each generation. */}
       <div className="md:hidden py-4 px-1">
-        <OrgTreeMobileWithLines
-          node={data}
-          onNodeClick={onNodeClick}
-          isClickable={isClickable}
-        />
+        <OrgTreeVertical node={data} onNodeClick={onNodeClick} isClickable={isClickable} />
       </div>
     </div>
   );

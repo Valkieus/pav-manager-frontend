@@ -38,6 +38,10 @@ export function PlanningNotesCard({
             }
             placeholder="Notes / informations pertinentes..."
           />
+          <p className="text-xs text-muted-foreground">
+            Astuce : écris « Jean — du 18/10 au 25/10 » (nom + période) : c'est lu comme une absence — alerte quand
+            tu l'affectes ce jour-là, et plus de rappel d'absences pour cette personne.
+          </p>
         </div>
       </CardContent>
     </Card>

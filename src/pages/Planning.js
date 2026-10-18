@@ -28,6 +28,7 @@ import { API, DEFAULT_SECTIONS, MOIS_NOMS, THEME, canonPoste, delimiterGroup, sl
 import { buildPlanningExportSVG, buildPlanningExportXLSX, loadXLSX, svgToPngDataUrl, svgToStoryPngDataUrl } from './planning/exportUtils';
 import { PlanningCell } from './planning/cells';
 import { useCellSelection } from './planning/useCellSelection';
+import { findNoteAbsence } from './planning/absenceNotes';
 import { EditDatesDialog } from './planning/EditDatesDialog';
 import { CopyDaysDialog } from './planning/CopyDaysDialog';
 import { DuplicateDialog } from './planning/DuplicateDialog';
@@ -595,6 +596,20 @@ export default function Planning() {
         });
         return;
       }
+      // Notes / « Absences de l'équipe » : « Nom — du 18/10 au 25/10 » vaut absence sur cette période.
+      const noted = findNoteAbsence(
+        [notes.vendredi, notes.dimanche, absences.vendredi, absences.dimanche],
+        typed,
+        iso,
+      );
+      if (noted) {
+        setAbsentAlert({
+          level: "error",
+          title: "Absent(e) ce jour-là d'après les notes",
+          text: `« ${noted} » — vérifie avant de l'affecter.`,
+        });
+        return;
+      }
       const line = (absences[activeDay] || "")
         .split("\n")
         .map((l) => l.trim())
@@ -610,7 +625,7 @@ export default function Planning() {
         });
       }
     },
-    [monthAbsences, dates, activeDay, absences],
+    [monthAbsences, dates, activeDay, absences, notes],
   );
 
   const handleAffectationChange = useCallback(
@@ -627,14 +642,6 @@ export default function Planning() {
     },
     [warnIfAbsent],
   );
-
-  // Sélection multiple façon Excel (glisser, Maj+clic, Suppr, Ctrl+C/V/D/R).
-  useCellSelection({
-    activeDay,
-    canWrite: canManage() && planningEditMode,
-    affectations,
-    setAffectations,
-  });
 
   // Édition à plusieurs en direct : présence (qui est dans quelle case) et
   // mise à jour des cases modifiées par les collègues.
@@ -795,6 +802,16 @@ export default function Planning() {
     setUndoStack((stack) => stack.slice(0, -1));
     toast.success("Dernière action annulée");
   }, [canManage, undoStack]);
+
+  // Sélection multiple façon Excel (glisser, Maj+clic, Suppr, Ctrl+C/X/V/D/R/A/Z, Alt+glisser pour déplacer).
+  useCellSelection({
+    activeDay,
+    canWrite: canManage() && planningEditMode,
+    affectations,
+    setAffectations,
+    onUndo: handleUndo,
+  });
+
 
   // Enregistrement automatique : dès qu'une donnée éditable change (grille,
   // absences/notes, sections, en-tête, libellés de date...), une sauvegarde

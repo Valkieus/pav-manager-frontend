@@ -19,13 +19,18 @@ export function DayPreviewDialog({
 }) {
   const current = cours?.days?.[dayPreview?.date]?.courses || [];
   const [sel, setSel] = useState([]);
+  const [titles, setTitles] = useState({});
+  const label = (c, t) => (t?.[c] ? `${c} — ${t[c]}` : c);
   const [saving, setSaving] = useState(false);
-  useEffect(() => setSel(current), [dayPreview?.date, cours]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setSel(current);
+    setTitles(cours?.days?.[dayPreview?.date]?.titles || {});
+  }, [dayPreview?.date, cours]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async (reset) => {
     setSaving(true);
     try {
       if (reset) await axios.delete(`${API}/dashboard/cours/${dayPreview.date}`);
-      else await axios.put(`${API}/dashboard/cours/${dayPreview.date}`, { courses: sel });
+      else await axios.put(`${API}/dashboard/cours/${dayPreview.date}`, { courses: sel, titles });
       toast.success("Cours mis à jour");
       onCoursSaved?.();
     } catch (err) {
@@ -137,6 +142,16 @@ export function DayPreviewDialog({
                       {c}
                     </label>
                   ))}
+                  {sel.map((c) => (
+                    <input
+                      key={c}
+                      className="w-full rounded-md border bg-background px-2 py-1 text-sm"
+                      placeholder={`Titre (facultatif) — ${c}`}
+                      maxLength={120}
+                      value={titles[c] || ""}
+                      onChange={(e) => setTitles((v) => ({ ...v, [c]: e.target.value }))}
+                    />
+                  ))}
                   <div className="flex gap-2 pt-1">
                     <Button size="sm" disabled={saving} onClick={() => save(false)}>
                       Enregistrer
@@ -153,7 +168,7 @@ export function DayPreviewDialog({
                 current.map((c) => (
                   <div key={c} className="flex items-center gap-2 rounded-md border p-2.5 text-sm">
                     <span className="w-2 h-2 rounded-full bg-teal-500" />
-                    {c}
+                    {label(c, cours?.days?.[dayPreview?.date]?.titles)}
                   </div>
                 ))
               )}

@@ -458,7 +458,7 @@ export const MiniCalendar = ({
           const dayCours = cours[dateStr]?.courses || [];
           const tipLines = [];
           if (dayCours.length)
-            tipLines.push({ dot: "bg-teal-500", text: `Cours : ${dayCours.join(", ")}` });
+            tipLines.push({ dot: "bg-teal-500", text: `Cours : ${dayCours.map((c) => (cours[dateStr].titles?.[c] ? `${c} — ${cours[dateStr].titles[c]}` : c)).join(", ")}` });
           if (dateCle)
             tipLines.push({ dot: "bg-pink-500", text: `${dateCle.emoji} ${dateCle.nom}` });
           if (isService)

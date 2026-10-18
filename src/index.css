@@ -251,3 +251,8 @@
     [data-sonner-toaster] { --offset: calc(env(safe-area-inset-top, 0px) + 16px) !important; }
     [role="dialog"], [data-radix-popper-content-wrapper] { scroll-padding-top: env(safe-area-inset-top); }
 }
+
+/* Planning : sélection multiple de cases (façon Excel) */
+td[data-sel="1"] { background-color: rgba(59, 130, 246, 0.22) !important; box-shadow: inset 0 0 0 1px #3b82f6; }
+body.planning-selecting { user-select: none; -webkit-user-select: none; }
+@media print { td[data-sel="1"] { background-color: transparent !important; box-shadow: none; } }

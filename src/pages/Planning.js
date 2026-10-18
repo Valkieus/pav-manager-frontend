@@ -27,6 +27,7 @@ import {
 import { API, DEFAULT_SECTIONS, MOIS_NOMS, THEME, canonPoste, delimiterGroup, slugPoste, stripAccents, withCamera7 } from './planning/constants';
 import { buildPlanningExportSVG, buildPlanningExportXLSX, loadXLSX, svgToPngDataUrl, svgToStoryPngDataUrl } from './planning/exportUtils';
 import { PlanningCell } from './planning/cells';
+import { useCellSelection } from './planning/useCellSelection';
 import { EditDatesDialog } from './planning/EditDatesDialog';
 import { CopyDaysDialog } from './planning/CopyDaysDialog';
 import { DuplicateDialog } from './planning/DuplicateDialog';
@@ -626,6 +627,14 @@ export default function Planning() {
     },
     [warnIfAbsent],
   );
+
+  // Sélection multiple façon Excel (glisser, Maj+clic, Suppr, Ctrl+C/V/D/R).
+  useCellSelection({
+    activeDay,
+    canWrite: canManage() && planningEditMode,
+    affectations,
+    setAffectations,
+  });
 
   // Édition à plusieurs en direct : présence (qui est dans quelle case) et
   // mise à jour des cases modifiées par les collègues.
@@ -2098,6 +2107,7 @@ export default function Planning() {
                               <td
                                 key={dateIdx}
                                 data-cell={`${activeDay}|${key}|${dateIdx}`}
+                                data-editable={!cellBlocked && !cellModeActive && canEditPlanningCell(section.name, role.key, role.label) ? "1" : "0"}
                                 className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}`}
                                 onClick={() =>
                                   cellModeActive &&

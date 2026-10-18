@@ -1553,6 +1553,7 @@ export default function Administration() {
           full_name: userForm.full_name,
           niveau_acces: userForm.niveau_acces,
           username: userForm.username,
+          songs_access: userForm.songs_access !== false,
         });
         toast.success("Utilisateur modifié");
       } else {
@@ -1582,6 +1583,7 @@ export default function Administration() {
       password: "",
       full_name: user.full_name,
       niveau_acces: user.niveau_acces,
+      songs_access: user.songs_access !== false,
     });
     setEditingUser(user);
     setUserDialogOpen(true);

@@ -15,6 +15,8 @@ import IdleGuard from "./components/IdleGuard";
 // bundling every page into the initial load (faster first paint, especially on mobile).
 const Login = lazyWithRetry(() => import("./pages/Login"));
 const SsoLed = lazyWithRetry(() => import("./pages/SsoLed"));
+const SsoSongs = lazyWithRetry(() => import("./pages/SsoSongs"));
+const Songs = lazyWithRetry(() => import("./pages/Songs"));
 const SsoAcademy = lazyWithRetry(() => import("./pages/SsoAcademy"));
 const Register = lazyWithRetry(() => import("./pages/Register"));
 const Confidentialite = lazyWithRetry(() => import("./pages/Confidentialite"));
@@ -86,7 +88,7 @@ const PublicRoute = ({ children }) => {
   if (isAuthenticated) {
     // Retour vers l'entrée SSO (site LED ou PAV Academy) si la connexion venait de là.
     const next = sessionStorage.getItem("post_login_next");
-    return <Navigate to={["/sso-led", "/sso-academy"].includes(next) ? next : "/"} replace />;
+    return <Navigate to={["/sso-led", "/sso-academy", "/sso-songs"].includes(next) ? next : "/"} replace />;
   }
 
   return children;
@@ -99,6 +101,7 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/sso-led" element={<SsoLed />} />
+      <Route path="/sso-songs" element={<SsoSongs />} />
       <Route path="/sso-academy" element={<SsoAcademy />} />
       <Route path="/inscription" element={<PublicRoute><Register /></PublicRoute>} />
       <Route path="/reservation/:token" element={<PublicReservation />} />
@@ -112,6 +115,7 @@ function AppRoutes() {
       <Route path="/effectif" element={<ProtectedRoute><Effectif /></ProtectedRoute>} />
       <Route path="/logistique" element={<ProtectedRoute><Logistique /></ProtectedRoute>} />
       <Route path="/elements-led" element={<ProtectedRoute><ElementsLED /></ProtectedRoute>} />
+      <Route path="/songs" element={<ProtectedRoute><Songs /></ProtectedRoute>} />
       <Route path="/devis" element={<ProtectedRoute><Devis /></ProtectedRoute>} />
       <Route path="/formations" element={<ProtectedRoute><Formations /></ProtectedRoute>} />
       <Route path="/salles" element={<ProtectedRoute><Salles /></ProtectedRoute>} />

@@ -65,6 +65,7 @@ import {
   PlusSquare,
   ArrowDown,
   Lightbulb,
+  Music,
   FlaskConical,
 } from "lucide-react";
 import {
@@ -197,6 +198,13 @@ const navItems = [
     groupPerms: ["led.read", "led.write"],
   },
   {
+    path: "/songs",
+    icon: Music,
+    label: "CEC Songs",
+    minRole: "Technicien",
+    hideIfNoSongs: true,  // accès retiré à cette personne (Administration > Utilisateurs)
+  },
+  {
     path: "/devis",
     icon: FileText,
     label: "Devis & Achat",
@@ -238,7 +246,7 @@ const NAV_STRUCTURE = [
   { path: "/logistique" }, // Régisseurs : inchangé, au premier niveau
   { folder: "Ressources humaines", icon: Users, paths: ["/effectif", "/formations"] },
   { folder: "Matériel & achats", icon: Package, paths: ["/elements-led", "/devis"] },
-  { folder: "Communication", icon: MessageSquare, paths: ["/actualites", "/communication", "/documents"] },
+  { folder: "Communication", icon: MessageSquare, paths: ["/actualites", "/communication", "/documents", "/songs"] },
   { path: "/administration" },
 ];
 const NAV_FOLDERS_KEY = "nav_open_folders";
@@ -550,6 +558,7 @@ export const Layout = ({ children }) => {
   // (see comment on navItems above).
   const hasAccess = (item) => {
     if (!user) return true;
+    if (item.hideIfNoSongs && user.songs_access === false) return false;
     if (item.minRole) {
       const userLevel = ROLE_HIERARCHY[user.niveau_acces] || 0;
       const requiredLevel = ROLE_HIERARCHY[item.minRole] || 0;

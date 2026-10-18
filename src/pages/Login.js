@@ -30,7 +30,7 @@ export default function Login() {
       const data = await passkeyLogin();
       await loginWithData(data);
       const next = sessionStorage.getItem('post_login_next');
-      navigate(['/sso-led', '/sso-academy'].includes(next) ? next : '/');
+      navigate(['/sso-led', '/sso-academy', '/sso-songs'].includes(next) ? next : '/');
     } catch (err) {
       if (err?.name === 'NotAllowedError') {
         // Refus immédiat (moins d'une seconde) = le navigateur n'a pas reconnu le toucher ; plus tard = annulé par la personne.
@@ -87,7 +87,7 @@ export default function Login() {
     try {
       await login(username, password);
       const next = sessionStorage.getItem('post_login_next');
-      navigate(['/sso-led', '/sso-academy'].includes(next) ? next : '/');
+      navigate(['/sso-led', '/sso-academy', '/sso-songs'].includes(next) ? next : '/');
     } catch (err) {
       setError(err.response?.data?.detail || 'Erreur de connexion');
     } finally {

@@ -171,6 +171,20 @@ même limite pour éviter un 403 après coup. */}
                     </SelectContent>
                   </Select>
                 </div>
+                {editingUser && (
+                  <label className="flex items-start gap-2 text-sm" data-testid="user-songs-access">
+                    <input
+                      type="checkbox"
+                      className="mt-1 w-4 h-4"
+                      checked={userForm.songs_access !== false}
+                      onChange={(e) => setUserForm({ ...userForm, songs_access: e.target.checked })}
+                    />
+                    <span>
+                      Accès à CEC Songs
+                      <span className="block text-xs text-muted-foreground">Connexion unique depuis PAV Manager (décochez pour retirer l'accès à cette personne).</span>
+                    </span>
+                  </label>
+                )}
                 <Button
                   type="submit"
                   className="w-full"

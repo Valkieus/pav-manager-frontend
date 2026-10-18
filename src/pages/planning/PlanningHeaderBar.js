@@ -11,6 +11,7 @@ export function PlanningHeaderBar({
   canValidate,
   duplicating,
   exportingPng,
+  handleExportPngStory,
   exportingXlsx,
   handleExportPng,
   handleExportXlsx,
@@ -81,6 +82,14 @@ export function PlanningHeaderBar({
                 <ImageDown className="w-4 h-4 shrink-0 mr-2" />
               )}
               Enregistrer en PNG
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleExportPngStory}
+              disabled={exportingPng}
+              data-testid="export-png-story-btn"
+            >
+              <ImageDown className="w-4 h-4 shrink-0 mr-2" />
+              PNG vertical (9:16)
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={handleExportXlsx}

@@ -2,6 +2,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from '../../components/ui/badge';
 import { IdCard, Phone, Mail, Loader2, Download, Check, X, Archive, Trash2, Edit, FileText } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { useState } from 'react';
+import { BadgeWizard } from './BadgeWizard';
 import { SHEET_CLASS, getBranchColor } from './constants';
 
 export function TechDetailDialog({
@@ -32,7 +34,9 @@ export function TechDetailDialog({
   setRejectMessage,
   setRejectingBadge,
 }) {
+  const [wizardOpen, setWizardOpen] = useState(false);
   return (
+    <>
     <Dialog open={!!selectedTech} onOpenChange={handleCloseDetail}>
       <DialogContent className={SHEET_CLASS} data-testid="tech-detail-dialog">
         {selectedTech && (() => {
@@ -170,6 +174,12 @@ export function TechDetailDialog({
                           <Badge variant="outline">Archivée</Badge>
                         )}
                       </div>
+
+                      {badgeDetail.badge_photo_url && (
+                        <Button size="sm" className="w-full" onClick={() => setWizardOpen(true)} data-testid="open-badge-wizard">
+                          <IdCard className="w-4 h-4 mr-1" /> Validation &amp; badge (aperçu, PNG, PDF)
+                        </Button>
+                      )}
 
                       {badgeDetail.badge_photo_url && (
                         <div className="flex items-center gap-3">
@@ -341,5 +351,19 @@ export function TechDetailDialog({
         })()}
       </DialogContent>
     </Dialog>
+    {selectedTech && (
+      <BadgeWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        tech={selectedTech}
+        badgeDetail={badgeDetail}
+        badgeActionBusy={badgeActionBusy}
+        handleConfirmBadge={handleConfirmBadge}
+        handleRejectBadge={handleRejectBadge}
+        rejectMessage={rejectMessage}
+        setRejectMessage={setRejectMessage}
+      />
+    )}
+    </>
   );
 }

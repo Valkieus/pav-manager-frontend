@@ -69,7 +69,9 @@ export function buildPlanningExportSVG({
   dateLabels,
   formatDate,
   nameCase,
+  layout = "landscape", // "story" : colonnes étroites pour un export vertical 9:16
 }) {
+  const story = layout === "story";
   const measure = createTextMeasurer();
 
   // Couleurs alignées sur l'analyse pixel par pixel du PNG de référence
@@ -115,8 +117,8 @@ export function buildPlanningExportSVG({
   // vertical vs la référence ~1,24) : colonnes élargies de 150 à 200 pour
   // rapprocher le ratio naturel largeur/hauteur du SVG de la référence,
   // sans jamais réintroduire de resize/canvas forcé (voir svgToPngDataUrl).
-  let LABEL_W = 200;
-  let DATE_W = 200;
+  let LABEL_W = story ? 118 : 200;
+  let DATE_W = story ? 98 : 200;
   const PAD = 3;
   const MARGIN = 8;
 
@@ -671,6 +673,38 @@ export async function svgToPngDataUrl(svgString, width, height, scale = 2) {
       width: canvas.width,
       height: canvas.height,
     };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// Export vertical « story » 9:16 (1080 x 1920) : le planning (construit avec le layout "story")
+// est mis à la largeur de l'image, centré verticalement ; s'il est trop haut il est réduit pour tenir.
+export async function svgToStoryPngDataUrl(svgString, width, height) {
+  const OUT_W = 1080;
+  const OUT_H = 1920;
+  const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = url;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = OUT_W;
+    canvas.height = OUT_H;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, OUT_W, OUT_H);
+    const MARGIN = 24;
+    const scale = Math.min((OUT_W - MARGIN * 2) / width, (OUT_H - MARGIN * 2) / height);
+    const dw = width * scale;
+    const dh = height * scale;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, (OUT_W - dw) / 2, (OUT_H - dh) / 2, dw, dh);
+    return { dataUrl: canvas.toDataURL("image/png"), width: OUT_W, height: OUT_H };
   } finally {
     URL.revokeObjectURL(url);
   }

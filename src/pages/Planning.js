@@ -25,7 +25,7 @@ import {
   reserveTabForIOSFallback,
 } from "../utils/fileDownload";
 import { API, DEFAULT_SECTIONS, MOIS_NOMS, THEME, canonPoste, delimiterGroup, slugPoste, stripAccents, withCamera7 } from './planning/constants';
-import { buildPlanningExportSVG, buildPlanningExportXLSX, loadXLSX, svgToPngDataUrl } from './planning/exportUtils';
+import { buildPlanningExportSVG, buildPlanningExportXLSX, loadXLSX, svgToPngDataUrl, svgToStoryPngDataUrl } from './planning/exportUtils';
 import { PlanningCell } from './planning/cells';
 import { EditDatesDialog } from './planning/EditDatesDialog';
 import { CopyDaysDialog } from './planning/CopyDaysDialog';
@@ -1244,6 +1244,33 @@ export default function Planning() {
     }
   };
 
+  // PNG vertical 9:16 (1080x1920) : même moteur, colonnes étroites, centré sur fond blanc.
+  const handleExportPngStory = async () => {
+    const preOpenedWindow = reserveTabForIOSFallback();
+    setExportingPng(true);
+    try {
+      const { svg, width, height } = buildPlanningExportSVG({
+        activeDay, currentMonth, currentYear, currentDates, daySections, affectations,
+        blockedCells, titreOverrides, dateLabels, formatDate, nameCase: affichageNoms,
+        layout: "story",
+      });
+      const { dataUrl } = await svgToStoryPngDataUrl(svg, width, height);
+      const moisSlug = (MOIS_NOMS[currentMonth - 1] || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+      const filename = `planning-${moisSlug}-${currentYear}-${activeDay}-vertical.png`;
+      const blob = await (await fetch(dataUrl)).blob();
+      const status = await downloadOrShareFile(blob, filename, { title: filename, preOpenedWindow });
+      const msg = downloadStatusMessage(status);
+      if (status === "blocked") toast.error(msg);
+      else if (msg) toast.success(msg);
+    } catch (err) {
+      console.error(err);
+      if (preOpenedWindow && !preOpenedWindow.closed) preOpenedWindow.close();
+      toast.error("Erreur lors de l'export PNG vertical");
+    } finally {
+      setExportingPng(false);
+    }
+  };
+
   // Mirrors handleExportPng's structure — same source data, same filename
   // pattern, same download helper — just producing a workbook instead of a
   // PNG. See buildPlanningExportXLSX above.
@@ -2289,6 +2316,7 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             exportingPng={exportingPng}
             exportingXlsx={exportingXlsx}
             handleExportPng={handleExportPng}
+            handleExportPngStory={handleExportPngStory}
             handleExportXlsx={handleExportXlsx}
             handlePrint={handlePrint}
             handlePublish={handlePublish}

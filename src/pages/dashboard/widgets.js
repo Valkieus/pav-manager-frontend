@@ -21,7 +21,7 @@ export const BRANCH_MEMBER_MATCH = {
   RÉGISSEURS: (t) => (t.branches || []).includes("Régisseurs"),
   COORDINATION: (t) => (t.branches || []).includes("Coordination"),
   PRODUCTION: (t) => (t.branches || []).includes("Production"),
-  "RESP. PAV": (t) => (t.branches || []).includes("Supervision"),
+  "RESPONSABLE PAV": (t) => (t.branches || []).includes("Supervision"),
 };
 
 // Reverse map: which org-chart nodes a branch-scoped user (Coordination /
@@ -32,15 +32,15 @@ export const BRANCH_TO_NODES = {
   Régisseurs: ["RÉGISSEURS"],
   Coordination: ["COORDINATION"],
   Production: ["PRODUCTION"],
-  Supervision: ["RESP. PAV"],
+  Supervision: ["RESPONSABLE PAV"],
 };
 
 // Colors for branches — shared by every OrgChart rendering path (desktop,
 // tablet, mobile).
 export const getBranchColor = (name) => {
   const colors = {
-    PAV: "bg-primary text-primary-foreground border-primary",
-    "RESP. PAV": "bg-slate-800 text-white border-slate-700",
+    "SUPERVISION TECHNIQUE": "bg-primary text-primary-foreground border-primary",
+    "RESPONSABLE PAV": "bg-slate-800 text-white border-slate-700",
     COORDINATION: "bg-blue-500 text-white border-blue-600",
     PRODUCTION: "bg-emerald-500 text-white border-emerald-600",
     LIVE: "bg-red-500 text-white border-red-600",
@@ -72,7 +72,7 @@ flex-direction: column;
 align-items: center;
 flex: 1 1 0;
 min-width: 0;
-padding: 28px 14px 0 14px;
+padding: 28px 7px 0 7px;
 }
 /* Sibling connector: each li draws its own half of the shared horizontal
 bar (::before = left half, ::after = right half) plus its own vertical
@@ -124,7 +124,7 @@ border-color: #64748b;
 export const OrgNodeBox = ({ node, onNodeClick, isClickable, size = "md" }) => {
   const clickable = isClickable(node.name);
   const pad =
-    size === "lg" ? "px-7 py-4" : size === "sm" ? "px-3 py-2" : "px-5 py-3";
+    size === "lg" ? "px-7 py-4" : size === "sm" ? "px-3 py-2" : "px-3.5 py-2.5";
   return (
     <div
       onClick={clickable ? () => onNodeClick(node) : undefined}
@@ -148,19 +148,35 @@ ${clickable ? "cursor-pointer" : ""}
 };
 
 // Recursive <li> node for the desktop/tablet CSS tree.
+// Les enfants marqués `side` (ex. COORDINATION) sont rattachés au parent par un trait horizontal,
+// à côté de sa boîte, et ne font pas partie de la rangée des enfants.
 export const OrgTreeNode = ({ node, onNodeClick, isClickable, isRoot }) => {
-  const hasChildren = node.children && node.children.length > 0;
+  const kids = node.children || [];
+  const sideKids = kids.filter((c) => c.side);
+  const mainKids = kids.filter((c) => !c.side);
   return (
     <li>
-      <OrgNodeBox
-        node={node}
-        onNodeClick={onNodeClick}
-        isClickable={isClickable}
-        size={isRoot ? "lg" : "md"}
-      />
-      {hasChildren && (
+      <div className="relative">
+        <OrgNodeBox
+          node={node}
+          onNodeClick={onNodeClick}
+          isClickable={isClickable}
+          size={isRoot ? "lg" : "md"}
+        />
+        {sideKids.length > 0 && (
+          <div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center">
+            {sideKids.map((c) => (
+              <div key={c.name} className="flex items-center">
+                <span className="block w-8 border-t-[2.5px] border-slate-400 dark:border-slate-500" />
+                <OrgNodeBox node={c} onNodeClick={onNodeClick} isClickable={isClickable} size="md" />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {mainKids.length > 0 && (
         <ul>
-          {node.children.map((child) => (
+          {mainKids.map((child) => (
             <OrgTreeNode
               key={child.name}
               node={child}

@@ -66,6 +66,7 @@ import {
   ArrowDown,
   Lightbulb,
   Music,
+  ExternalLink,
   FlaskConical,
 } from "lucide-react";
 import {
@@ -202,6 +203,7 @@ const navItems = [
     icon: Music,
     label: "CEC Songs",
     minRole: "Technicien",
+    external: "songs",  // pas de page : un clic ouvre le site CEC Songs, déjà connecté (SSO)
     hideIfNoSongs: true,  // accès retiré à cette personne (Administration > Utilisateurs)
   },
   {
@@ -550,6 +552,21 @@ export const Layout = ({ children }) => {
     if (hours < 24) return `il y a ${hours} h`;
     const days = Math.floor(hours / 24);
     return `il y a ${days} j`;
+  };
+
+  // Ouvre CEC Songs directement depuis le menu, déjà connecté (SSO : jeton à usage unique, 2 min). La fenêtre est ouverte
+  // tout de suite (clic utilisateur) pour éviter le blocage des fenêtres surgissantes.
+  const openSongsSite = async () => {
+    const win = window.open("", "_blank");
+    try {
+      const res = await axios.post(`${API}/songs/sso-handoff`);
+      if (win) win.location.href = res.data.redirect_url;
+      else window.location.href = res.data.redirect_url;
+    } catch (err) {
+      if (win) win.close();
+      toast.error(err.response?.data?.detail || "Impossible d'ouvrir CEC Songs");
+    }
+    setSidebarOpen(false);
   };
 
   // Check if user has access to a menu item based on role, and — for the
@@ -909,6 +926,22 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
                 const isUnderMaintenance = maintenanceEntries.some(
                   (e) => e.scope === "page" && e.page_path === item.path,
                 );
+                if (item.external) {
+                  return (
+                    <button
+                      key={item.path}
+                      type="button"
+                      onClick={openSongsSite}
+                      className={`sidebar-link w-full text-left ${nested ? "text-sm" : ""}`}
+                      data-testid="nav-songs"
+                      title="Ouvre CEC Songs dans un nouvel onglet (connexion automatique)"
+                    >
+                      <Icon className="w-5 h-5 shrink-0" />
+                      <span className="flex-1 truncate">{item.label}</span>
+                      <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </button>
+                  );
+                }
                 return (
                   <Link
                     key={item.path}

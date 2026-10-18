@@ -16,7 +16,6 @@ import IdleGuard from "./components/IdleGuard";
 const Login = lazyWithRetry(() => import("./pages/Login"));
 const SsoLed = lazyWithRetry(() => import("./pages/SsoLed"));
 const SsoSongs = lazyWithRetry(() => import("./pages/SsoSongs"));
-const Songs = lazyWithRetry(() => import("./pages/Songs"));
 const SsoAcademy = lazyWithRetry(() => import("./pages/SsoAcademy"));
 const Register = lazyWithRetry(() => import("./pages/Register"));
 const Confidentialite = lazyWithRetry(() => import("./pages/Confidentialite"));
@@ -115,7 +114,6 @@ function AppRoutes() {
       <Route path="/effectif" element={<ProtectedRoute><Effectif /></ProtectedRoute>} />
       <Route path="/logistique" element={<ProtectedRoute><Logistique /></ProtectedRoute>} />
       <Route path="/elements-led" element={<ProtectedRoute><ElementsLED /></ProtectedRoute>} />
-      <Route path="/songs" element={<ProtectedRoute><Songs /></ProtectedRoute>} />
       <Route path="/devis" element={<ProtectedRoute><Devis /></ProtectedRoute>} />
       <Route path="/formations" element={<ProtectedRoute><Formations /></ProtectedRoute>} />
       <Route path="/salles" element={<ProtectedRoute><Salles /></ProtectedRoute>} />

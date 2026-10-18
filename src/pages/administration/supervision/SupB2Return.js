@@ -12,7 +12,7 @@ const fmtBytes = (n) => (n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2)} Go` : `
 export function SupB2Return({ isSuperAdmin }) {
   const [plan, setPlan] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [freeCloud, setFreeCloud] = useState(true);
+  const [freeCloud, setFreeCloud] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -31,6 +31,7 @@ export function SupB2Return({ isSuperAdmin }) {
   }, [plan?.running, load]);
 
   const start = async (limit) => {
+    if (!limit && !window.confirm(`Copier TOUS les fichiers (${plan?.on_cloudinary ?? '?'}) vers B2 ?${freeCloud ? "\n\nLes originaux Cloudinary seront supprimés au fur et à mesure (définitif)." : ''}\n\nVous pourrez arrêter à tout moment avec le bouton « Arrêter ».`)) return;
     setBusy(true);
     try {
       await axios.post(`${API}/led/b2-return/start`, { limit, free_cloudinary: freeCloud });
@@ -52,6 +53,14 @@ export function SupB2Return({ isSuperAdmin }) {
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Échec');
     } finally { setBusy(false); }
+  };
+  const stop = async () => {
+    try {
+      await axios.post(`${API}/led/b2-return/stop`);
+      toast.success("Arrêt demandé : la copie s'arrête après le fichier en cours");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Impossible d'arrêter");
+    }
   };
   const rollback = async () => {
     if (!window.confirm('Remettre sur Cloudinary tous les fichiers déjà copiés vers B2 ?')) return;
@@ -96,7 +105,10 @@ export function SupB2Return({ isSuperAdmin }) {
           <strong>{plan.mode === 'b2' ? 'B2 seul' : 'B2 puis Cloudinary'}</strong>
         </p>
         {plan.running && (
-          <p className="text-sm flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> En cours : {st.done ?? 0} copié(s) sur {st.total ?? '?'}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> En cours : {st.done ?? 0} copié(s) sur {st.total ?? '?'}</p>
+            {isSuperAdmin() && <Button size="sm" variant="destructive" onClick={stop} data-testid="b2-stop">Arrêter</Button>}
+          </div>
         )}
         {!plan.running && st.finished_at && (
           <p className="text-xs text-muted-foreground">Dernière copie : {st.done ?? 0} réussi(s), {st.failed ?? 0} en échec ({fmtBytes(st.bytes || 0)}).</p>

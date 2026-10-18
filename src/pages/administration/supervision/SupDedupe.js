@@ -35,6 +35,9 @@ export function SupDedupe({ isSuperAdmin }) {
     } finally { setBusy(false); }
   };
 
+  const stop = async () => {
+    try { await axios.post(`${API}/led/storage/dedupe/stop`); toast.success("Arrêt demandé"); } catch (e) { toast.error(e.response?.data?.detail || "Impossible d'arrêter"); }
+  };
   if (!st) return null;
   return (
     <Card>
@@ -48,7 +51,12 @@ export function SupDedupe({ isSuperAdmin }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">Stockages : {(st.targets || []).join(' · ') || '—'}</p>
-        {st.running && <p className="text-sm flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {st.dry_run ? 'Analyse' : 'Nettoyage'} en cours : {st.checked ?? 0} / {st.total ?? '?'}</p>}
+        {st.running && (
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {st.dry_run ? 'Analyse' : 'Nettoyage'} en cours : {st.checked ?? 0} / {st.total ?? '?'}</p>
+            {isSuperAdmin() && <Button size="sm" variant="destructive" onClick={stop}>Arrêter</Button>}
+          </div>
+        )}
         {!st.running && st.finished_at && !st.error && (
           <p className="text-sm">
             {st.dry_run ? 'Analyse' : 'Nettoyage'} terminé : <strong>{st.excess ?? 0}</strong> copie(s) en trop ({fmtBytes(st.excess_bytes)})

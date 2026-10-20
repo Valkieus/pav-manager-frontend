@@ -14,6 +14,7 @@ export function SupB2Return({ isSuperAdmin }) {
   const [busy, setBusy] = useState(false);
   const [freeCloud, setFreeCloud] = useState(false);
   const [health, setHealth] = useState(null);
+  const [hidden, setHidden] = useState({ manual: [], auto: true, down_detected: [] });
   const [testing, setTesting] = useState(false);
 
   const load = useCallback(async () => {
@@ -25,7 +26,17 @@ export function SupB2Return({ isSuperAdmin }) {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadHidden = useCallback(() => {
+    axios.get(`${API}/led/hidden-clouds`).then((r) => setHidden(r.data)).catch(() => {});
+  }, []);
+  useEffect(() => { load(); loadHidden(); }, [load, loadHidden]);
+  const saveHidden = async (patch) => {
+    try {
+      const r = await axios.put(`${API}/led/hidden-clouds`, patch);
+      setHidden(r.data);
+      toast.success('Masquage mis à jour');
+    } catch (e) { toast.error(e.response?.data?.detail || 'Échec'); }
+  };
   useEffect(() => {
     if (!plan?.running) return undefined;
     const t = setInterval(load, 4000);
@@ -146,6 +157,13 @@ export function SupB2Return({ isSuperAdmin }) {
                 {testing ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : null}Tester la livraison
               </Button>
             </div>
+            {isSuperAdmin() && (
+              <label className="flex items-start gap-2 text-xs">
+                <input type="checkbox" className="mt-0.5" checked={hidden.auto} onChange={(e) => saveHidden({ auto: e.target.checked })} />
+                <span>Masquer automatiquement les fichiers d'un compte qui ne livre plus (ils réapparaissent tout seuls quand le compte répond de nouveau).
+                  {hidden.down_detected.length > 0 && <strong className="text-red-600"> En ce moment : {hidden.down_detected.join(', ')}.</strong>}</span>
+              </label>
+            )}
             {Object.entries(plan.by_cloud).map(([cloud, count]) => {
               const h = health?.accounts?.find((a) => a.cloud === cloud);
               return (
@@ -158,6 +176,13 @@ export function SupB2Return({ isSuperAdmin }) {
                     </span>
                   )}
                   <span className="flex-1" />
+                  {isSuperAdmin() && (
+                    <label className="flex items-center gap-1 text-xs">
+                      <input type="checkbox" checked={hidden.manual.includes(cloud) || hidden.down_detected.includes(cloud)} disabled={hidden.down_detected.includes(cloud) && !hidden.manual.includes(cloud)}
+                        onChange={(e) => saveHidden({ clouds: e.target.checked ? [...hidden.manual, cloud] : hidden.manual.filter((c) => c !== cloud) })} />
+                      Masquer sur LED
+                    </label>
+                  )}
                   {isSuperAdmin() && (
                     <Button size="sm" variant="outline" disabled={busy || plan.running || !plan.b2_enabled} onClick={() => start(0, cloud)}>
                       Copier ce compte vers B2

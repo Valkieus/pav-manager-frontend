@@ -13,6 +13,8 @@ export function SupB2Return({ isSuperAdmin }) {
   const [plan, setPlan] = useState(null);
   const [busy, setBusy] = useState(false);
   const [freeCloud, setFreeCloud] = useState(false);
+  const [health, setHealth] = useState(null);
+  const [testing, setTesting] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -30,11 +32,23 @@ export function SupB2Return({ isSuperAdmin }) {
     return () => clearInterval(t);
   }, [plan?.running, load]);
 
-  const start = async (limit) => {
-    if (!limit && !window.confirm(`Copier TOUS les fichiers (${plan?.on_cloudinary ?? '?'}) vers B2 ?${freeCloud ? "\n\nLes originaux Cloudinary seront supprimés au fur et à mesure (définitif)." : ''}\n\nVous pourrez arrêter à tout moment avec le bouton « Arrêter ».`)) return;
+  const testHealth = async () => {
+    setTesting(true);
+    try {
+      const res = await axios.get(`${API}/led/cloudinary-health`);
+      setHealth(res.data);
+      if (res.data.down?.length) toast.error(`Cloudinary ne livre plus : ${res.data.down.join(', ')}`);
+      else toast.success('Tous les comptes Cloudinary livrent encore');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Test impossible');
+    } finally { setTesting(false); }
+  };
+
+  const start = async (limit, cloud) => {
+    if (!limit && !window.confirm(`Copier ${cloud ? `tous les fichiers du compte « ${cloud} »` : `TOUS les fichiers (${plan?.on_cloudinary ?? '?'})`} vers B2 ?${freeCloud ? "\n\nLes originaux Cloudinary seront supprimés au fur et à mesure (définitif)." : ''}\n\nVous pourrez arrêter à tout moment avec le bouton « Arrêter ».`)) return;
     setBusy(true);
     try {
-      await axios.post(`${API}/led/b2-return/start`, { limit, free_cloudinary: freeCloud });
+      await axios.post(`${API}/led/b2-return/start`, { limit, free_cloudinary: freeCloud, cloud: cloud || null });
       toast.success(limit ? `Copie de ${limit} fichiers lancée` : 'Copie lancée');
       await load();
     } catch (e) {
@@ -123,6 +137,36 @@ export function SupB2Return({ isSuperAdmin }) {
             <input type="checkbox" className="mt-1 w-4 h-4" checked={freeCloud} onChange={(e) => setFreeCloud(e.target.checked)} />
             <span>Supprimer l'original chez Cloudinary dès que la copie sur B2 est vérifiée <span className="text-muted-foreground">(une seule copie, pas de doublon ; le retour arrière n'est alors plus possible pour ces fichiers)</span></span>
           </label>
+        )}
+        {plan.by_cloud && Object.keys(plan.by_cloud).length > 0 && (
+          <div className="rounded-md border p-2 space-y-1.5" data-testid="b2-by-cloud">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold">Par compte Cloudinary</p>
+              <Button size="sm" variant="outline" disabled={testing} onClick={testHealth} data-testid="cloud-health-btn">
+                {testing ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : null}Tester la livraison
+              </Button>
+            </div>
+            {Object.entries(plan.by_cloud).map(([cloud, count]) => {
+              const h = health?.accounts?.find((a) => a.cloud === cloud);
+              return (
+                <div key={cloud} className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="font-medium">{cloud}</span>
+                  <span className="text-muted-foreground">{count} fichier(s)</span>
+                  {h && (
+                    <span className={h.delivering ? 'text-emerald-600 text-xs' : 'text-red-600 text-xs font-semibold'}>
+                      {h.delivering ? 'livre normalement' : `NE LIVRE PLUS (HTTP ${h.http_status ?? 'aucune réponse'}) — ${h.elements} élément(s) LED touché(s)`}
+                    </span>
+                  )}
+                  <span className="flex-1" />
+                  {isSuperAdmin() && (
+                    <Button size="sm" variant="outline" disabled={busy || plan.running || !plan.b2_enabled} onClick={() => start(0, cloud)}>
+                      Copier ce compte vers B2
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
         {isSuperAdmin() && (
           <div className="flex flex-wrap gap-2">

@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
-import { Calendar, Plus, Search, X, CheckSquare, Loader2, ArrowRightLeft, ChevronDown, ChevronUp, PenLine, Circle } from 'lucide-react';
+import { Calendar, Plus, Search, X, CheckSquare, Loader2, ArrowRightLeft, ChevronDown, ChevronUp, PenLine, Circle, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
@@ -398,6 +398,10 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                             {camLabelFor(m.nom)}
                           </Badge>
                         )}
+                        <Button type="button" size="icon" variant="ghost" className="ml-auto h-8 w-8 text-destructive" title="Supprimer cette ligne" aria-label="Supprimer cette ligne"
+                          onClick={() => setSeanceForm((f) => ({ ...f, equipe: f.equipe.filter((_, i) => i !== idx) }))}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     ))}
                     {seanceForm.equipe.length === 0 && (
@@ -506,7 +510,12 @@ un clic, en plus de l'accordéon année/mois ci-dessous. */}
                                 );
                               })
                             )}
-                            <TableCell className="p-1" />
+                            <TableCell className="p-1 text-center">
+                              <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-destructive" title="Supprimer cette ligne" aria-label="Supprimer cette ligne"
+                                onClick={() => setSeanceForm((f) => ({ ...f, equipements: f.equipements.filter((_, i) => i !== idx) }))}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))}
                         {seanceForm.equipements.length === 0 && (

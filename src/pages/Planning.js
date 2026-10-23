@@ -1840,7 +1840,7 @@ export default function Planning() {
 
   // ---- Incohérences (personne planifiée malgré une absence déclarée) : visibles au Responsable+, ignorables par la Coordination+ ----
   const allConflicts = canManage()
-    ? computeConflicts({ dates, sections, defaultSections: DEFAULT_SECTIONS, affectations, monthAbsences, notes, absences })
+    ? computeConflicts({ dates, sections, defaultSections: DEFAULT_SECTIONS, affectations, monthAbsences, notes, absences, rosterNames: technicienNames })
     : [];
   const isIgnoredConflict = (c) => ignoredConflicts.includes(c.id);
   const activeConflicts = allConflicts.filter((c) => !isIgnoredConflict(c));
@@ -2170,7 +2170,7 @@ export default function Planning() {
                                 key={dateIdx}
                                 data-cell={`${activeDay}|${key}|${dateIdx}`}
                                 data-editable={!cellBlocked && !cellModeActive && canEditPlanningCell(section.name, role.key, role.label) ? "1" : "0"}
-                                className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}${(() => { const cf0 = conflictByCell[`${activeDay}|${key}|${dateIdx}`]; const cf = cf0 && (planningEditMode || cf0.id === flashConflictId) ? cf0 : null; if (!cf) return ""; return isIgnoredConflict(cf) ? " outline outline-2 -outline-offset-2 outline-dashed outline-amber-400 print:outline-none" : " ring-2 ring-inset ring-red-500 !bg-red-100 dark:!bg-red-900/40 print:ring-0 print:!bg-white"; })()}`}
+                                className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}${(() => { const cf0 = conflictByCell[`${activeDay}|${key}|${dateIdx}`]; const cf = cf0 && (planningEditMode || cf0.id === flashConflictId) ? cf0 : null; if (!cf) return ""; if (isIgnoredConflict(cf)) return " outline outline-2 -outline-offset-2 outline-dashed outline-amber-400 print:outline-none"; return (cf.type === "incomplet" ? " ring-2 ring-inset ring-amber-500 !bg-amber-100 dark:!bg-amber-900/40" : " ring-2 ring-inset ring-red-500 !bg-red-100 dark:!bg-red-900/40") + " print:ring-0 print:!bg-white"; })()}`}
                                 title={(() => { const cf0 = conflictByCell[`${activeDay}|${key}|${dateIdx}`]; const cf = cf0 && (planningEditMode || cf0.id === flashConflictId) ? cf0 : null; return cf ? `${isIgnoredConflict(cf) ? "Alerte ignorée — " : "⚠ "}${cf.detail}` : undefined; })()}
                                 onClick={() =>
                                   cellModeActive &&
@@ -2460,7 +2460,7 @@ as the affectations are edited. */}
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-semibold text-sm text-red-800 dark:text-red-400 flex items-center gap-2 flex-1">
                   <CalendarOff className="w-4 h-4" />
-                  {activeConflicts.length} incohérence(s) dans le planning{planningEditMode ? " — cases encadrées en rouge" : " — passe en mode édition pour voir les cases"} (le contenu n'est pas modifié)
+                  {activeConflicts.length} incohérence(s) dans le planning{planningEditMode ? " — cases encadrées en rouge (absence) ou en orange (case incomplète)" : " — passe en mode édition pour voir les cases"} (le contenu n'est pas modifié)
                 </p>
                 {canIgnoreConflicts && (
                   <Button size="sm" variant="outline" onClick={ignoreAllConflicts}>Tout ignorer</Button>
@@ -2470,6 +2470,7 @@ as the affectations are edited. */}
                 {activeConflicts.map((c) => (
                   <div key={c.id} className="flex flex-wrap items-center gap-2 text-sm text-red-900 dark:text-red-300">
                     <span className="flex-1 min-w-[12rem]">
+                      <span className={`mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${c.type === "incomplet" ? "bg-amber-200 text-amber-900" : "bg-red-200 text-red-900"}`}>{c.type === "incomplet" ? "Case incomplète" : "Absence"}</span>
                       <span className="font-medium">{c.name}</span> · {fmtIso(c.iso)} · {c.detail}
                     </span>
                     <Button size="sm" className="h-8 px-3 gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold shadow-sm" onClick={() => focusConflict(c)} data-testid="conflict-see-btn"><Eye className="w-4 h-4" /> Voir</Button>
@@ -2635,7 +2636,7 @@ tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
           <DialogHeader>
             <DialogTitle>Avant de publier : {activeConflicts.length} point(s) à vérifier</DialogTitle>
             <DialogDescription>
-              Ces cases sont encadrées en rouge en mode édition. Rien n'a été modifié : tu peux ignorer une alerte, revenir au planning pour corriger, ou publier quand même.
+              Ces cases sont encadrées en rouge (absence déclarée) ou en orange (case incomplète) en mode édition. Rien n'a été modifié : tu peux ignorer une alerte, revenir au planning pour corriger, ou publier quand même.
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto space-y-2 py-1">

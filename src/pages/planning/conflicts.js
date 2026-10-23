@@ -4,6 +4,9 @@ import { findNoteAbsence } from './absenceNotes';
 // Incohérences du planning, calculées à la volée (le contenu des cases n'est jamais modifié) :
 //  - « absence » : une personne est planifiée un jour où elle a déclaré une absence (absence enregistrée ou ligne
 //    « Nom — du JJ/MM au JJ/MM » dans les notes / « Absences de l'équipe ») ;
+//  - « incomplet » : le nom écrit dans la case semble incomplet (« IS », « Isab », « Cedri ? ») : il ne correspond à
+//    personne de l'Effectif mais débute comme un ou plusieurs noms. Les noms extérieurs complets (invités) ne sont
+//    pas signalés.
 // Chaque incohérence a une clé stable « AAAA-MM-JJ|nom|type » : c'est elle qui est enregistrée quand la Coordination+
 // choisit de l'ignorer.
 const norm = (t) => stripAccents(String(t || '')).toLowerCase().trim();
@@ -15,7 +18,26 @@ const sameName = (cell, other) => {
   return !!a && !!b && (a === b || a.includes(b) || b.includes(a));
 };
 
-export function computeConflicts({ dates, sections, defaultSections, affectations, monthAbsences, notes, absences }) {
+// Renvoie les noms d'Effectif que la saisie pourrait désigner si elle est incomplète, [] sinon.
+function incompleteCandidates(value, roster) {
+  const parts = String(value).split(/[/&+,]/).map((x) => x.trim()).filter(Boolean);
+  for (const part of parts) {
+    const toks = tokens(part);
+    if (!toks.length) continue;
+    const doubt = /[?]|\.\.\.$/.test(part);
+    const known = roster.some((r) => toks.every((t) => r.tokens.includes(t)));
+    if (known && !doubt) continue;
+    const prefixed = roster.filter((r) => toks.every((t) => r.tokens.some((rt) => rt.startsWith(t))));
+    const short = toks.join('').length <= 2;
+    if (doubt || short || prefixed.length > 0) {
+      return { part, candidates: prefixed.slice(0, 3).map((r) => r.name) };
+    }
+  }
+  return null;
+}
+
+export function computeConflicts({ dates, sections, defaultSections, affectations, monthAbsences, notes, absences, rosterNames }) {
+  const roster = (rosterNames || []).map((name) => ({ name, tokens: tokens(name) }));
   const out = new Map();
   const add = (id, base, cell) => {
     if (!out.has(id)) out.set(id, { id, ...base, cells: [] });
@@ -41,6 +63,12 @@ export function computeConflicts({ dates, sections, defaultSections, affectation
             } else {
               const noted = findNoteAbsence(texts, tokens(value), iso);
               if (noted) add(`${iso}|${nv}|absence`, { type: 'absence', iso, name: value.trim(), detail: `Notes : « ${noted} »` }, cell);
+            }
+            if (roster.length) {
+              const inc = incompleteCandidates(value, roster);
+              if (inc) {
+                add(`${iso}|${nv}|incomplet`, { type: 'incomplet', iso, name: value.trim(), detail: `Case incomplète : « ${inc.part} » ne correspond à personne de l'Effectif${inc.candidates.length ? ` (${inc.candidates.join(', ')} ?)` : ''}` }, cell);
+              }
             }
           });
         }

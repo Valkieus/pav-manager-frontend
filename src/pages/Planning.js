@@ -154,6 +154,7 @@ export default function Planning() {
   const [absences, setAbsences] = useState({ dimanche: "", vendredi: "" });
   const [ignoredConflicts, setIgnoredConflicts] = useState([]); // alertes ignorées (Coordination+), enregistrées avec le planning
   const [publishRecapOpen, setPublishRecapOpen] = useState(false);
+  const [flashConflictId, setFlashConflictId] = useState(null); // « Voir » : la case reste en rouge quelques secondes, même hors mode édition
   const [monthAbsences, setMonthAbsences] = useState([]);
   const [editSectionDialog, setEditSectionDialog] = useState(null);
   const [editRoleLabel, setEditRoleLabel] = useState("");
@@ -1857,6 +1858,8 @@ export default function Planning() {
     if (!cell) return;
     if (cell.day !== activeDay) setActiveDay(cell.day);
     setPublishRecapOpen(false);
+    setFlashConflictId(c.id);
+    setTimeout(() => setFlashConflictId((cur) => (cur === c.id ? null : cur)), 8000);
     setTimeout(() => {
       const el = document.querySelector(`td[data-cell="${cell.day}|${cell.key}|${cell.dateIdx}"]`);
       if (!el) return;
@@ -2167,8 +2170,8 @@ export default function Planning() {
                                 key={dateIdx}
                                 data-cell={`${activeDay}|${key}|${dateIdx}`}
                                 data-editable={!cellBlocked && !cellModeActive && canEditPlanningCell(section.name, role.key, role.label) ? "1" : "0"}
-                                className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}${(() => { const cf = planningEditMode ? conflictByCell[`${activeDay}|${key}|${dateIdx}`] : null; if (!cf) return ""; return isIgnoredConflict(cf) ? " outline outline-2 -outline-offset-2 outline-dashed outline-amber-400 print:outline-none" : " ring-2 ring-inset ring-red-500 !bg-red-100 dark:!bg-red-900/40 print:ring-0 print:!bg-white"; })()}`}
-                                title={(() => { const cf = planningEditMode ? conflictByCell[`${activeDay}|${key}|${dateIdx}`] : null; return cf ? `${isIgnoredConflict(cf) ? "Alerte ignorée — " : "⚠ "}${cf.detail}` : undefined; })()}
+                                className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}${(() => { const cf0 = conflictByCell[`${activeDay}|${key}|${dateIdx}`]; const cf = cf0 && (planningEditMode || cf0.id === flashConflictId) ? cf0 : null; if (!cf) return ""; return isIgnoredConflict(cf) ? " outline outline-2 -outline-offset-2 outline-dashed outline-amber-400 print:outline-none" : " ring-2 ring-inset ring-red-500 !bg-red-100 dark:!bg-red-900/40 print:ring-0 print:!bg-white"; })()}`}
+                                title={(() => { const cf0 = conflictByCell[`${activeDay}|${key}|${dateIdx}`]; const cf = cf0 && (planningEditMode || cf0.id === flashConflictId) ? cf0 : null; return cf ? `${isIgnoredConflict(cf) ? "Alerte ignorée — " : "⚠ "}${cf.detail}` : undefined; })()}
                                 onClick={() =>
                                   cellModeActive &&
                                   toggleCellBlocked(role.key, slotIdx, dateIdx)

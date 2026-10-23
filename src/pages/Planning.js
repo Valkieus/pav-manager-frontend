@@ -29,6 +29,7 @@ import { buildPlanningExportSVG, buildPlanningExportXLSX, loadXLSX, svgToPngData
 import { PlanningCell } from './planning/cells';
 import { useCellSelection } from './planning/useCellSelection';
 import { findNoteAbsence } from './planning/absenceNotes';
+import { computeConflicts, fmtIso } from './planning/conflicts';
 import { EditDatesDialog } from './planning/EditDatesDialog';
 import { CopyDaysDialog } from './planning/CopyDaysDialog';
 import { DuplicateDialog } from './planning/DuplicateDialog';
@@ -151,6 +152,8 @@ export default function Planning() {
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
   const [notes, setNotes] = useState({ dimanche: "", vendredi: "" });
   const [absences, setAbsences] = useState({ dimanche: "", vendredi: "" });
+  const [ignoredConflicts, setIgnoredConflicts] = useState([]); // alertes ignorées (Coordination+), enregistrées avec le planning
+  const [publishRecapOpen, setPublishRecapOpen] = useState(false);
   const [monthAbsences, setMonthAbsences] = useState([]);
   const [editSectionDialog, setEditSectionDialog] = useState(null);
   const [editRoleLabel, setEditRoleLabel] = useState("");
@@ -422,6 +425,7 @@ export default function Planning() {
           planningRes.data.date_labels || { dimanche: {}, vendredi: {} },
         );
         setAffichageNoms(planningRes.data.affichage_noms || "upper");
+        setIgnoredConflicts(planningRes.data.ignored_conflicts || []);
       } catch (e) {
         // "not_published" : le planning existe mais reste un brouillon —
         // distingué de "aucun planning" pour afficher le bon message.
@@ -440,6 +444,7 @@ export default function Planning() {
         });
         setDateLabels({ dimanche: {}, vendredi: {} });
         setAffichageNoms("upper");
+        setIgnoredConflicts([]);
         setPlanning(null);
       }
       // Un changement de mois recharge des données fraîches — la prochaine
@@ -673,6 +678,7 @@ export default function Planning() {
       titre_overrides: titreOverrides,
       date_labels: dateLabels,
       affichage_noms: affichageNoms,
+      ignored_conflicts: ignoredConflicts,
       base_affectations: liveRef.current ? liveRef.current.getBase() : undefined,
     }),
     [
@@ -687,6 +693,7 @@ export default function Planning() {
       titreOverrides,
       dateLabels,
       affichageNoms,
+      ignoredConflicts,
     ],
   );
 
@@ -860,6 +867,7 @@ export default function Planning() {
     titreOverrides,
     dateLabels,
     affichageNoms,
+    ignoredConflicts,
   ]);
 
   const handlePublish = async () => {
@@ -1829,6 +1837,40 @@ export default function Planning() {
     return false;
   });
 
+  // ---- Incohérences (absence déclarée mais planifié, doublon) : visibles au Responsable+, ignorables par la Coordination+ ----
+  const allConflicts = canManage()
+    ? computeConflicts({ dates, sections, defaultSections: DEFAULT_SECTIONS, affectations, monthAbsences, notes, absences })
+    : [];
+  const isIgnoredConflict = (c) => ignoredConflicts.includes(c.id);
+  const activeConflicts = allConflicts.filter((c) => !isIgnoredConflict(c));
+  const ignoredList = allConflicts.filter((c) => isIgnoredConflict(c));
+  const canIgnoreConflicts = isGestionnairePlus;
+  const conflictByCell = {};
+  allConflicts.forEach((c) => c.cells.forEach((cell) => {
+    conflictByCell[`${cell.day}|${cell.key}|${cell.dateIdx}`] = c;
+  }));
+  const ignoreConflict = (id) => setIgnoredConflicts((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  const restoreConflict = (id) => setIgnoredConflicts((prev) => prev.filter((x) => x !== id));
+  const ignoreAllConflicts = () => setIgnoredConflicts((prev) => Array.from(new Set([...prev, ...allConflicts.map((c) => c.id)])));
+  const focusConflict = (c) => {
+    const cell = c.cells[0];
+    if (!cell) return;
+    if (cell.day !== activeDay) setActiveDay(cell.day);
+    setPublishRecapOpen(false);
+    setTimeout(() => {
+      const el = document.querySelector(`td[data-cell="${cell.day}|${cell.key}|${cell.dateIdx}"]`);
+      if (!el) return;
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      el.classList.add("animate-pulse");
+      setTimeout(() => el.classList.remove("animate-pulse"), 2500);
+    }, 200);
+  };
+  // Publier : s'il reste des incohérences non ignorées, un récapitulatif s'affiche d'abord (ignorer, revenir au planning ou publier).
+  const requestPublish = () => {
+    if (activeConflicts.length > 0) setPublishRecapOpen(true);
+    else handlePublish();
+  };
+
   if (evenementView) {
     return (
       <PlanningEvenementSection
@@ -2125,7 +2167,8 @@ export default function Planning() {
                                 key={dateIdx}
                                 data-cell={`${activeDay}|${key}|${dateIdx}`}
                                 data-editable={!cellBlocked && !cellModeActive && canEditPlanningCell(section.name, role.key, role.label) ? "1" : "0"}
-                                className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}`}
+                                className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}${(() => { const cf = conflictByCell[`${activeDay}|${key}|${dateIdx}`]; if (!cf) return ""; return isIgnoredConflict(cf) ? " outline outline-2 -outline-offset-2 outline-dashed outline-amber-400 print:outline-none" : " ring-2 ring-inset ring-red-500 !bg-red-100 dark:!bg-red-900/40 print:ring-0 print:!bg-white"; })()}`}
+                                title={(() => { const cf = conflictByCell[`${activeDay}|${key}|${dateIdx}`]; return cf ? `${isIgnoredConflict(cf) ? "Alerte ignorée — " : "⚠ "}${cf.detail}` : undefined; })()}
                                 onClick={() =>
                                   cellModeActive &&
                                   toggleCellBlocked(role.key, slotIdx, dateIdx)
@@ -2346,7 +2389,7 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             handleExportPngStory={handleExportPngStory}
             handleExportXlsx={handleExportXlsx}
             handlePrint={handlePrint}
-            handlePublish={handlePublish}
+            handlePublish={requestPublish}
             handleResetPlanningVierge={handleResetPlanningVierge}
             handleSave={handleSave}
             handleUndo={handleUndo}
@@ -2407,32 +2450,48 @@ who's absent this month" list, this only appears once someone who
 declared themselves unavailable is actually typed into a grid cell
 on a colliding date — so it appears, disappears, and reappears live
 as the affectations are edited. */}
-      {canManage() && conflictingAbsences.length > 0 && (
-        <div className="print:hidden rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-4 space-y-2">
-          <p className="font-semibold text-sm text-red-800 dark:text-red-400 flex items-center gap-2">
-            <CalendarOff className="w-4 h-4" />
-            Conflit planning / absence — personne planifiée malgré une absence
-            déclarée
-          </p>
-          <div className="space-y-1">
-            {conflictingAbsences.map((a) => (
-              <p key={a.id} className="text-sm text-red-900 dark:text-red-300">
-                <span className="font-medium">{a.full_name}</span> indisponible
-                du{" "}
-                {new Date(a.date_debut + "T00:00:00").toLocaleDateString(
-                  "fr-FR",
-                  { day: "2-digit", month: "2-digit" },
-                )}{" "}
-                au{" "}
-                {new Date(a.date_fin + "T00:00:00").toLocaleDateString(
-                  "fr-FR",
-                  { day: "2-digit", month: "2-digit" },
+      {canManage() && allConflicts.length > 0 && (
+        <div className="print:hidden space-y-2" data-testid="planning-conflicts">
+          {activeConflicts.length > 0 && (
+            <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-4 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold text-sm text-red-800 dark:text-red-400 flex items-center gap-2 flex-1">
+                  <CalendarOff className="w-4 h-4" />
+                  {activeConflicts.length} incohérence(s) dans le planning — cases encadrées en rouge (le contenu n'est pas modifié)
+                </p>
+                {canIgnoreConflicts && (
+                  <Button size="sm" variant="outline" onClick={ignoreAllConflicts}>Tout ignorer</Button>
                 )}
-                {" — "}
-                {a.raison}
-              </p>
-            ))}
-          </div>
+              </div>
+              <div className="space-y-1">
+                {activeConflicts.map((c) => (
+                  <div key={c.id} className="flex flex-wrap items-center gap-2 text-sm text-red-900 dark:text-red-300">
+                    <span className="flex-1 min-w-[12rem]">
+                      <span className="font-medium">{c.name}</span> · {fmtIso(c.iso)} · {c.detail}
+                    </span>
+                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => focusConflict(c)}>Voir</Button>
+                    {canIgnoreConflicts && (
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => ignoreConflict(c.id)}>Ignorer</Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {ignoredList.length > 0 && (
+            <details className="rounded-lg border border-amber-300 bg-amber-50/60 dark:bg-amber-950/20 p-3 text-sm">
+              <summary className="cursor-pointer font-medium text-amber-800 dark:text-amber-400">{ignoredList.length} alerte(s) ignorée(s)</summary>
+              <div className="mt-2 space-y-1">
+                {ignoredList.map((c) => (
+                  <div key={c.id} className="flex flex-wrap items-center gap-2">
+                    <span className="flex-1 min-w-[12rem]"><span className="font-medium">{c.name}</span> · {fmtIso(c.iso)} · {c.detail}</span>
+                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => focusConflict(c)}>Voir</Button>
+                    {canIgnoreConflicts && <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => restoreConflict(c.id)}>Rétablir l'alerte</Button>}
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       )}
 
@@ -2567,6 +2626,41 @@ tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
             setDuplicateChoice={setDuplicateChoice}
             setDuplicateDialog={setDuplicateDialog}
           />
+
+      <Dialog open={publishRecapOpen} onOpenChange={setPublishRecapOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" data-testid="publish-recap">
+          <DialogHeader>
+            <DialogTitle>Avant de publier : {activeConflicts.length} point(s) à vérifier</DialogTitle>
+            <DialogDescription>
+              Ces cases sont encadrées en rouge dans le planning. Rien n'a été modifié : tu peux ignorer une alerte, revenir au planning pour corriger, ou publier quand même.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto space-y-2 py-1">
+            {activeConflicts.length === 0 && <p className="text-sm text-muted-foreground">Plus aucune incohérence : tu peux publier.</p>}
+            {activeConflicts.map((c) => (
+              <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
+                <span className={`w-2 h-2 rounded-full ${c.type === "absence" ? "bg-red-500" : "bg-amber-500"}`} />
+                <span className="flex-1 min-w-[12rem]"><span className="font-medium">{c.name}</span> · {fmtIso(c.iso)}<br /><span className="text-muted-foreground text-xs">{c.detail}</span></span>
+                <Button size="sm" variant="outline" onClick={() => focusConflict(c)}>Voir</Button>
+                {canIgnoreConflicts && <Button size="sm" variant="outline" onClick={() => ignoreConflict(c.id)}>Ignorer</Button>}
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setPublishRecapOpen(false)}>Revenir au planning</Button>
+            {canIgnoreConflicts && activeConflicts.length > 0 && (
+              <Button variant="outline" onClick={ignoreAllConflicts}>Tout ignorer</Button>
+            )}
+            <Button
+              disabled={publishing || (activeConflicts.length > 0 && !canIgnoreConflicts)}
+              onClick={async () => { if (activeConflicts.length > 0) ignoreAllConflicts(); setPublishRecapOpen(false); await handlePublish(); }}
+              data-testid="publish-anyway-btn"
+            >
+              {activeConflicts.length > 0 ? "Ignorer tout et publier" : "Publier"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <CopyDaysDialog
             copyDaysDialog={copyDaysDialog}

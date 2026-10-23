@@ -54,9 +54,18 @@ export function SupMaintenance({ isSuperAdmin }) {
             {sn.skipped && <p className="text-xs text-amber-600">Sauvegardes : {sn.skipped}</p>}
             {cl.deleted != null && <p className="text-xs text-muted-foreground">Cloudinary : {cl.deleted} fichier(s) supprimé(s) ({fmt(cl.freed_bytes)})</p>}
             {(cl.accounts || []).map((a) => (
-              <p key={a.cloud} className="text-xs text-muted-foreground">
-                {a.cloud} : {a.error ? `injoignable (${a.error})` : a.skipped ? a.skipped : `${a.files} fichier(s), ${a.unused} inutilisé(s)${a.to_delete ? `, ${a.to_delete} à supprimer` : ''}`}
-              </p>
+              <div key={a.cloud} className="text-xs text-muted-foreground">
+                <p>
+                  <strong>{a.cloud}</strong> : {a.error ? `injoignable (${a.error})` : a.skipped ? a.skipped : `${a.files} fichier(s) · ${a.unused} non utilisé(s) par l'application →`}
+                  {!a.error && !a.skipped && (
+                    <> <span className="text-emerald-600">{a.copies_verifiees ?? 0} copie(s) vérifiée(s) (même nom ET même taille qu'un fichier utilisé : supprimables)</span>, <span className="text-amber-600">{a.meme_nom_a_verifier ?? 0} de même nom, taille différente (à vérifier)</span>, <span className="text-red-500">{a.sans_equivalent ?? 0} sans équivalent (jamais supprimés)</span></>
+                  )}
+                </p>
+                {a.warning && <p className="text-amber-600">{a.warning}</p>}
+                {["meme_nom", "aucun"].map((k) => ((a.echantillon || {})[k] || []).length > 0 && (
+                  <p key={k} className="pl-3">{k === "aucun" ? "Sans équivalent" : "Même nom"} (exemples) : {a.echantillon[k].join(" · ")}</p>
+                ))}
+              </div>
             ))}
           </div>
         ) : <p className="text-sm text-muted-foreground">Aucun passage enregistré pour l'instant.</p>}

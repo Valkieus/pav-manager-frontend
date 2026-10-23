@@ -1,7 +1,29 @@
+import { useState } from 'react';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { API } from '../constants';
 import { ExtraStorageCard } from '../../../components/SupervisionExtras';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../components/ui/card';
 import { Cloud, Loader2, Download, RotateCcw } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
+
+function OracleOption({ dataBackup, isSuperAdmin }) {
+  const [on, setOn] = useState(!!dataBackup?.oracle_toujours);
+  if (!dataBackup?.oracle_disponible) return null;
+  const toggle = async (v) => {
+    try {
+      await axios.put(`${API}/admin/infra/data-backup/oracle`, null, { params: { enabled: v } });
+      setOn(v);
+      toast.success(v ? 'Oracle : copie à chaque sauvegarde' : 'Oracle : seulement en repli');
+    } catch (e) { toast.error(e.response?.data?.detail || 'Échec'); }
+  };
+  return (
+    <label className="flex items-start gap-2 text-xs">
+      <input type="checkbox" className="mt-0.5" checked={on} disabled={!isSuperAdmin()} onChange={(e) => toggle(e.target.checked)} data-testid="backup-oracle-option" />
+      <span>Copier aussi chaque sauvegarde sur <strong>Oracle</strong> <span className="text-muted-foreground">(sinon Oracle n'intervient qu'en repli, si la copie Europe ou États-Unis échoue)</span></span>
+    </label>
+  );
+}
 
 export function SupBackup({
   dataBacking,
@@ -93,6 +115,7 @@ export function SupBackup({
             <p className="text-[11px] text-muted-foreground">
               {dataBackup.planning ? `${dataBackup.planning} · ` : ""}Copiées sur {dataBackup.stockages?.join(", ") || "aucun stockage"} · {dataBackup.retention}.
             </p>
+            <OracleOption dataBackup={dataBackup} isSuperAdmin={isSuperAdmin} />
             <ul className="space-y-2 text-xs">
               {Object.entries(dataBackup.domaines || {}).map(([name, d]) => (
                 <li key={name} className="rounded-lg bg-muted/40 p-2">

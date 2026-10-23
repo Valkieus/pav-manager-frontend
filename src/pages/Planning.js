@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, ChevronRight, Plus, Trash2, CalendarOff, Ban, Combine, Split, X, Pencil, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
+import { Eye, Loader2, ChevronRight, Plus, Trash2, CalendarOff, Ban, Combine, Split, X, Pencil, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 import PlanningEvenementSection from "./PlanningEvenementSection";
 import { useLiveDoc } from '../lib/useLiveDoc';
 import {
@@ -2472,7 +2472,7 @@ as the affectations are edited. */}
                     <span className="flex-1 min-w-[12rem]">
                       <span className="font-medium">{c.name}</span> · {fmtIso(c.iso)} · {c.detail}
                     </span>
-                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => focusConflict(c)}>Voir</Button>
+                    <Button size="sm" className="h-8 px-3 gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold shadow-sm" onClick={() => focusConflict(c)} data-testid="conflict-see-btn"><Eye className="w-4 h-4" /> Voir</Button>
                     {canIgnoreConflicts && (
                       <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => ignoreConflict(c.id)}>Ignorer</Button>
                     )}
@@ -2488,7 +2488,7 @@ as the affectations are edited. */}
                 {ignoredList.map((c) => (
                   <div key={c.id} className="flex flex-wrap items-center gap-2">
                     <span className="flex-1 min-w-[12rem]"><span className="font-medium">{c.name}</span> · {fmtIso(c.iso)} · {c.detail}</span>
-                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => focusConflict(c)}>Voir</Button>
+                    <Button size="sm" className="h-8 px-3 gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold shadow-sm" onClick={() => focusConflict(c)} data-testid="conflict-see-btn"><Eye className="w-4 h-4" /> Voir</Button>
                     {canIgnoreConflicts && <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => restoreConflict(c.id)}>Rétablir l'alerte</Button>}
                   </div>
                 ))}
@@ -2644,7 +2644,7 @@ tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
               <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
                 <span className={`w-2 h-2 rounded-full ${c.type === "absence" ? "bg-red-500" : "bg-amber-500"}`} />
                 <span className="flex-1 min-w-[12rem]"><span className="font-medium">{c.name}</span> · {fmtIso(c.iso)}<br /><span className="text-muted-foreground text-xs">{c.detail}</span></span>
-                <Button size="sm" variant="outline" onClick={() => focusConflict(c)}>Voir</Button>
+                <Button size="sm" className="gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => focusConflict(c)}><Eye className="w-4 h-4" /> Voir</Button>
                 {canIgnoreConflicts && <Button size="sm" variant="outline" onClick={() => ignoreConflict(c.id)}>Ignorer</Button>}
               </div>
             ))}

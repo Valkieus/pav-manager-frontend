@@ -56,6 +56,11 @@ export default function Planner({ me, onChanged }) {
   const [form, setForm] = useState({ raison: "", participants: "", direct: true });
   const [busy, setBusy] = useState(false);
   const [refuse, setRefuse] = useState(null); // motif en cours de saisie
+  const [managerNames, setManagerNames] = useState([]); // qui reçoit les demandes (affiché au demandeur)
+  useEffect(() => {
+    if (me.can_manage) return;
+    axios.get(`${API}/room-booking/managers`).then((r) => setManagerNames((r.data.users || []).map((u) => u.nom).filter(Boolean))).catch(() => {});
+  }, [me.can_manage]);
 
   const range = useMemo(() => {
     if (mode === "semaine") { const m = mondayOf(anchor); return [iso(m), iso(addDays(m, 6))]; }
@@ -216,7 +221,7 @@ export default function Planner({ me, onChanged }) {
                     Réserver directement (sans validation)
                   </label>
                 )}
-                {!me.can_manage && <p className="text-xs text-muted-foreground">Votre demande est envoyée aux gestionnaires des salles, qui la valident ou la refusent. Vous êtes prévenu de leur décision.</p>}
+                {!me.can_manage && <p className="text-xs text-muted-foreground">Votre demande est envoyée à {managerNames.length ? <strong>{managerNames.join(", ")}</strong> : "aux gestionnaires des salles"}, qui la réserve ou la refuse. Une notification les prévient tout de suite, et vous êtes prévenu de leur décision.</p>}
                 <Button className="h-11 w-full" onClick={submitBook} disabled={busy}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{me.can_manage && form.direct ? "Réserver" : "Envoyer la demande"}</Button>
               </div>
             </>

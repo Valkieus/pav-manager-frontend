@@ -18,11 +18,10 @@ export function SupStorage({
         {/* Quota de stockage */}
         <Card>
           <CardHeader>
-            <CardTitle>Quota de stockage</CardTitle>
+            <CardTitle>Quota de la base de données (MongoDB)</CardTitle>
             <CardDescription>
-              Définis une limite de référence (en Go) pour suivre
-              l'espace utilisé / restant. Sans quota défini, seul
-              l'espace utilisé est affiché ci-dessus.
+              Concerne uniquement la base de données MongoDB (pas les fichiers B2, R2 ou Cloudinary, suivis plus haut). Définis une limite de référence (en Go) pour suivre
+              l'espace utilisé / restant.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">

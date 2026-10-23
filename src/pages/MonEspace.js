@@ -218,6 +218,20 @@ export default function MonEspace() {
     setBadgePhotoPreview(URL.createObjectURL(file));
   };
 
+  const handleCancelBadge = async () => {
+    if (!window.confirm("Supprimer ta demande de badge ? Tu pourras en refaire une.")) return;
+    try {
+      await axios.delete(`${API}/me/badge`);
+      toast.success("Demande supprimée");
+      setBadgePhotoFile(null);
+      setBadgePhotoPreview(null);
+      setBadgeMotif("");
+      fetchBadgeInfo();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Erreur lors de la suppression");
+    }
+  };
+
   const handleSubmitBadge = async () => {
     if (!badgePhotoFile) {
       toast.error("Merci de sélectionner une photo");
@@ -883,19 +897,41 @@ export default function MonEspace() {
         </CardHeader>
         <CardContent className="space-y-4">
           {badgeInfo?.badge_status === "en_attente_validation" && (
-            <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20">
-              <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-sm">
-                  Demande en cours de traitement
+            <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20" data-testid="badge-request-recap">
+              {badgeInfo.badge_photo_url && (
+                <img
+                  src={`${process.env.REACT_APP_BACKEND_URL}${badgeInfo.badge_photo_url}`}
+                  alt="Photo envoyée"
+                  className="w-20 h-20 rounded-lg object-cover border border-border shrink-0"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-amber-600" /> Demande en cours de traitement
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Votre photo a été envoyée le{" "}
-                  {new Date(badgeInfo.badge_requested_at).toLocaleDateString(
-                    "fr-FR",
-                  )}{" "}
-                  et est en attente de validation par la coordination.
+                  Photo envoyée le{" "}
+                  {new Date(badgeInfo.badge_requested_at).toLocaleDateString("fr-FR")}{" "}
+                  — en attente de validation par la coordination.
                 </p>
+                {badgeInfo.badge_motif && (
+                  <p className="text-xs mt-1">Raison : {badgeInfo.badge_motif}</p>
+                )}
+                <Button size="sm" variant="outline" className="mt-2 text-destructive" onClick={handleCancelBadge} data-testid="badge-cancel-btn">
+                  Supprimer ma demande
+                </Button>
+              </div>
+            </div>
+          )}
+          {badgeInfo?.badge_status === "pret_a_recuperer" && (
+            <div className="flex items-start gap-3 p-3 rounded-lg border border-blue-300 bg-blue-50 dark:bg-blue-950/20">
+              <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-sm">Photo validée — ton badge est prêt</p>
+                <p className="text-xs text-muted-foreground">Passe le récupérer auprès de la Coordination.</p>
+                <Button size="sm" variant="outline" className="mt-2 text-destructive" onClick={handleCancelBadge}>
+                  Supprimer ma demande
+                </Button>
               </div>
             </div>
           )}
@@ -911,6 +947,9 @@ export default function MonEspace() {
                     {badgeInfo.badge_message}
                   </p>
                 )}
+                <Button size="sm" variant="outline" className="mt-2 text-destructive" onClick={handleCancelBadge}>
+                  Supprimer ma demande
+                </Button>
               </div>
             </div>
           )}
@@ -931,6 +970,8 @@ export default function MonEspace() {
             </div>
           )}
 
+          {!["en_attente_validation", "pret_a_recuperer"].includes(badgeInfo?.badge_status) && (
+          <>
           <p className="text-sm text-muted-foreground">
             {badgeInfo?.badge_status === "validee"
               ? "Demander un renouvellement de badge :"
@@ -988,6 +1029,8 @@ export default function MonEspace() {
               </Button>
             </div>
           </div>
+          </>
+          )}
         </CardContent>
       </Card>
       </>

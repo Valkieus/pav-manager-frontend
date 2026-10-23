@@ -21,6 +21,37 @@ const toB64u = (buf) => {
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 };
 
+// iPhone / iPad (y compris iPadOS qui se présente comme un Mac) : Safari n'ouvre Face ID que dans la seconde qui suit
+// un toucher. Aucun appel réseau ne doit donc séparer le toucher de navigator.credentials.get()/create().
+export const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+// Le défi (challenge) est demandé à l'avance, dès l'ouverture de l'écran, et gardé 4 min (il vit 5 min côté serveur) :
+// au toucher, Face ID s'ouvre immédiatement, même si le serveur est lent à répondre (démarrage à froid).
+const OPTIONS_TTL = 4 * 60 * 1000;
+const optionFetchers = {
+  login: () => axios.post(`${API}/auth/passkey/login/options`),
+  register: () => axios.post(`${API}/auth/passkey/register/options`),
+};
+const optionCache = {};
+export function prefetchPasskeyOptions(kind) {
+  const hit = optionCache[kind];
+  if (hit && Date.now() - hit.at < OPTIONS_TTL) return hit.promise;
+  const entry = { at: Date.now() };
+  entry.promise = optionFetchers[kind]().then((r) => r.data);
+  entry.promise.catch(() => { if (optionCache[kind] === entry) delete optionCache[kind]; });
+  optionCache[kind] = entry;
+  return entry.promise;
+}
+// Un défi ne sert qu'une fois : on le retire du cache en le prenant.
+async function takePasskeyOptions(kind) {
+  const hit = optionCache[kind];
+  delete optionCache[kind];
+  if (hit && Date.now() - hit.at < OPTIONS_TTL) {
+    try { return await hit.promise; } catch (e) { /* on redemande ci-dessous */ }
+  }
+  return (await optionFetchers[kind]()).data;
+}
+
 // Face ID / Touch ID / empreinte / Windows Hello disponible sur cet appareil ?
 export async function passkeySupported() {
   try {
@@ -31,7 +62,7 @@ export const passkeyEnrolledHere = () => { try { return localStorage.getItem(ENR
 
 // Active Face ID / empreinte sur cet appareil (utilisateur connecté).
 export async function enrollPasskey(label) {
-  const { data } = await axios.post(`${API}/auth/passkey/register/options`);
+  const data = await takePasskeyOptions("register");
   const o = data.options;
   const cred = await navigator.credentials.create({
     publicKey: {
@@ -73,7 +104,7 @@ export function passkeyLogin() {
 }
 
 async function _passkeyLogin() {
-  const { data } = await axios.post(`${API}/auth/passkey/login/options`);
+  const data = await takePasskeyOptions("login");
   const o = data.options;
   const preferred = savedCredId();
   const allow = preferred

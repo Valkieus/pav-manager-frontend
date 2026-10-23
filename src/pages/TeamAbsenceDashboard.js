@@ -122,7 +122,6 @@ export default function TeamAbsenceDashboard({ scopeLabel }) {
     <>
       <Button
         variant="outline"
-        size="sm"
         onClick={handleOpen}
         className="flex items-center gap-2"
       >

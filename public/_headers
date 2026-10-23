@@ -5,6 +5,7 @@
 /service-worker.js
   Cache-Control: no-cache
 /static/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src * data: blob:; media-src * data: blob:; connect-src *; frame-src *; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   Cache-Control: public, max-age=31536000, immutable
 /*
   X-Content-Type-Options: nosniff

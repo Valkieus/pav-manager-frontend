@@ -12,7 +12,8 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // Salles : planning visuel + demandes des Responsables, validées par les gestionnaires désignés ;
 // l'ancienne gestion (salles, créneaux, liens externes, e-mails) reste dans l'onglet « Gestion ».
 export default function Salles() {
-  const [me, setMe] = useState(null);
+  const [meRaw, setMe] = useState(null);
+  const me = meRaw; // en aperçu, le serveur renvoie déjà les droits du niveau simulé (en-tête X-View-As)
   const [tab, setTab] = useState("planning");
   const [pending, setPending] = useState(0);
   const [mine, setMine] = useState(0);

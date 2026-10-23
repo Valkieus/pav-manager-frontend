@@ -1,36 +1,8 @@
-import React, {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  memo,
-  useRef,
-} from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import PlanningTeamAbsences from "../components/PlanningTeamAbsences";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -39,47 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import {
-  CalendarDays,
-  Loader2,
-  Printer,
-  Save,
-  ChevronLeft,
-  ChevronRight,
-  Settings,
-  Plus,
-  Trash2,
-  ImageDown,
-  CalendarOff,
-  FolderPlus,
-  Ban,
-  Combine,
-  Split,
-  X,
-  Pencil,
-  Eraser,
-  PartyPopper,
-  CheckCircle2,
-  EyeOff,
-  Cloud,
-  CopyPlus,
-  ArrowLeftRight,
-  FileSpreadsheet,
-  Download,
-  ChevronDown,
-  ChevronUp,
-  Users,
-  Undo2,
-} from "lucide-react";
+import { Eye, Loader2, ChevronRight, Plus, Trash2, CalendarOff, Ban, Combine, Split, X, Pencil, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 import PlanningEvenementSection from "./PlanningEvenementSection";
-import { useLiveDoc, LivePresence, LiveStyle } from "../lib/useLiveDoc";
+import { useLiveDoc } from '../lib/useLiveDoc';
 import {
   getCachedTechniciens,
   setCachedTechniciens,
@@ -89,1217 +24,73 @@ import {
   downloadStatusMessage,
   reserveTabForIOSFallback,
 } from "../utils/fileDownload";
-import * as XLSX from "xlsx-js-style";
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { API, DEFAULT_SECTIONS, MOIS_NOMS, THEME, canonPoste, delimiterGroup, slugPoste, stripAccents, withCamera7 } from './planning/constants';
+import { buildPlanningExportSVG, buildPlanningExportXLSX, loadXLSX, svgToPngDataUrl, svgToStoryPngDataUrl } from './planning/exportUtils';
+import { PlanningCell } from './planning/cells';
+import { useCellSelection } from './planning/useCellSelection';
+import { findNoteAbsence } from './planning/absenceNotes';
+import { computeConflicts, fmtIso } from './planning/conflicts';
+import { EditDatesDialog } from './planning/EditDatesDialog';
+import { CopyDaysDialog } from './planning/CopyDaysDialog';
+import { DuplicateDialog } from './planning/DuplicateDialog';
+import { EditCategoryDialog } from './planning/EditCategoryDialog';
+import { AddCategoryDialog } from './planning/AddCategoryDialog';
+import { EditSectionDialog } from './planning/EditSectionDialog';
+import { EditDateLabelDialog } from './planning/EditDateLabelDialog';
+import { EditHeaderDialog } from './planning/EditHeaderDialog';
+import { PlanningAssignPanel } from './planning/PlanningAssignPanel';
+import { PlanningTableArea } from './planning/PlanningTableArea';
+import { PlanningNotesCard } from './planning/PlanningNotesCard';
+import { PlanningMonthNav } from './planning/PlanningMonthNav';
+import { PlanningHeaderBar } from './planning/PlanningHeaderBar';
 
-// Name-case display transform applied to assigned names — pure CSS
-// text-transform, so it's view-only and never mutates the stored value
-// (typing/autocomplete still work against the real name). Names in this
-// roster are single words in practice, so CSS "capitalize" (first letter of
-// each word) reads the same as "first letter only".
-const NAME_CASE_CSS = {
-  normal: "none",
-  upper: "uppercase",
-  lower: "lowercase",
-  capitalize: "capitalize",
-};
 
-// Same transform, applied directly to the string — used by the PNG export
-// path (SVG rasterized via <img>/canvas), where relying on the browser to
-// honor a CSS text-transform on foreign-object-free SVG <text> is less
-// predictable than just rendering the already-cased string.
-function applyNameCase(value, nameCase) {
-  if (!value) return value;
-  switch (nameCase) {
-    case "upper":
-      return value.toUpperCase();
-    case "lower":
-      return value.toLowerCase();
-    case "capitalize":
-      return value.replace(
-        /\S+/g,
-        (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
-      );
-    default:
-      return value;
-  }
-}
 
-const MOIS_NOMS = [
-  "Janvier",
-  "Février",
-  "Mars",
-  "Avril",
-  "Mai",
-  "Juin",
-  "Juillet",
-  "Août",
-  "Septembre",
-  "Octobre",
-  "Novembre",
-  "Décembre",
-];
-// Nomenclature courte des feuilles Excel (V-JANV-2026 / D-JANV-2026) — sans
-// accents pour rester compatible avec tous les tableurs (Excel/LibreOffice/
-// Google Sheets acceptent les accents dans un nom d'onglet, mais certains
-// outils tiers d'import bronchent dessus).
-const MOIS_ABBR = [
-  "JANV",
-  "FEVR",
-  "MARS",
-  "AVR",
-  "MAI",
-  "JUIN",
-  "JUIL",
-  "AOUT",
-  "SEPT",
-  "OCT",
-  "NOV",
-  "DEC",
-];
-const YEARS = [
-  2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038,
-  2039, 2040,
-];
-// Le planning ne remonte pas avant août 2026 (mise en service de l'app) et
-// ne va pas au-delà de 2040 — les mois/années hors de cette plage ne sont
-// pas sélectionnables.
-const MIN_YEAR = 2026;
-const MIN_MONTH_IN_MIN_YEAR = 8; // Août
-const MAX_YEAR = 2040;
 
-const THEME = {
-  vendredi: {
-    band: "bg-[#BDD7EE] text-[#1F4E78]",
-    title: "text-[#1F4E78]",
-    // Fix 28/09/2026 (retour utilisateur) : le texte "RDV à partir de..."
-    // passe en noir, comme les prénoms, au lieu de la couleur du thème —
-    // seul le fond du bandeau garde la couleur.
-    subtitle: "bg-[#BDD7EE] text-black",
-    tab: "data-[state=active]:bg-blue-500 data-[state=active]:text-white",
-  },
-  dimanche: {
-    band: "bg-[#FCE4D6] text-[#C55A11]",
-    title: "text-[#C55A11]",
-    subtitle: "bg-[#FCE4D6] text-black",
-    tab: "data-[state=active]:bg-orange-500 data-[state=active]:text-white",
-  },
-};
 
-// Memoized cell component for better performance
-const PlanningCell = memo(
-  ({ value, canEdit, onChange, blocked, datalistId, nameCase, reason }) => {
-    const textTransform = NAME_CASE_CSS[nameCase] || "none";
-    if (blocked) {
-      return (
-        <span className="w-full h-7 block bg-gray-300 dark:bg-gray-600 print:bg-gray-300"></span>
-      );
-    }
-    if (!canEdit) {
-      // Names from the Effectif must stay fully legible: wrap instead of
-      // clipping, and keep a title tooltip as a fallback.
-      return (
-        <span
-          className="text-center block text-xs leading-tight py-1 px-0.5 font-medium break-words whitespace-normal"
-          style={{ textTransform }}
-          title={reason ? `${value || ""}\n[Lecture seule] ${reason}` : value || ""}
-        >
-          {value || "-"}
-        </span>
-      );
-    }
 
-    return (
-      <input
-        type="text"
-        list={datalistId || "tech-list"}
-        title={value || ""}
-        className="w-full h-7 text-xs border-0 bg-transparent px-1 focus:outline-none focus:ring-1 focus:ring-primary rounded"
-        style={{ textTransform }}
-        value={value || ""}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="-"
-      />
-    );
-  },
-);
 
-PlanningCell.displayName = "PlanningCell";
 
-// Canonical poste taxonomy — mirrors the backend's POSTES list. Used to
-// figure out, for any given role cell in the table, which "poste" category
-// it belongs to, so the assignment dropdown can be filtered to only the
-// people qualified for it (per their fiche Effectif) rather than showing
-// the entire staff roster on every single cell.
-function stripAccents(s) {
-  return String(s || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
-}
 
-function canonPoste(sectionName, label) {
-  if (!label) return null;
-  const lu = stripAccents(label).toUpperCase().trim();
-  if (lu.startsWith("CAMERA")) return "Cadreur (Caméra)";
-  if (/^POSTE \d+$/.test(lu)) return "Régisseur";
-  if (lu === "SUPERVISION") {
-    if (sectionName === "REGISSEURS") return "Supervision Régisseurs";
-    if (sectionName === "DIFFUSION") return "Supervision Diffusion";
-    return "Supervision Régie";
-  }
-  if (lu.startsWith("OPERATEUR VDO")) return "Opérateur VDO";
-  if (lu.startsWith("OPERATEUR INCRUSTATION")) return "Opérateur Incrustation";
-  if (
-    lu === "SANCTUAIRE" ||
-    lu.startsWith("SALLE") ||
-    lu === "GYMNASE" ||
-    lu === "POLY 3"
-  )
-    return "Diffusion (Salles)";
-  const compact = lu.replace(/[^A-Z]/g, "");
-  if (compact === "REALISATEUR") return "Réalisateur";
-  if (compact === "ASSISTANTREALISATEURTRUQUISTE")
-    return "Assistant réalisateur / truquiste";
-  if (compact === "ETALONNEUR") return "Étalonneur";
-  if (compact === "ANIMATEURVDOVFX") return "Animateur VDO / VFX";
-  if (compact === "INTERCOMENREGISTREMENTFCP")
-    return "Intercom / Enregistrement FCP";
-  // Custom/renamed roles: use the label itself as its own poste category —
-  // nobody will be pre-tagged for it, so the fallback below shows everyone.
-  return label.trim();
-}
 
-// Delimiter-group key — decides where a BOLD separator line is drawn
-// between consecutive postes in the table (user request 27/09/2026:
-// "delimitations en gras entre les lignes qui separent les postes").
-// Deliberately coarser than canonPoste in places (e.g. Réalisateur +
-// Assistant réalisateur share one group "réal/ass") and finer in others
-// (each Caméra N is its own group so cameras get separated too).
-function delimiterGroup(sectionName, label) {
-  if (!label) return null;
-  const lu = stripAccents(label).toUpperCase().trim();
-  if (lu.startsWith("CAMERA")) return `camera:${lu}`;
-  if (/^POSTE \d+$/.test(lu)) return "postes";
-  if (lu === "SUPERVISION") return `supervision:${sectionName}`;
-  if (lu.startsWith("OPERATEUR VDO")) return "op-vdo";
-  if (lu.startsWith("OPERATEUR INCRUSTATION")) return "op-incrustation";
-  if (lu === "SANCTUAIRE") return "sanctuaire";
-  if (lu.startsWith("SALLE") || lu === "GYMNASE" || lu === "POLY 3")
-    return "salles";
-  const compact = lu.replace(/[^A-Z]/g, "");
-  if (compact === "REALISATEUR" || compact === "ASSISTANTREALISATEURTRUQUISTE")
-    return "real-ass";
-  if (compact === "ETALONNEUR") return "etalonneur";
-  if (compact === "ANIMATEURVDOVFX" || compact === "APPRENTIANIMATEURVDO")
-    return "animateurs";
-  if (compact === "INTERCOMENREGISTREMENTFCP") return "intercom";
-  return `custom:${lu}`;
-}
+ 
 
-function slugPoste(poste) {
-  return stripAccents(poste || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
-// Default planning structure — mirrors the reference paper planning exactly:
-// two tables per day (REGIE+CADREURS, then REGISSEURS+DIFFUSION), with a
-// standalone "Supervision" row above the REGIE band on the first table.
-// À partir de novembre 2026, le planning du dimanche a une « Caméra 7 », identique à la Caméra 6 (2 postes).
-// Appliqué à la lecture (plannings existants) et à la création : la structure enregistrée n'est jamais modifiée avant.
-const withCamera7 = (sections, annee, mois) => {
-  if (!sections || !sections.dimanche || Number(annee) * 100 + Number(mois) < 202611) return sections;
-  const next = JSON.parse(JSON.stringify(sections));
-  ["table1", "table2"].forEach((tk) => {
-    (next.dimanche[tk] || []).forEach((sec) => {
-      const roles = sec.roles || [];
-      const keys = roles.map((r) => r.key);
-      if (keys.includes("camera_6") && !keys.includes("camera_7")) {
-        roles.splice(keys.indexOf("camera_6") + 1, 0, { key: "camera_7", label: "Caméra 7", slots: 2 });
-        sec.roles = roles;
-      }
-    });
-  });
-  return next;
-};
 
-const DEFAULT_SECTIONS = {
-  dimanche: {
-    table1: [
-      {
-        name: "SUPERVISION",
-        standalone: true,
-        roles: [{ key: "supervision", label: "Supervision", slots: 1 }],
-      },
-      {
-        name: "REGIE",
-        roles: [
-          { key: "realisateur", label: "Réalisateur", slots: 1 },
-          {
-            key: "assistant_realisateur",
-            label: "Assistant réalisateur / truquiste",
-            slots: 1,
-          },
-          { key: "etalonneur", label: "Étalonneur", slots: 1 },
-          { key: "operateur_vdo_a", label: "Opérateur VDO A", slots: 1 },
-          { key: "operateur_vdo_b", label: "Opérateur VDO B", slots: 1 },
-          { key: "operateur_vdo_c", label: "Opérateur VDO C", slots: 1 },
-          {
-            key: "operateur_incrustation_a",
-            label: "Opérateur Incrustation A",
-            slots: 1,
-          },
-          {
-            key: "operateur_incrustation_b",
-            label: "Opérateur Incrustation B",
-            slots: 1,
-          },
-          {
-            key: "operateur_incrustation_c",
-            label: "Opérateur Incrustation C",
-            slots: 1,
-          },
-          { key: "animateur_vfx_1", label: "Animateur VDO / VFX", slots: 1 },
-          { key: "animateur_vfx_2", label: "Animateur VDO / VFX", slots: 1 },
-          { key: "animateur_vfx_3", label: "Animateur VDO / VFX", slots: 1 },
-          {
-            key: "animateur_vfx_apprenti",
-            label: "Apprenti Animateur VDO",
-            slots: 1,
-          },
-          {
-            key: "intercom_fcp",
-            label: "Intercom / Enregistrement FCP",
-            slots: 1,
-          },
-        ],
-      },
-      {
-        name: "CADREURS",
-        roles: [
-          { key: "camera_1", label: "Caméra 1", slots: 2 },
-          { key: "camera_2", label: "Caméra 2", slots: 2 },
-          { key: "camera_3", label: "Caméra 3", slots: 2 },
-          { key: "camera_4", label: "Caméra 4", slots: 2 },
-          { key: "camera_5", label: "Caméra 5", slots: 2 },
-          { key: "camera_6", label: "Caméra 6", slots: 2 },
-        ],
-      },
-    ],
-    table2: [
-      {
-        name: "REGISSEURS",
-        roles: [
-          { key: "regisseur_supervision", label: "Supervision", slots: 1 },
-          { key: "regisseur_poste_1", label: "Poste 1", slots: 1 },
-          { key: "regisseur_poste_2", label: "Poste 2", slots: 1 },
-          { key: "regisseur_poste_3", label: "Poste 3", slots: 1 },
-          { key: "regisseur_poste_4", label: "Poste 4", slots: 1 },
-        ],
-      },
-      {
-        name: "DIFFUSION",
-        roles: [
-          { key: "diffusion_supervision", label: "Supervision", slots: 1 },
-          { key: "diffusion_sanctuaire_1", label: "Sanctuaire", slots: 1 },
-          { key: "diffusion_sanctuaire_2", label: "Sanctuaire", slots: 1 },
-          { key: "diffusion_sanctuaire_3", label: "Sanctuaire", slots: 1 },
-          {
-            key: "diffusion_salle_annexe_1",
-            label: "Salle Annexe 1",
-            slots: 1,
-          },
-          {
-            key: "diffusion_salle_annexe_2",
-            label: "Salle Annexe 2",
-            slots: 1,
-          },
-          { key: "diffusion_poly_3", label: "Poly 3", slots: 1, blocked: true },
-          {
-            key: "diffusion_gymnase",
-            label: "Gymnase",
-            slots: 1,
-            blocked: true,
-          },
-        ],
-      },
-    ],
-  },
-  vendredi: {
-    table1: [
-      {
-        name: "SUPERVISION",
-        standalone: true,
-        roles: [{ key: "v_supervision", label: "Supervision", slots: 1 }],
-      },
-      {
-        name: "REGIE",
-        roles: [
-          { key: "v_realisateur", label: "Réalisateur", slots: 1 },
-          {
-            key: "v_assistant_realisateur",
-            label: "Assistant réalisateur / truquiste",
-            slots: 1,
-          },
-          { key: "v_etalonneur", label: "Étalonneur", slots: 1 },
-          { key: "v_operateur_vdo_a", label: "Opérateur VDO A", slots: 1 },
-          { key: "v_operateur_vdo_b", label: "Opérateur VDO B", slots: 1 },
-          { key: "v_operateur_vdo_c", label: "Opérateur VDO C", slots: 1 },
-          {
-            key: "v_operateur_incrustation_a",
-            label: "Opérateur Incrustation A",
-            slots: 1,
-          },
-          {
-            key: "v_operateur_incrustation_b",
-            label: "Opérateur Incrustation B",
-            slots: 1,
-          },
-          {
-            key: "v_operateur_incrustation_c",
-            label: "Opérateur Incrustation C",
-            slots: 1,
-          },
-          { key: "v_animateur_vfx_1", label: "Animateur VDO / VFX", slots: 1 },
-          { key: "v_animateur_vfx_2", label: "Animateur VDO / VFX", slots: 1 },
-          { key: "v_animateur_vfx_3", label: "Animateur VDO / VFX", slots: 1 },
-          {
-            key: "v_animateur_vfx_apprenti",
-            label: "Apprenti Animateur VDO",
-            slots: 1,
-          },
-          {
-            key: "v_intercom_fcp",
-            label: "Intercom / Enregistrement FCP",
-            slots: 1,
-          },
-        ],
-      },
-      {
-        name: "CADREURS",
-        roles: [
-          { key: "v_camera_1", label: "Caméra 1", slots: 2 },
-          { key: "v_camera_2", label: "Caméra 2", slots: 2 },
-          { key: "v_camera_3", label: "Caméra 3", slots: 2 },
-          { key: "v_camera_4", label: "Caméra 4", slots: 2 },
-          { key: "v_camera_5", label: "Caméra 5", slots: 2 },
-          { key: "v_camera_6_7", label: "Caméra 6 et 7", slots: 3 },
-        ],
-      },
-    ],
-    table2: [
-      {
-        name: "REGISSEURS",
-        roles: [
-          { key: "v_regisseur_supervision", label: "Supervision", slots: 1 },
-          { key: "v_regisseur_poste_1", label: "Poste 1", slots: 1 },
-          { key: "v_regisseur_poste_2", label: "Poste 2", slots: 1 },
-          { key: "v_regisseur_poste_3", label: "Poste 3", slots: 1 },
-          { key: "v_regisseur_poste_4", label: "Poste 4", slots: 1 },
-        ],
-      },
-      {
-        name: "DIFFUSION",
-        roles: [
-          { key: "v_diffusion_supervision", label: "Supervision", slots: 1 },
-          { key: "v_diffusion_sanctuaire_1", label: "Sanctuaire", slots: 1 },
-          { key: "v_diffusion_sanctuaire_2", label: "Sanctuaire", slots: 1 },
-          { key: "v_diffusion_sanctuaire_3", label: "Sanctuaire", slots: 1 },
-          {
-            key: "v_diffusion_salle_poly_1",
-            label: "Salle Poly 1",
-            slots: 1,
-            blocked: true,
-          },
-          {
-            key: "v_diffusion_salle_poly_2",
-            label: "Salle Poly 2",
-            slots: 1,
-            blocked: true,
-          },
-          {
-            key: "v_diffusion_gymnase",
-            label: "Gymnase",
-            slots: 1,
-            blocked: true,
-          },
-        ],
-      },
-    ],
-  },
-};
 
-function countRows(sections) {
-  // Standalone sections (e.g. the Supervision row) never render a separate
-  // band row, so they don't contribute the "+1" a normal section does.
-  return sections.reduce(
-    (acc, s) =>
-      acc + s.roles.reduce((a, r) => a + r.slots, 0) + (s.standalone ? 0 : 1),
-    0,
-  );
-}
 
-// ---------------------------------------------------------------------------
-// PNG export engine — dedicated, data-driven, independent of the on-screen
-// table. It builds an SVG entirely from the planning data (never screenshots
-// the interactive DOM), so there is no leftover UI chrome, no dependency on
-// live layout/viewport, and no risk of an intrinsically-tall capture. Width
-// is derived from the computed height so the output is always a true
-// landscape image, close to the original Excel layout, with borders/colors/
-// grayed cells preserved and nothing rotated or cut off.
-// ---------------------------------------------------------------------------
-const EXPORT_FONT = "Arial, Helvetica, sans-serif";
 
-function createTextMeasurer() {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  return (text, fontPx, weight = "400") => {
-    ctx.font = `${weight} ${fontPx}px ${EXPORT_FONT}`;
-    return ctx.measureText(text).width;
-  };
-}
 
-function wrapExportText(measure, text, maxWidth, fontPx, weight = "400") {
-  const words = String(text || "")
-    .split(/\s+/)
-    .filter(Boolean);
-  if (words.length === 0) return [""];
-  const lines = [];
-  let current = words[0];
-  for (let i = 1; i < words.length; i++) {
-    const test = `${current} ${words[i]}`;
-    if (measure(test, fontPx, weight) > maxWidth) {
-      lines.push(current);
-      current = words[i];
-    } else {
-      current = test;
-    }
-  }
-  lines.push(current);
-  return lines;
-}
 
-function escapeXml(str) {
-  return String(str ?? "").replace(
-    /[&<>"']/g,
-    (c) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&apos;",
-      })[c],
-  );
-}
 
-function buildPlanningExportSVG({
-  activeDay,
-  currentMonth,
-  currentYear,
-  currentDates,
-  daySections,
-  affectations,
-  blockedCells,
-  titreOverrides,
-  dateLabels,
-  formatDate,
-  nameCase,
-}) {
-  const measure = createTextMeasurer();
 
-  // Couleurs alignées sur l'analyse pixel par pixel du PNG de référence
-  // fourni par l'utilisateur (28/09/2026) : bleu #A6C8EB (bandes/en-têtes),
-  // gris #AEAEAE (cases grisées/bloquées), fond blanc, traits noirs.
-  const BAND_COLOR = activeDay === "dimanche" ? "#FCE4D6" : "#A6C8EB";
-  const TITLE_COLOR = activeDay === "dimanche" ? "#C55A11" : "#1F4E78";
-  const GREY = "#AEAEAE";
-  const BORDER = "#000000";
-  const WHITE = "#FFFFFF";
 
-  // Tailles augmentées + padding encore resserré (retour 28/09/2026 :
-  // toujours besoin de zoomer). On repousse encore plus loin dans la même
-  // direction : marges/gouttières réduites au minimum lisible, police un
-  // cran plus grande, interligne resserré à la taille de police — c'est
-  // l'espace gagné ici qui permet à la police de monter sans agrandir le
-  // fichier.
-  // Fix 28/09/2026 (analyse pixel par pixel du PNG de référence fournie par
-  // l'utilisateur) : reproduction fidèle de sa grille — 5 colonnes de
-  // largeur STRICTEMENT ÉGALE (étiquette = colonnes de dates, ~252px sur
-  // l'image de référence en 1280 large), bandes de section nettement plus
-  // grandes/hautes (REGIE/CADREURS/RÉGISSEURS/DIFFUSION ~31-32px avec police
-  // ~20-22px), lignes standard ~18px, en-tête affectation/dates ~35px,
-  // titre/sous-titre/espace ~30/32/17px.
-  // Fix 28/09/2026 (retour GPT/utilisateur : "l'export n'est pas le
-  // tableau affiché, il faut un rendu compact, dense, sans grand vide")
-  // : toutes les constantes ci-dessous sont resserrées par rapport à la
-  // version précédente pour produire un PNG plus dense (moins de marge,
-  // bandes de section moins hautes, lignes standard plus basses), et le
-  // canvas final n'est plus jamais forcé à 1280x1032 — voir
-  // svgToPngDataUrl plus bas, qui rasterise désormais à la taille
-  // naturelle du SVG (x2 pour la netteté), ratio inchangé, donc plus
-  // aucune déformation.
-  const FONT_TITLE = 19;
-  const FONT_SUB = 12;
-  const FONT_HEADER = 12;
-  const FONT_BAND = 15;
-  const FONT_LABEL = 11;
-  const FONT_CELL = 11;
-  const LINE_H = 13;
 
-  // Fix 28/09/2026 (retour utilisateur : le ratio naturel ~0,93 était trop
-  // vertical vs la référence ~1,24) : colonnes élargies de 150 à 200 pour
-  // rapprocher le ratio naturel largeur/hauteur du SVG de la référence,
-  // sans jamais réintroduire de resize/canvas forcé (voir svgToPngDataUrl).
-  let LABEL_W = 200;
-  let DATE_W = 200;
-  const PAD = 3;
-  const MARGIN = 8;
 
-  const nDates = currentDates.length || 1;
-  const hasAnyDateLabel = currentDates.some(
-    (d) => dateLabels?.[activeDay]?.[d],
-  );
-  const HEADER_H = hasAnyDateLabel ? 34 : 26;
-  const BAND_H = 22;
 
-  // ---- Pass 1: compute row heights for both tables from the real data ----
-  const buildTableLayout = (tableSections) => {
-    const rows = [];
-    (tableSections || []).forEach((section) => {
-      if (!section.standalone) {
-        rows.push({ kind: "band", text: section.name, height: BAND_H });
-      }
-      section.roles.forEach((role, roleIdx) => {
-        const prevRole = section.roles[roleIdx - 1];
-        // Même règle que le rendu à l'écran/impression (voir isGroupBoundary
-        // dans le tableau live) : une ligne séparatrice en gras entre deux
-        // postes différents, ou quand le poste précédent a
-        // separateurApres=true — manquait dans l'export PNG jusqu'ici.
-        const groupBoundary =
-          roleIdx > 0 &&
-          prevRole &&
-          (delimiterGroup(section.name, role.label) !==
-            delimiterGroup(section.name, prevRole.label) ||
-            !!prevRole.separateurApres);
-        const slotHeights = [];
-        for (let slotIdx = 0; slotIdx < role.slots; slotIdx++) {
-          let h = 15;
-          for (let dateIdx = 0; dateIdx < nDates; dateIdx++) {
-            const key = `${role.key}_${slotIdx}`;
-            const value = affectations[key]?.[dateIdx] || "";
-            if (value) {
-              const lines = wrapExportText(
-                measure,
-                value,
-                DATE_W - PAD * 2,
-                FONT_CELL,
-                "500",
-              );
-              const needed = lines.length * LINE_H + 8;
-              if (needed > h) h = needed;
-            }
-          }
-          slotHeights.push(h);
-        }
-        const labelLines = wrapExportText(
-          measure,
-          role.label,
-          LABEL_W - PAD * 2,
-          FONT_LABEL,
-          "600",
-        );
-        const neededLabelH = labelLines.length * LINE_H + 8;
-        const mergedHeight = slotHeights.reduce((a, b) => a + b, 0);
-        if (neededLabelH > mergedHeight) {
-          const extra = neededLabelH - mergedHeight;
-          const per = extra / role.slots;
-          for (let i = 0; i < slotHeights.length; i++) slotHeights[i] += per;
-        }
-        for (let slotIdx = 0; slotIdx < role.slots; slotIdx++) {
-          rows.push({
-            kind: "role",
-            role,
-            slotIdx,
-            height: slotHeights[slotIdx],
-            labelLines: slotIdx === 0 ? labelLines : null,
-            groupBoundary: slotIdx === 0 ? groupBoundary : false,
-          });
-        }
-      });
-    });
-    return rows;
-  };
 
-  const rows1 = buildTableLayout(daySections.table1 || []);
-  const rows2 = buildTableLayout(daySections.table2 || []);
 
-  const tableHeight = (rows) =>
-    HEADER_H + rows.reduce((a, r) => a + r.height, 0);
-  const TABLE_GAP = 16;
-  const TITLE_H = 24;
-  const SUB_H = 20;
-  const TOP_GAP = 8;
-  const FOOTER_GAP = 5;
-  const FOOTER_TEXT =
-    "SOUS RÉSERVE DE CHANGEMENTS ÉVENTUELS FAITS PAR LE RESPONSABLE DU DÉPARTEMENT";
-  const FONT_FOOTER = 9;
-  const FOOTER_H = FONT_FOOTER + 4;
 
-  const table1H = tableHeight(rows1);
-  const table2H = tableHeight(rows2);
 
-  let contentWidth = LABEL_W + DATE_W * nDates;
-  const totalHeight =
-    MARGIN * 2 +
-    TITLE_H +
-    SUB_H +
-    TOP_GAP +
-    table1H +
-    TABLE_GAP +
-    table2H +
-    FOOTER_GAP +
-    FOOTER_H;
 
-  // ---- Pass 2: largeur du canvas ----
-  // Fix 28/09/2026 (retour utilisateur) : le forçage précédent d'un ratio
-  // paysage 1.5 étirait DATE_W (largeur des colonnes de noms) bien au-delà
-  // du texte réel dès que le tableau était haut (beaucoup de lignes), ce
-  // qui laissait un grand vide à gauche/droite de chaque nom centré — donc
-  // illisible malgré une police plus grande. On garde simplement la largeur
-  // naturelle du contenu (étiquette + colonnes de dates dimensionnées pour
-  // le texte), sans l'étirer pour atteindre un ratio arbitraire.
-  const totalWidth = contentWidth + MARGIN * 2;
 
-  // ---- Pass 3: draw ----
-  const svgParts = [];
-  svgParts.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${totalHeight}" viewBox="0 0 ${totalWidth} ${totalHeight}">`,
-  );
-  svgParts.push(
-    `<rect x="0" y="0" width="${totalWidth}" height="${totalHeight}" fill="${WHITE}"/>`,
-  );
 
-  let y = MARGIN;
-  const cx = totalWidth / 2;
 
-  const titleText =
-    titreOverrides?.[activeDay]?.titre ||
-    `${(MOIS_NOMS[currentMonth - 1] || "").toUpperCase()} ${currentYear} - ${activeDay.toUpperCase()}`;
-  svgParts.push(
-    `<text x="${cx}" y="${y + TITLE_H / 2 + FONT_TITLE * 0.35}" text-anchor="middle" font-family="${EXPORT_FONT}" font-size="${FONT_TITLE}" font-weight="700" fill="${TITLE_COLOR}">${escapeXml(titleText)}</text>`,
-  );
-  y += TITLE_H;
 
-  const subText =
-    titreOverrides?.[activeDay]?.sous_titre ||
-    (activeDay === "dimanche"
-      ? "RDV à partir de 8h00 en salle 114"
-      : "RDV à partir de 18h30 en salle 114");
-  svgParts.push(
-    `<rect x="${MARGIN}" y="${y}" width="${contentWidth}" height="${SUB_H}" fill="${BAND_COLOR}"/>`,
-  );
-  svgParts.push(
-    `<text x="${cx}" y="${y + SUB_H / 2 + FONT_SUB * 0.35}" text-anchor="middle" font-family="${EXPORT_FONT}" font-size="${FONT_SUB}" font-weight="600" fill="${TITLE_COLOR}">${escapeXml(subText)}</text>`,
-  );
-  y += SUB_H + TOP_GAP;
 
-  const drawTable = (rows) => {
-    let x = MARGIN;
-    svgParts.push(
-      `<rect x="${x}" y="${y}" width="${LABEL_W}" height="${HEADER_H}" fill="${BAND_COLOR}" stroke="${BORDER}"/>`,
-    );
-    svgParts.push(
-      `<text x="${x + LABEL_W / 2}" y="${y + HEADER_H / 2 + FONT_HEADER * 0.35}" text-anchor="middle" font-family="${EXPORT_FONT}" font-size="${FONT_HEADER}" font-weight="700" fill="${TITLE_COLOR}">AFFECTATION</text>`,
-    );
-    let hx = x + LABEL_W;
-    currentDates.forEach((date) => {
-      svgParts.push(
-        `<rect x="${hx}" y="${y}" width="${DATE_W}" height="${HEADER_H}" fill="${BAND_COLOR}" stroke="${BORDER}"/>`,
-      );
-      const label = formatDate(date);
-      const guestLabel = dateLabels?.[activeDay]?.[date];
-      const dCy = guestLabel
-        ? y + HEADER_H / 2 - 6
-        : y + HEADER_H / 2 + FONT_HEADER * 0.35;
-      svgParts.push(
-        `<text x="${hx + DATE_W / 2}" y="${dCy}" text-anchor="middle" font-family="${EXPORT_FONT}" font-size="${FONT_HEADER}" font-weight="700" fill="${TITLE_COLOR}">${escapeXml(label)}</text>`,
-      );
-      if (guestLabel) {
-        const gLines = wrapExportText(
-          measure,
-          guestLabel,
-          DATE_W - PAD * 2,
-          9,
-          "400",
-        );
-        gLines.slice(0, 2).forEach((line, i) => {
-          svgParts.push(
-            `<text x="${hx + DATE_W / 2}" y="${y + HEADER_H / 2 + 6 + i * 10}" text-anchor="middle" font-family="${EXPORT_FONT}" font-size="9" fill="${TITLE_COLOR}">${escapeXml(line)}</text>`,
-          );
-        });
-      }
-      hx += DATE_W;
-    });
-    y += HEADER_H;
 
-    let i = 0;
-    while (i < rows.length) {
-      const row = rows[i];
-      if (row.kind === "band") {
-        svgParts.push(
-          `<rect x="${MARGIN}" y="${y}" width="${contentWidth}" height="${row.height}" fill="${BAND_COLOR}" stroke="${BORDER}"/>`,
-        );
-        svgParts.push(
-          `<text x="${cx}" y="${y + row.height / 2 + FONT_BAND * 0.35}" text-anchor="middle" font-family="${EXPORT_FONT}" font-size="${FONT_BAND}" font-weight="700" fill="${TITLE_COLOR}">${escapeXml(row.text)}</text>`,
-        );
-        y += row.height;
-        i += 1;
-        continue;
-      }
-      const role = row.role;
-      const slotRows = [];
-      let j = i;
-      while (
-        j < rows.length &&
-        rows[j].kind === "role" &&
-        rows[j].role === role
-      ) {
-        slotRows.push(rows[j]);
-        j += 1;
-      }
-      const rowTopY = y;
-      const mergedH = slotRows.reduce((a, r) => a + r.height, 0);
-      svgParts.push(
-        `<rect x="${MARGIN}" y="${rowTopY}" width="${LABEL_W}" height="${mergedH}" fill="${WHITE}" stroke="${BORDER}"/>`,
-      );
-      const lLines = slotRows[0].labelLines || [role.label];
-      const lBlockH = lLines.length * LINE_H;
-      const lStartY = rowTopY + mergedH / 2 - lBlockH / 2 + LINE_H * 0.75;
-      // Fix 28/09/2026 (référence utilisateur) : étiquettes de poste
-      // centrées horizontalement (pas alignées à gauche comme un tableau
-      // Excel classique) — c'est le rendu observé sur le PNG de référence.
-      lLines.forEach((line, li) => {
-        svgParts.push(
-          `<text x="${MARGIN + LABEL_W / 2}" y="${lStartY + li * LINE_H}" text-anchor="middle" font-family="${EXPORT_FONT}" font-size="${FONT_LABEL}" font-weight="600" fill="#111111">${escapeXml(line)}</text>`,
-        );
-      });
-      let sy = rowTopY;
-      slotRows.forEach((sr) => {
-        let cx2 = MARGIN + LABEL_W;
-        currentDates.forEach((_, dateIdx) => {
-          const key = `${role.key}_${sr.slotIdx}`;
-          const value = affectations[key]?.[dateIdx] || "";
-          const singleBlocked = !!blockedCells[key]?.[dateIdx];
-          const isBlocked = role.blocked || singleBlocked;
-          svgParts.push(
-            `<rect x="${cx2}" y="${sy}" width="${DATE_W}" height="${sr.height}" fill="${isBlocked ? GREY : WHITE}" stroke="${BORDER}"/>`,
-          );
-          if (!isBlocked && value) {
-            const casedValue = applyNameCase(value, nameCase);
-            const vLines = wrapExportText(
-              measure,
-              casedValue,
-              DATE_W - PAD * 2,
-              FONT_CELL,
-              "500",
-            );
-            const vBlockH = vLines.length * LINE_H;
-            const vStartY = sy + sr.height / 2 - vBlockH / 2 + LINE_H * 0.75;
-            vLines.forEach((line, li) => {
-              svgParts.push(
-                `<text x="${cx2 + DATE_W / 2}" y="${vStartY + li * LINE_H}" text-anchor="middle" font-family="${EXPORT_FONT}" font-size="${FONT_CELL}" font-weight="500" fill="#111111">${escapeXml(line)}</text>`,
-              );
-            });
-          }
-          cx2 += DATE_W;
-        });
-        sy += sr.height;
-      });
-      if (row.groupBoundary) {
-        const THICK = 3;
-        svgParts.push(
-          `<rect x="${MARGIN}" y="${rowTopY - THICK / 2}" width="${contentWidth}" height="${THICK}" fill="${BORDER}"/>`,
-        );
-      }
-      y += mergedH;
-      i = j;
-    }
-  };
 
-  drawTable(rows1);
-  y += TABLE_GAP;
-  drawTable(rows2);
 
-  // Standard disclaimer, centered under the whole planning — mirrors the
-  // on-screen/print footer so the PNG export matches what gets printed.
-  y += FOOTER_GAP;
-  const footerLines = wrapExportText(
-    measure,
-    FOOTER_TEXT,
-    contentWidth - PAD * 2,
-    FONT_FOOTER,
-    "600",
-  );
-  footerLines.forEach((line, li) => {
-    svgParts.push(
-      `<text x="${cx}" y="${y + FONT_FOOTER * 0.85 + li * (FONT_FOOTER + 4)}" text-anchor="middle" font-family="${EXPORT_FONT}" font-size="${FONT_FOOTER}" font-weight="600" font-style="italic" fill="#555555">${escapeXml(line)}</text>`,
-    );
-  });
 
-  svgParts.push("</svg>");
-  // Fix 28/09/2026 : log de diagnostic (ratio obtenu très différent de ce
-  // qui était attendu côté calcul manuel) — permet de vérifier en un
-  // export les dimensions naturelles réelles produites par le SVG, sans
-  // deviner. Voir la console navigateur (F12) après un export PNG.
-  console.log(
-    `[Export PNG] SVG naturel: ${totalWidth}x${totalHeight} (ratio=${(totalWidth / totalHeight).toFixed(3)}) | LABEL_W=${LABEL_W} DATE_W=${DATE_W} nDates=${nDates}`,
-  );
-  return { svg: svgParts.join(""), width: totalWidth, height: totalHeight };
-}
 
-// Builds an .xlsx workbook mirroring the current planning view — same data
-// walk as buildPlanningExportSVG above (title/subtitle, table1, table2,
-// footer), but emitting spreadsheet rows instead of SVG draw commands.
-// Uses xlsx-js-style rather than plain "xlsx": the community "xlsx"
-// package silently drops cell style writes (fills/bold survive in memory
-// but never make it into the .xlsx file), so a colored/bold export needs
-// this fork instead — same API, styles actually persist.
-// Construit UNE feuille (worksheet) pour un jour donné (vendredi OU
-// dimanche) — extrait de l'ancien buildPlanningExportXLSX qui ne
-// produisait qu'un seul onglet à la fois. Réutilisé deux fois par
-// buildPlanningExportXLSX ci-dessous pour produire un classeur avec les
-// deux jours dans deux onglets nommés (demande 28/09/2026 : "exporte les
-// deux pages vendredi dimanche avec deux feuilles").
-function buildPlanningDayWorksheet({
-  activeDay,
-  currentMonth,
-  currentYear,
-  currentDates,
-  daySections,
-  affectations,
-  blockedCells,
-  titreOverrides,
-  dateLabels,
-  formatDate,
-  nameCase,
-}) {
-  const BAND_HEX = activeDay === "dimanche" ? "FCE4D6" : "BDD7EE";
-  const TITLE_HEX = activeDay === "dimanche" ? "C55A11" : "1F4E78";
-  const GREY_HEX = "D1D5DB";
-  const THIN = { style: "thin", color: { rgb: "000000" } };
-  const CELL_BORDER = { top: THIN, bottom: THIN, left: THIN, right: THIN };
 
-  const nDates = currentDates.length || 1;
-  const nCols = 1 + nDates;
 
-  const aoa = [];
-  const merges = [];
-  const styleOps = [];
-  const addRow = (cells) => {
-    aoa.push(cells);
-    return aoa.length - 1;
-  };
-  const setStyle = (r, c, style) => styleOps.push({ r, c, style });
-  const styleRange = (r, c1, c2, style) => {
-    for (let c = c1; c <= c2; c++) setStyle(r, c, style);
-  };
 
-  const titleText =
-    titreOverrides?.[activeDay]?.titre ||
-    `${(MOIS_NOMS[currentMonth - 1] || "").toUpperCase()} ${currentYear} - ${activeDay.toUpperCase()}`;
-  let r = addRow([titleText, ...Array(nDates).fill(null)]);
-  merges.push({ s: { r, c: 0 }, e: { r, c: nCols - 1 } });
-  setStyle(r, 0, {
-    font: { bold: true, sz: 16, color: { rgb: TITLE_HEX } },
-    alignment: { horizontal: "center", vertical: "center" },
-  });
 
-  const subText =
-    titreOverrides?.[activeDay]?.sous_titre ||
-    (activeDay === "dimanche"
-      ? "RDV à partir de 8h00 en salle 114"
-      : "RDV à partir de 18h30 en salle 114");
-  r = addRow([subText, ...Array(nDates).fill(null)]);
-  merges.push({ s: { r, c: 0 }, e: { r, c: nCols - 1 } });
-  styleRange(r, 0, nCols - 1, {
-    font: { bold: true, color: { rgb: TITLE_HEX } },
-    fill: { fgColor: { rgb: BAND_HEX } },
-    alignment: { horizontal: "center", vertical: "center" },
-  });
 
-  addRow(Array(nCols).fill(null));
 
-  const drawTable = (tableSections) => {
-    const headerCells = ["AFFECTATION"];
-    currentDates.forEach((date) => {
-      const guestLabel = dateLabels?.[activeDay]?.[date];
-      headerCells.push(
-        guestLabel ? `${formatDate(date)}\n${guestLabel}` : formatDate(date),
-      );
-    });
-    const headerRow = addRow(headerCells);
-    styleRange(headerRow, 0, nCols - 1, {
-      font: { bold: true, color: { rgb: TITLE_HEX } },
-      fill: { fgColor: { rgb: BAND_HEX } },
-      alignment: { horizontal: "center", vertical: "center", wrapText: true },
-      border: CELL_BORDER,
-    });
-    setStyle(headerRow, 0, {
-      font: { bold: true, color: { rgb: TITLE_HEX } },
-      fill: { fgColor: { rgb: BAND_HEX } },
-      alignment: { horizontal: "center", vertical: "center", wrapText: true },
-      border: CELL_BORDER,
-    });
 
-    (tableSections || []).forEach((section) => {
-      if (!section.standalone) {
-        const bandRow = addRow([section.name, ...Array(nDates).fill(null)]);
-        merges.push({
-          s: { r: bandRow, c: 0 },
-          e: { r: bandRow, c: nCols - 1 },
-        });
-        styleRange(bandRow, 0, nCols - 1, {
-          font: { bold: true, color: { rgb: TITLE_HEX } },
-          fill: { fgColor: { rgb: BAND_HEX } },
-          alignment: { horizontal: "center", vertical: "center" },
-          border: CELL_BORDER,
-        });
-      }
-      section.roles.forEach((role) => {
-        const firstRow = aoa.length;
-        for (let slotIdx = 0; slotIdx < role.slots; slotIdx++) {
-          const key = `${role.key}_${slotIdx}`;
-          const rowCells = [slotIdx === 0 ? role.label : ""];
-          currentDates.forEach((_, dateIdx) => {
-            const singleBlocked = !!blockedCells[key]?.[dateIdx];
-            const isBlocked = role.blocked || singleBlocked;
-            const raw = affectations[key]?.[dateIdx] || "";
-            rowCells.push(isBlocked ? "" : applyNameCase(raw, nameCase));
-          });
-          const rowIdx = addRow(rowCells);
-          setStyle(rowIdx, 0, {
-            font: { bold: true },
-            alignment: { horizontal: "center", vertical: "center", wrapText: true },
-            border: CELL_BORDER,
-          });
-          currentDates.forEach((_, dateIdx) => {
-            const singleBlocked = !!blockedCells[key]?.[dateIdx];
-            const isBlocked = role.blocked || singleBlocked;
-            const cellStyle = {
-              alignment: { horizontal: "center", vertical: "center" },
-              border: CELL_BORDER,
-            };
-            if (isBlocked) cellStyle.fill = { fgColor: { rgb: GREY_HEX } };
-            setStyle(rowIdx, 1 + dateIdx, cellStyle);
-          });
-        }
-        if (role.slots > 1) {
-          merges.push({
-            s: { r: firstRow, c: 0 },
-            e: { r: firstRow + role.slots - 1, c: 0 },
-          });
-        }
-      });
-    });
-  };
 
-  drawTable(daySections.table1 || []);
-  addRow(Array(nCols).fill(null));
-  drawTable(daySections.table2 || []);
-
-  addRow(Array(nCols).fill(null));
-  const footerRow = addRow([
-    "SOUS RÉSERVE DE CHANGEMENTS ÉVENTUELS FAITS PAR LE RESPONSABLE DU DÉPARTEMENT",
-    ...Array(nDates).fill(null),
-  ]);
-  merges.push({ s: { r: footerRow, c: 0 }, e: { r: footerRow, c: nCols - 1 } });
-  styleRange(footerRow, 0, nCols - 1, {
-    font: { italic: true, sz: 9, color: { rgb: "555555" } },
-    alignment: { horizontal: "center" },
-  });
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!merges"] = merges;
-  ws["!cols"] = [{ wch: 24 }, ...Array(nDates).fill({ wch: 24 })];
-  styleOps.forEach(({ r: rr, c: cc, style }) => {
-    const ref = XLSX.utils.encode_cell({ r: rr, c: cc });
-    if (!ws[ref]) ws[ref] = { t: "s", v: "" };
-    ws[ref].s = { ...(ws[ref].s || {}), ...style };
-  });
-  return ws;
-}
-
-// Classeur complet : un onglet par jour (Vendredi puis Dimanche), nommés
-// "V-JANV-2026" / "D-JANV-2026" (jour-mois-année, comme demandé) plutôt que
-// de ne jamais exporter qu'un seul des deux jours à la fois.
-function buildPlanningExportXLSX({
-  currentMonth,
-  currentYear,
-  dates,
-  sections,
-  affectations,
-  blockedCells,
-  titreOverrides,
-  dateLabels,
-  formatDate,
-  nameCase,
-}) {
-  const moisAbbr = MOIS_ABBR[currentMonth - 1] || "";
-  const wb = XLSX.utils.book_new();
-  [
-    { day: "vendredi", prefix: "V" },
-    { day: "dimanche", prefix: "D" },
-  ].forEach(({ day, prefix }) => {
-    const daySections = sections[day] || DEFAULT_SECTIONS[day];
-    const currentDates = dates[day] || [];
-    const ws = buildPlanningDayWorksheet({
-      activeDay: day,
-      currentMonth,
-      currentYear,
-      currentDates,
-      daySections,
-      affectations,
-      blockedCells,
-      titreOverrides,
-      dateLabels,
-      formatDate,
-      nameCase,
-    });
-    const sheetName = `${prefix}-${moisAbbr}-${currentYear}`;
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  });
-  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  return new Blob([wbout], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
-}
-
-// Fix 28/09/2026 (diagnostic + consigne utilisateur) : le canvas cible
-// fixe 1280x1032 a été supprimé — il forçait un étirement non uniforme
-// (largeur et hauteur indépendantes) qui déformait le tableau dès que son
-// ratio naturel s'écartait de 1,2403:1. Le PNG est maintenant rasterisé
-// strictement à la taille naturelle du SVG (celle calculée par
-// buildPlanningExportSVG à partir du contenu réel) multipliée par `scale`
-// pour la netteté — largeur et hauteur suivent le même facteur, donc le
-// ratio ne bouge jamais. Si une largeur cible fixe est nécessaire un jour,
-// calculer la hauteur à partir du ratio naturel plutôt que de fixer les
-// deux dimensions : targetHeight = naturalHeight * (targetWidth / naturalWidth).
-async function svgToPngDataUrl(svgString, width, height, scale = 2) {
-  const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  try {
-    const img = await new Promise((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = reject;
-      image.src = url;
-    });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(width * scale);
-    canvas.height = Math.round(height * scale);
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return {
-      dataUrl: canvas.toDataURL("image/png"),
-      width: canvas.width,
-      height: canvas.height,
-    };
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-// Phones: the Planning table has fixed column widths (220px label + 115px
-// per date) so it can't reflow to fit a narrow screen — on desktop/tablet
-// that's fine, it just scrolls horizontally (overflow-x-auto). On phones
-// we instead scale the whole table down to fit, same technique used for
-// the mobile Organigramme, so nothing needs to be scrolled to be seen.
-//
-// The table itself has a `w-full` (width:100%) class. Measuring its
-// wrapper's own auto/shrink-to-fit width would create a circular
-// reference (wrapper's width depends on the table's content, but the
-// table's width depends on the wrapper being 100% of it) — in practice
-// this made the browser fall back to a nonsensical ~1,000,000px "natural"
-// width. To avoid that entirely, the caller passes the already-known
-// natural width (sum of the fixed column widths) as `naturalWidth`, and
-// we give the inner wrapper that exact width explicitly — that breaks the
-// circularity outright, so both the width AND the resulting height are
-// laid out correctly by the browser with no measurement voodoo needed.
-// justify-center on the outer wrapper keeps the shrunk table centered.
-const ScaleToFitMobile = ({ children, naturalWidth }) => {
-  const wrapperRef = useRef(null);
-  const innerRef = useRef(null);
-  const [scale, setScale] = useState(1);
-  const [wrapHeight, setWrapHeight] = useState(null);
-  const [active, setActive] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const compute = () => {
-      const isMobile = mq.matches;
-      setActive(isMobile);
-      const wrapper = wrapperRef.current;
-      const inner = innerRef.current;
-      if (!isMobile || !wrapper || !inner || !naturalWidth) {
-        setScale(1);
-        setWrapHeight(null);
-        return;
-      }
-      const available = wrapper.clientWidth;
-      const naturalHeight = inner.scrollHeight;
-      if (!available) return;
-      const next = Math.min(1, (available - 4) / naturalWidth);
-      setScale(next);
-      setWrapHeight(Math.ceil(naturalHeight * next));
-    };
-    compute();
-    const t = setTimeout(compute, 100);
-    const mqListener = () => compute();
-    window.addEventListener("resize", compute);
-    window.addEventListener("orientationchange", compute);
-    if (mq.addEventListener) mq.addEventListener("change", mqListener);
-    else mq.addListener(mqListener);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener("resize", compute);
-      window.removeEventListener("orientationchange", compute);
-      if (mq.removeEventListener) mq.removeEventListener("change", mqListener);
-      else mq.removeListener(mqListener);
-    };
-  }, [naturalWidth]);
-
-  return (
-    <div
-      ref={wrapperRef}
-      className={
-        active
-          ? "w-full overflow-hidden flex justify-center"
-          : "w-full overflow-x-auto"
-      }
-      style={active && wrapHeight ? { height: wrapHeight } : undefined}
-    >
-      <div
-        ref={innerRef}
-        style={
-          active
-            ? {
-                width: naturalWidth,
-                flexShrink: 0,
-                transform: `scale(${scale})`,
-                transformOrigin: "top center",
-              }
-            : undefined
-        }
-      >
-        {children}
-      </div>
-    </div>
-  );
-};
 
 export default function Planning() {
   const { canValidate, isAdmin, canManage, isSuperAdmin, user } = useAuth();
@@ -1361,6 +152,9 @@ export default function Planning() {
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
   const [notes, setNotes] = useState({ dimanche: "", vendredi: "" });
   const [absences, setAbsences] = useState({ dimanche: "", vendredi: "" });
+  const [ignoredConflicts, setIgnoredConflicts] = useState([]); // alertes ignorées (Coordination+), enregistrées avec le planning
+  const [publishRecapOpen, setPublishRecapOpen] = useState(false);
+  const [flashConflictId, setFlashConflictId] = useState(null); // « Voir » : la case reste en rouge quelques secondes, même hors mode édition
   const [monthAbsences, setMonthAbsences] = useState([]);
   const [editSectionDialog, setEditSectionDialog] = useState(null);
   const [editRoleLabel, setEditRoleLabel] = useState("");
@@ -1632,6 +426,7 @@ export default function Planning() {
           planningRes.data.date_labels || { dimanche: {}, vendredi: {} },
         );
         setAffichageNoms(planningRes.data.affichage_noms || "upper");
+        setIgnoredConflicts(planningRes.data.ignored_conflicts || []);
       } catch (e) {
         // "not_published" : le planning existe mais reste un brouillon —
         // distingué de "aucun planning" pour afficher le bon message.
@@ -1650,6 +445,7 @@ export default function Planning() {
         });
         setDateLabels({ dimanche: {}, vendredi: {} });
         setAffichageNoms("upper");
+        setIgnoredConflicts([]);
         setPlanning(null);
       }
       // Un changement de mois recharge des données fraîches — la prochaine
@@ -1806,6 +602,20 @@ export default function Planning() {
         });
         return;
       }
+      // Notes / « Absences de l'équipe » : « Nom — du 18/10 au 25/10 » vaut absence sur cette période.
+      const noted = findNoteAbsence(
+        [notes.vendredi, notes.dimanche, absences.vendredi, absences.dimanche],
+        typed,
+        iso,
+      );
+      if (noted) {
+        setAbsentAlert({
+          level: "error",
+          title: "Absent(e) ce jour-là d'après les notes",
+          text: `« ${noted} » — vérifie avant de l'affecter.`,
+        });
+        return;
+      }
       const line = (absences[activeDay] || "")
         .split("\n")
         .map((l) => l.trim())
@@ -1821,7 +631,7 @@ export default function Planning() {
         });
       }
     },
-    [monthAbsences, dates, activeDay, absences],
+    [monthAbsences, dates, activeDay, absences, notes],
   );
 
   const handleAffectationChange = useCallback(
@@ -1869,6 +679,7 @@ export default function Planning() {
       titre_overrides: titreOverrides,
       date_labels: dateLabels,
       affichage_noms: affichageNoms,
+      ignored_conflicts: ignoredConflicts,
       base_affectations: liveRef.current ? liveRef.current.getBase() : undefined,
     }),
     [
@@ -1883,6 +694,7 @@ export default function Planning() {
       titreOverrides,
       dateLabels,
       affichageNoms,
+      ignoredConflicts,
     ],
   );
 
@@ -1999,6 +811,16 @@ export default function Planning() {
     toast.success("Dernière action annulée");
   }, [canManage, undoStack]);
 
+  // Sélection multiple façon Excel (glisser, Maj+clic, Suppr, Ctrl+C/X/V/D/R/A/Z, Alt+glisser pour déplacer).
+  useCellSelection({
+    activeDay,
+    canWrite: canManage() && planningEditMode,
+    affectations,
+    setAffectations,
+    onUndo: handleUndo,
+  });
+
+
   // Enregistrement automatique : dès qu'une donnée éditable change (grille,
   // absences/notes, sections, en-tête, libellés de date...), une sauvegarde
   // se déclenche 1,5s après la dernière frappe — plus besoin de penser à
@@ -2046,6 +868,7 @@ export default function Planning() {
     titreOverrides,
     dateLabels,
     affichageNoms,
+    ignoredConflicts,
   ]);
 
   const handlePublish = async () => {
@@ -2456,12 +1279,40 @@ export default function Planning() {
     }
   };
 
+  // PNG vertical 9:16 (1080x1920) : même moteur, colonnes étroites, centré sur fond blanc.
+  const handleExportPngStory = async () => {
+    const preOpenedWindow = reserveTabForIOSFallback();
+    setExportingPng(true);
+    try {
+      const { svg, width, height } = buildPlanningExportSVG({
+        activeDay, currentMonth, currentYear, currentDates, daySections, affectations,
+        blockedCells, titreOverrides, dateLabels, formatDate, nameCase: affichageNoms,
+        layout: "story",
+      });
+      const { dataUrl } = await svgToStoryPngDataUrl(svg, width, height);
+      const moisSlug = (MOIS_NOMS[currentMonth - 1] || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+      const filename = `planning-${moisSlug}-${currentYear}-${activeDay}-vertical.png`;
+      const blob = await (await fetch(dataUrl)).blob();
+      const status = await downloadOrShareFile(blob, filename, { title: filename, preOpenedWindow });
+      const msg = downloadStatusMessage(status);
+      if (status === "blocked") toast.error(msg);
+      else if (msg) toast.success(msg);
+    } catch (err) {
+      console.error(err);
+      if (preOpenedWindow && !preOpenedWindow.closed) preOpenedWindow.close();
+      toast.error("Erreur lors de l'export PNG vertical");
+    } finally {
+      setExportingPng(false);
+    }
+  };
+
   // Mirrors handleExportPng's structure — same source data, same filename
   // pattern, same download helper — just producing a workbook instead of a
   // PNG. See buildPlanningExportXLSX above.
   const handleExportXlsx = async () => {
     setExportingXlsx(true);
     try {
+      await loadXLSX();
       const blob = buildPlanningExportXLSX({
         currentMonth,
         currentYear,
@@ -2987,6 +1838,42 @@ export default function Planning() {
     return false;
   });
 
+  // ---- Incohérences (personne planifiée malgré une absence déclarée) : visibles au Responsable+, ignorables par la Coordination+ ----
+  const allConflicts = canManage()
+    ? computeConflicts({ dates, sections, defaultSections: DEFAULT_SECTIONS, affectations, monthAbsences, notes, absences, rosterNames: technicienNames })
+    : [];
+  const isIgnoredConflict = (c) => ignoredConflicts.includes(c.id);
+  const activeConflicts = allConflicts.filter((c) => !isIgnoredConflict(c));
+  const ignoredList = allConflicts.filter((c) => isIgnoredConflict(c));
+  const canIgnoreConflicts = isGestionnairePlus;
+  const conflictByCell = {};
+  allConflicts.forEach((c) => c.cells.forEach((cell) => {
+    conflictByCell[`${cell.day}|${cell.key}|${cell.dateIdx}`] = c;
+  }));
+  const ignoreConflict = (id) => setIgnoredConflicts((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  const restoreConflict = (id) => setIgnoredConflicts((prev) => prev.filter((x) => x !== id));
+  const ignoreAllConflicts = () => setIgnoredConflicts((prev) => Array.from(new Set([...prev, ...allConflicts.map((c) => c.id)])));
+  const focusConflict = (c) => {
+    const cell = c.cells[0];
+    if (!cell) return;
+    if (cell.day !== activeDay) setActiveDay(cell.day);
+    setPublishRecapOpen(false);
+    setFlashConflictId(c.id);
+    setTimeout(() => setFlashConflictId((cur) => (cur === c.id ? null : cur)), 8000);
+    setTimeout(() => {
+      const el = document.querySelector(`td[data-cell="${cell.day}|${cell.key}|${cell.dateIdx}"]`);
+      if (!el) return;
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      el.classList.add("animate-pulse");
+      setTimeout(() => el.classList.remove("animate-pulse"), 2500);
+    }, 200);
+  };
+  // Publier : s'il reste des incohérences non ignorées, un récapitulatif s'affiche d'abord (ignorer, revenir au planning ou publier).
+  const requestPublish = () => {
+    if (activeConflicts.length > 0) setPublishRecapOpen(true);
+    else handlePublish();
+  };
+
   if (evenementView) {
     return (
       <PlanningEvenementSection
@@ -3282,7 +2169,9 @@ export default function Planning() {
                               <td
                                 key={dateIdx}
                                 data-cell={`${activeDay}|${key}|${dateIdx}`}
-                                className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}`}
+                                data-editable={!cellBlocked && !cellModeActive && canEditPlanningCell(section.name, role.key, role.label) ? "1" : "0"}
+                                className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}${(() => { const cf0 = conflictByCell[`${activeDay}|${key}|${dateIdx}`]; const cf = cf0 && (planningEditMode || cf0.id === flashConflictId) ? cf0 : null; if (!cf) return ""; if (isIgnoredConflict(cf)) return " outline outline-2 -outline-offset-2 outline-dashed outline-amber-400 print:outline-none"; return (cf.type === "incomplet" ? " ring-2 ring-inset ring-amber-500 !bg-amber-100 dark:!bg-amber-900/40" : " ring-2 ring-inset ring-red-500 !bg-red-100 dark:!bg-red-900/40") + " print:ring-0 print:!bg-white"; })()}`}
+                                title={(() => { const cf0 = conflictByCell[`${activeDay}|${key}|${dateIdx}`]; const cf = cf0 && (planningEditMode || cf0.id === flashConflictId) ? cf0 : null; return cf ? `${isIgnoredConflict(cf) ? "Alerte ignorée — " : "⚠ "}${cf.detail}` : undefined; })()}
                                 onClick={() =>
                                   cellModeActive &&
                                   toggleCellBlocked(role.key, slotIdx, dateIdx)
@@ -3491,241 +2380,36 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 `}</style>
 
       {/* Header - hidden on print */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            Planning général
-            {canManage() && planning && !planning.is_published && (
-              <Badge
-                variant="outline"
-                className="text-amber-700 border-amber-400 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 print:hidden"
-              >
-                Brouillon — invisible pour les Techniciens
-              </Badge>
-            )}
-          </h1>
-          <p className="text-muted-foreground">
-            Planification mensuelle des équipes
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                data-testid="export-menu-btn"
-                className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
-              >
-                <Download className="w-4 h-4 shrink-0 mr-2" />
-                <span className="text-xs sm:text-sm">Exporter</span>
-                <ChevronDown className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handlePrint} data-testid="print-btn">
-                <Printer className="w-4 h-4 shrink-0 mr-2" />
-                Imprimer
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleExportPng}
-                disabled={exportingPng}
-                data-testid="export-png-btn"
-              >
-                {exportingPng ? (
-                  <Loader2 className="w-4 h-4 shrink-0 mr-2 animate-spin" />
-                ) : (
-                  <ImageDown className="w-4 h-4 shrink-0 mr-2" />
-                )}
-                Enregistrer en PNG
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleExportXlsx}
-                disabled={exportingXlsx}
-                data-testid="export-xlsx-btn"
-              >
-                {exportingXlsx ? (
-                  <Loader2 className="w-4 h-4 shrink-0 mr-2 animate-spin" />
-                ) : (
-                  <FileSpreadsheet className="w-4 h-4 shrink-0 mr-2" />
-                )}
-                Enregistrer en Excel
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {canManage() && (
-            <Button
-              variant="outline"
-              onClick={() => setEvenementView(true)}
-              data-testid="planning-evenement-btn"
-              className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
-            >
-              <PartyPopper className="w-4 h-4 shrink-0 mr-2" />
-              <span className="text-xs sm:text-sm">Planning événement</span>
-            </Button>
-          )}
-          {canValidate() &&
-            planningEditMode &&
-            !planningScope.is_restricted && (
-              <Button
-                variant="outline"
-                onClick={handleResetPlanningVierge}
-                data-testid="reset-planning-btn"
-                className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none text-destructive hover:text-destructive"
-              >
-                <Eraser className="w-4 h-4 shrink-0 mr-2" />
-                <span className="text-xs sm:text-sm">Planning vierge</span>
-              </Button>
-            )}
-          {canManage() && planningEditMode && planning?.id && (
-            <Button
-              variant="outline"
-              onClick={openDuplicate}
-              disabled={duplicating || saving}
-              data-testid="duplicate-last-month-btn"
-              className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
-              title="Remplir les cases vides avec le mois précédent"
-            >
-              {duplicating ? (
-                <Loader2 className="w-4 h-4 shrink-0 mr-2 animate-spin" />
-              ) : (
-                <CopyPlus className="w-4 h-4 shrink-0 mr-2" />
-              )}
-              <span className="text-xs sm:text-sm">
-                Dupliquer le mois dernier
-              </span>
-            </Button>
-          )}
-          {canManage() && planningEditMode && planning?.id && (
-            <Button
-              variant="outline"
-              onClick={() => setCopyDaysDialog(true)}
-              data-testid="copy-between-days-btn"
-              className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
-              title="Copier ce qui est rempli d'un jour vers l'autre (même mois)"
-            >
-              <ArrowLeftRight className="w-4 h-4 shrink-0 mr-2" />
-              <span className="text-xs sm:text-sm">
-                Copier Dimanche ⇄ Vendredi
-              </span>
-            </Button>
-          )}
-          {canManage() && planningEditMode && (
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              data-testid="save-btn"
-              className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 shrink-0 mr-2 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4 shrink-0 mr-2" />
-              )}
-              <span className="text-xs sm:text-sm">Enregistrer</span>
-            </Button>
-          )}
-          {canManage() && planningEditMode && (
-            <Button
-              variant="outline"
-              onClick={handleUndo}
-              disabled={undoStack.length === 0}
-              data-testid="undo-btn"
-              className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
-              title={
-                undoStack.length === 0
-                  ? "Aucune action à annuler"
-                  : "Annuler la dernière action effectuée sur ce planning"
-              }
-            >
-              <Undo2 className="w-4 h-4 shrink-0 mr-2" />
-              <span className="text-xs sm:text-sm">Retour en arrière</span>
-            </Button>
-          )}
-          <LivePresence users={live.users} />
-          <LiveStyle users={live.users} flashes={live.flashes} cellPrefix={`${activeDay}|`} />
-          {canManage() && planningEditMode && (
-            <span
-              className="text-xs text-muted-foreground flex items-center gap-1 print:hidden"
-              data-testid="autosave-status"
-            >
-              {autoSaveStatus === "saving" && (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />{" "}
-                  Enregistrement...
-                </>
-              )}
-              {autoSaveStatus === "saved" && (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />{" "}
-                  Enregistré automatiquement
-                </>
-              )}
-              {autoSaveStatus === "pending" && (
-                <>
-                  <Cloud className="w-3.5 h-3.5" /> Modifications en attente...
-                </>
-              )}
-              {autoSaveStatus === "error" && (
-                <span className="text-destructive">
-                  Échec de l'enregistrement auto
-                </span>
-              )}
-            </span>
-          )}
-          {isGestionnairePlus &&
-            planning?.id &&
-            (planning.is_published ? (
-              <Button
-                variant="outline"
-                onClick={handleUnpublish}
-                disabled={publishing}
-                data-testid="unpublish-btn"
-                className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
-                title="Repasser en brouillon (invisible pour les Techniciens)"
-              >
-                {publishing ? (
-                  <Loader2 className="w-4 h-4 shrink-0 mr-2 animate-spin" />
-                ) : (
-                  <EyeOff className="w-4 h-4 shrink-0 mr-2" />
-                )}
-                <span className="text-xs sm:text-sm">Dépublier</span>
-              </Button>
-            ) : (
-              <Button
-                onClick={handlePublish}
-                disabled={publishing}
-                data-testid="publish-btn"
-                className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none bg-emerald-600 hover:bg-emerald-700"
-                title="Rendre ce planning visible pour tous les Techniciens"
-              >
-                {publishing ? (
-                  <Loader2 className="w-4 h-4 shrink-0 mr-2 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4 shrink-0 mr-2" />
-                )}
-                <span className="text-xs sm:text-sm">Publier</span>
-              </Button>
-            ))}
-          {canManage() && (
-            <Button
-              variant={planningEditMode ? "secondary" : "default"}
-              onClick={toggleEditMode}
-              data-testid="toggle-edit-mode-btn"
-              className="flex-1 min-w-[45%] sm:min-w-0 sm:flex-none"
-            >
-              {planningEditMode ? (
-                <X className="w-4 h-4 shrink-0 mr-2" />
-              ) : (
-                <Pencil className="w-4 h-4 shrink-0 mr-2" />
-              )}
-              <span className="text-xs sm:text-sm">
-                {planningEditMode ? "Terminer l'édition" : "Editer"}
-              </span>
-            </Button>
-          )}
-        </div>
-      </div>
+      <PlanningHeaderBar
+            activeDay={activeDay}
+            autoSaveStatus={autoSaveStatus}
+            canManage={canManage}
+            canValidate={canValidate}
+            duplicating={duplicating}
+            exportingPng={exportingPng}
+            exportingXlsx={exportingXlsx}
+            handleExportPng={handleExportPng}
+            handleExportPngStory={handleExportPngStory}
+            handleExportXlsx={handleExportXlsx}
+            handlePrint={handlePrint}
+            handlePublish={requestPublish}
+            handleResetPlanningVierge={handleResetPlanningVierge}
+            handleSave={handleSave}
+            handleUndo={handleUndo}
+            handleUnpublish={handleUnpublish}
+            isGestionnairePlus={isGestionnairePlus}
+            live={live}
+            openDuplicate={openDuplicate}
+            planning={planning}
+            planningEditMode={planningEditMode}
+            planningScope={planningScope}
+            publishing={publishing}
+            saving={saving}
+            setCopyDaysDialog={setCopyDaysDialog}
+            setEvenementView={setEvenementView}
+            toggleEditMode={toggleEditMode}
+            undoStack={undoStack}
+          />
 
       {isTechnicien && notPublished && (
         <div className="print:hidden rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-4 flex items-start gap-2.5">
@@ -3739,114 +2423,13 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
       {/* Month Navigation - hidden on print. Membre accounts only ever see
 the current month, so navigation is replaced with a plain label. */}
-      <Card className="print:hidden">
-        <CardContent className="p-3 sm:p-4">
-          {isMembre ? (
-            <div className="text-center font-medium text-sm sm:text-base">
-              {MOIS_NOMS[currentMonth - 1]} {currentYear}
-              <span className="text-muted-foreground text-xs sm:text-sm font-normal ml-2">
-                (mois en cours)
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between gap-1 sm:gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
-                disabled={
-                  currentYear === MIN_YEAR &&
-                  currentMonth <= MIN_MONTH_IN_MIN_YEAR
-                }
-                onClick={() => {
-                  if (
-                    currentYear === MIN_YEAR &&
-                    currentMonth <= MIN_MONTH_IN_MIN_YEAR
-                  )
-                    return;
-                  if (currentMonth === 1) {
-                    setCurrentMonth(12);
-                    setCurrentYear((prev) => Math.max(MIN_YEAR, prev - 1));
-                  } else {
-                    setCurrentMonth((prev) => prev - 1);
-                  }
-                }}
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </Button>
-
-              <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-                <Select
-                  value={String(currentMonth)}
-                  onValueChange={(v) => setCurrentMonth(parseInt(v))}
-                >
-                  <SelectTrigger className="w-[104px] sm:w-[140px] text-xs sm:text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MOIS_NOMS.map((nom, idx) => {
-                      const monthNum = idx + 1;
-                      if (
-                        currentYear === MIN_YEAR &&
-                        monthNum < MIN_MONTH_IN_MIN_YEAR
-                      )
-                        return null;
-                      return (
-                        <SelectItem key={idx} value={String(monthNum)}>
-                          {nom}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={String(currentYear)}
-                  onValueChange={(v) => {
-                    const year = parseInt(v);
-                    setCurrentYear(year);
-                    if (
-                      year === MIN_YEAR &&
-                      currentMonth < MIN_MONTH_IN_MIN_YEAR
-                    ) {
-                      setCurrentMonth(MIN_MONTH_IN_MIN_YEAR);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-[76px] sm:w-[100px] text-xs sm:text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {YEARS.map((year) => (
-                      <SelectItem key={year} value={String(year)}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
-                disabled={currentYear === MAX_YEAR && currentMonth >= 12}
-                onClick={() => {
-                  if (currentYear === MAX_YEAR && currentMonth >= 12) return;
-                  if (currentMonth === 12) {
-                    setCurrentMonth(1);
-                    setCurrentYear((prev) => Math.min(MAX_YEAR, prev + 1));
-                  } else {
-                    setCurrentMonth((prev) => prev + 1);
-                  }
-                }}
-              >
-                <ChevronRight className="w-5 h-5" />
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <PlanningMonthNav
+            currentMonth={currentMonth}
+            currentYear={currentYear}
+            isMembre={isMembre}
+            setCurrentMonth={setCurrentMonth}
+            setCurrentYear={setCurrentYear}
+          />
 
       {/* Day Tabs */}
       <Tabs
@@ -3870,32 +2453,49 @@ who's absent this month" list, this only appears once someone who
 declared themselves unavailable is actually typed into a grid cell
 on a colliding date — so it appears, disappears, and reappears live
 as the affectations are edited. */}
-      {canManage() && conflictingAbsences.length > 0 && (
-        <div className="print:hidden rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-4 space-y-2">
-          <p className="font-semibold text-sm text-red-800 dark:text-red-400 flex items-center gap-2">
-            <CalendarOff className="w-4 h-4" />
-            Conflit planning / absence — personne planifiée malgré une absence
-            déclarée
-          </p>
-          <div className="space-y-1">
-            {conflictingAbsences.map((a) => (
-              <p key={a.id} className="text-sm text-red-900 dark:text-red-300">
-                <span className="font-medium">{a.full_name}</span> indisponible
-                du{" "}
-                {new Date(a.date_debut + "T00:00:00").toLocaleDateString(
-                  "fr-FR",
-                  { day: "2-digit", month: "2-digit" },
-                )}{" "}
-                au{" "}
-                {new Date(a.date_fin + "T00:00:00").toLocaleDateString(
-                  "fr-FR",
-                  { day: "2-digit", month: "2-digit" },
+      {canManage() && allConflicts.length > 0 && (
+        <div className="print:hidden space-y-2" data-testid="planning-conflicts">
+          {activeConflicts.length > 0 && (
+            <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-4 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold text-sm text-red-800 dark:text-red-400 flex items-center gap-2 flex-1">
+                  <CalendarOff className="w-4 h-4" />
+                  {activeConflicts.length} incohérence(s) dans le planning{planningEditMode ? " — cases encadrées en rouge (absence) ou en orange (case incomplète)" : " — passe en mode édition pour voir les cases"} (le contenu n'est pas modifié)
+                </p>
+                {canIgnoreConflicts && (
+                  <Button size="sm" variant="outline" onClick={ignoreAllConflicts}>Tout ignorer</Button>
                 )}
-                {" — "}
-                {a.raison}
-              </p>
-            ))}
-          </div>
+              </div>
+              <div className="space-y-1">
+                {activeConflicts.map((c) => (
+                  <div key={c.id} className="flex flex-wrap items-center gap-2 text-sm text-red-900 dark:text-red-300">
+                    <span className="flex-1 min-w-[12rem]">
+                      <span className={`mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${c.type === "incomplet" ? "bg-amber-200 text-amber-900" : "bg-red-200 text-red-900"}`}>{c.type === "incomplet" ? "Case incomplète" : "Absence"}</span>
+                      <span className="font-medium">{c.name}</span> · {fmtIso(c.iso)} · {c.detail}
+                    </span>
+                    <Button size="sm" className="h-8 px-3 gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold shadow-sm" onClick={() => focusConflict(c)} data-testid="conflict-see-btn"><Eye className="w-4 h-4" /> Voir</Button>
+                    {canIgnoreConflicts && (
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => ignoreConflict(c.id)}>Ignorer</Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {ignoredList.length > 0 && (
+            <details className="rounded-lg border border-amber-300 bg-amber-50/60 dark:bg-amber-950/20 p-3 text-sm">
+              <summary className="cursor-pointer font-medium text-amber-800 dark:text-amber-400">{ignoredList.length} alerte(s) ignorée(s)</summary>
+              <div className="mt-2 space-y-1">
+                {ignoredList.map((c) => (
+                  <div key={c.id} className="flex flex-wrap items-center gap-2">
+                    <span className="flex-1 min-w-[12rem]"><span className="font-medium">{c.name}</span> · {fmtIso(c.iso)} · {c.detail}</span>
+                    <Button size="sm" className="h-8 px-3 gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold shadow-sm" onClick={() => focusConflict(c)} data-testid="conflict-see-btn"><Eye className="w-4 h-4" /> Voir</Button>
+                    {canIgnoreConflicts && <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => restoreConflict(c.id)}>Rétablir l'alerte</Button>}
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       )}
 
@@ -3905,207 +2505,47 @@ scroll on phones/desktop (feedback 21/09/2026). Still deliberately
 outside printRef so print/PNG export never need any hide-this-column
 logic. Coordination+ only, et seulement en mode édition. */}
         {canManage() && planningEditMode && (
-          <Card className="print:hidden">
-            <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <PlanningTeamAbsences
-                techniciens={techniciens}
-                declared={declaredAbsencesForActiveDay}
-                text={absences[activeDay] || ""}
-                onTextChange={(v) =>
-                  setAbsences((prev) => ({ ...prev, [activeDay]: v }))
-                }
-                onCreated={refreshAbsencesAfterChange}
-              />
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold">
-                  Notes / informations pertinentes
-                </label>
-                <textarea
-                  className="w-full min-h-[120px] text-sm border border-input rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-ring p-2 resize-y"
-                  value={notes[activeDay] || ""}
-                  onChange={(e) =>
-                    setNotes((prev) => ({
-                      ...prev,
-                      [activeDay]: e.target.value,
-                    }))
-                  }
-                  placeholder="Notes / informations pertinentes..."
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <PlanningNotesCard
+            absences={absences}
+            activeDay={activeDay}
+            declaredAbsencesForActiveDay={declaredAbsencesForActiveDay}
+            notes={notes}
+            refreshAbsencesAfterChange={refreshAbsencesAfterChange}
+            setAbsences={setAbsences}
+            setNotes={setNotes}
+            techniciens={techniciens}
+          />
         )}
 
       {/* Printable / exportable planning area + panneau latéral d'affectation
 pour Coordination+. Le panneau est en dehors de printRef (jamais
 exporté/imprimé) et se recalcule en direct pendant l'édition. */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start">
-        <div className="flex-1 min-w-0 w-full">
-          <div
-            ref={printRef}
-            className="bg-white text-black p-2 sm:p-4 print:p-0"
-          >
-            <div
-              className={`text-center font-bold text-base sm:text-xl mb-1 ${theme.title}`}
-            >
-              {titreOverrides[activeDay]?.titre ||
-                `${MOIS_NOMS[currentMonth - 1].toUpperCase()} ${currentYear} - ${activeDay.toUpperCase()}`}
-            </div>
-            <div
-              className={`text-center font-semibold text-xs sm:text-sm py-1 mb-3 ${theme.subtitle}`}
-            >
-              {titreOverrides[activeDay]?.sous_titre ||
-                (activeDay === "dimanche"
-                  ? "RDV à partir de 8h00 en salle 114"
-                  : "RDV à partir de 18h30 en salle 114")}
-            </div>
-            {canManage() &&
-              planningEditMode &&
-              !planningScope.is_restricted && (
-                <div className="flex justify-center mb-2 print:hidden">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 text-xs"
-                    onClick={openEditHeader}
-                  >
-                    <Settings className="w-3 h-3 mr-1" /> Modifier l'en-tête
-                  </Button>
-                </div>
-              )}
-
-            {isGestionnairePlus && planningEditMode && (
-              <div className="flex justify-end items-center gap-2 mb-2 print:hidden">
-                <span className="text-xs text-muted-foreground hidden sm:inline">
-                  Affichage des noms
-                </span>
-                <Select value={affichageNoms} onValueChange={setAffichageNoms}>
-                  <SelectTrigger
-                    className="w-[150px] h-8 text-xs"
-                    data-testid="affichage-noms-select"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="upper">MAJUSCULE</SelectItem>
-                    <SelectItem value="lower">minuscule</SelectItem>
-                    <SelectItem value="capitalize">Première lettre</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {canValidate() &&
-              planningEditMode &&
-              !planningScope.is_restricted && (
-                <div className="flex justify-end items-center gap-2 mb-2 print:hidden">
-                  {cellBlockMode && (
-                    <span className="text-xs text-muted-foreground hidden sm:inline">
-                      Cliquez sur une case pour la griser / dégriser
-                    </span>
-                  )}
-                  <Button
-                    variant={cellBlockMode ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCellBlockMode((v) => !v)}
-                  >
-                    <Ban className="w-4 h-4 mr-2" />
-                    {cellBlockMode ? "Terminer" : "Griser une case"}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={openEditDates}>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Éditer dates
-                  </Button>
-                </div>
-              )}
-
-            <Card className="print:shadow-none print:border-0 bg-white text-black">
-              <CardContent className="p-0">
-                {/* Sum of the fixed colgroup widths in renderTable (220px label
-+ 115px per date column + 120px actions column — sized for the
-common 4-button row; merged/split rows grow a 2nd row instead of
-widening) — passed in directly rather than measured, since
-measuring a `w-full` table's own wrapper creates a circular width
-reference. */}
-                <ScaleToFitMobile
-                  key={`t1-${activeDay}-${currentDates.length}`}
-                  naturalWidth={
-                    220 +
-                    currentDates.length * 115 +
-                    (canValidate() && planningEditMode ? 120 : 0) +
-                    4
-                  }
-                >
-                  {renderTable("table1", daySections.table1)}
-                </ScaleToFitMobile>
-                {canValidate() &&
-                  planningEditMode &&
-                  !planningScope.is_restricted && (
-                    <div className="flex justify-end px-2 pb-3 print:hidden">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openAddCategory("table1")}
-                      >
-                        <FolderPlus className="w-4 h-4 mr-2" /> Ajouter
-                        catégorie
-                      </Button>
-                    </div>
-                  )}
-                <ScaleToFitMobile
-                  key={`t2-${activeDay}-${currentDates.length}`}
-                  naturalWidth={
-                    220 +
-                    currentDates.length * 115 +
-                    (canValidate() && planningEditMode ? 120 : 0) +
-                    4
-                  }
-                >
-                  {renderTable("table2", daySections.table2)}
-                </ScaleToFitMobile>
-                {canValidate() &&
-                  planningEditMode &&
-                  !planningScope.is_restricted && (
-                    <div className="flex justify-end px-2 pb-3 print:hidden">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openAddCategory("table2")}
-                      >
-                        <FolderPlus className="w-4 h-4 mr-2" /> Ajouter
-                        catégorie
-                      </Button>
-                    </div>
-                  )}
-
-                {/*One datalist per poste category actually used today, each
-pre-filtered to the people qualified for it — plus the
-unfiltered "tech-list" as a safety-net fallback id. */}
-                {distinctPostesToday.map((poste) => (
-                  <datalist key={poste} id={`tech-list-${slugPoste(poste)}`}>
-                    {namesForPoste(poste).map((name) => (
-                      <option key={name} value={name} />
-                    ))}
-                  </datalist>
-                ))}
-                <datalist id="tech-list">
-                  {technicienNames.map((name) => (
-                    <option key={name} value={name} />
-                  ))}
-                </datalist>
-              </CardContent>
-            </Card>
-
-            <p className="text-center text-xs text-muted-foreground mt-2 italic font-semibold">
-              SOUS RÉSERVE DE CHANGEMENTS ÉVENTUELS FAITS PAR LE RESPONSABLE DU
-              DÉPARTEMENT
-            </p>
-          </div>
-
-        </div>
-
-      </div>
+      <PlanningTableArea
+            activeDay={activeDay}
+            affichageNoms={affichageNoms}
+            canManage={canManage}
+            canValidate={canValidate}
+            cellBlockMode={cellBlockMode}
+            currentDates={currentDates}
+            currentMonth={currentMonth}
+            currentYear={currentYear}
+            daySections={daySections}
+            distinctPostesToday={distinctPostesToday}
+            isGestionnairePlus={isGestionnairePlus}
+            namesForPoste={namesForPoste}
+            openAddCategory={openAddCategory}
+            openEditDates={openEditDates}
+            openEditHeader={openEditHeader}
+            planningEditMode={planningEditMode}
+            planningScope={planningScope}
+            printRef={printRef}
+            renderTable={renderTable}
+            setAffichageNoms={setAffichageNoms}
+            setCellBlockMode={setCellBlockMode}
+            technicienNames={technicienNames}
+            theme={theme}
+            titreOverrides={titreOverrides}
+          />
 
       {/* Panneau "Déjà affectés / Pas encore affectés" — tiroir fixe
 collé au bord droit de l'écran (PC ET mobile). Onglet toujours visible ;
@@ -4114,542 +2554,141 @@ place réservée dans la mise en page) donc il ne pousse plus rien vers
 le bas sur mobile. Survol = ouverture/fermeture automatique sur PC ;
 tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
       {canManage() && planningEditMode && (
-        <div
-          // pointer-events-none here + pointer-events-auto on just the
-          // handle tab and the panel below: without this, this wrapper's
-          // own (invisible, untransformed) hit box always spans the full
-          // w-72 width at the right edge — even while "closed" — which was
-          // sitting on top of and swallowing hover/clicks meant for the
-          // Planning table's row-action buttons underneath it on desktop
-          // (user feedback 21/09/2026: "quand je hover juste un peu sur la
-          // zone il s'ouvre, je ne peux plus cliquer up/down/griser/
-          // supprimer"). Now only the actually-visible parts (tab, open
-          // panel) can receive/trigger events; everywhere else is
-          // click-through.
-          className="print:hidden fixed top-24 right-0 z-30 pointer-events-none"
-          onMouseEnter={() => setRosterPanelOpen(true)}
-          onMouseLeave={() => setRosterPanelOpen(false)}
-        >
-          {/* max-height was a flat 70vh, leaving visible unused space below
-          the panel on both desktop and mobile (user feedback 21/09/2026)
-          since the panel starts at top-24 (6rem from the top) — there was
-          always more room below it than 70% of the FULL viewport. Use the
-          space actually available under the top offset instead; dvh (where
-          supported, notably mobile) accounts for the browser's address bar
-          so it doesn't overflow off-screen there either. */}
-          <style>{`
-.roster-panel-scroll {
-  max-height: 70vh;
-  max-height: calc(100vh - 7rem);
-  max-height: calc(100dvh - 7rem);
-}
-`}</style>
-          <div
-            className={`relative w-72 max-w-[80vw] bg-card border border-border rounded-l-lg shadow-xl transition-transform duration-200 ease-out pointer-events-auto ${
-              rosterPanelOpen ? "translate-x-0" : "translate-x-full"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => setRosterPanelOpen((o) => !o)}
-              title="Affectations du mois"
-              className="absolute -left-9 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 bg-primary text-primary-foreground rounded-l-lg px-1.5 py-3 shadow-lg pointer-events-auto"
-            >
-              <Users className="w-4 h-4" />
-              {assignmentRoster.notAssigned.length > 0 && (
-                <span className="text-[10px] font-bold leading-none bg-amber-400 text-amber-950 rounded-full w-4 h-4 flex items-center justify-center">
-                  {assignmentRoster.notAssigned.length}
-                </span>
-              )}
-            </button>
-            <div className="roster-panel-scroll p-4 space-y-4 overflow-y-auto">
-              {myBranches.length > 0 && (
-                <div className="space-y-1">
-                  <div className="inline-flex w-full rounded-md border p-0.5 text-xs">
-                    {[
-                      ["mine", myBranches.length > 1 ? "Mes équipes" : "Mon équipe"],
-                      ["all", "Général"],
-                    ].map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setRosterScope(value)}
-                        className={`flex-1 rounded px-2 py-1 font-medium transition-colors ${
-                          effectiveRosterScope === value
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {effectiveRosterScope === "mine" && (
-                    <p className="text-[11px] text-muted-foreground">
-                      {myBranches.join(", ")}
-                    </p>
-                  )}
-                </div>
-              )}
-              <div>
-                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-1.5">
-                  Déjà affectés ce mois-ci ({assignmentRoster.assigned.length}
-                  )
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {assignmentRoster.assigned.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      Personne pour l'instant.
-                    </p>
-                  ) : (
-                    assignmentRoster.assigned.map((n) => (
-                      <Badge
-                        key={n}
-                        className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
-                      >
-                        {n}
-                      </Badge>
-                    ))
-                  )}
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-1.5">
-                  Pas encore affectés ({assignmentRoster.notAssigned.length})
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {assignmentRoster.notAssigned.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      Tout le monde est affecté.
-                    </p>
-                  ) : (
-                    assignmentRoster.notAssigned.map((n) => (
-                      <Badge key={n} variant="outline">
-                        {n}
-                      </Badge>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PlanningAssignPanel
+            assignmentRoster={assignmentRoster}
+            effectiveRosterScope={effectiveRosterScope}
+            myBranches={myBranches}
+            rosterPanelOpen={rosterPanelOpen}
+            setRosterPanelOpen={setRosterPanelOpen}
+            setRosterScope={setRosterScope}
+          />
       )}
 
       {/* Edit Header (title/subtitle) Dialog */}
-      <Dialog
-        open={editHeaderDialog}
-        onOpenChange={(open) => !open && setEditHeaderDialog(false)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Modifier l'en-tête (
-              {activeDay === "dimanche" ? "Dimanche" : "Vendredi"})
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Titre principal</label>
-              <Input
-                value={headerDraft.titre}
-                onChange={(e) =>
-                  setHeaderDraft((prev) => ({ ...prev, titre: e.target.value }))
-                }
-                placeholder={`${MOIS_NOMS[currentMonth - 1].toUpperCase()} ${currentYear} - ${activeDay.toUpperCase()}`}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Sous-titre</label>
-              <Input
-                value={headerDraft.sous_titre}
-                onChange={(e) =>
-                  setHeaderDraft((prev) => ({
-                    ...prev,
-                    sous_titre: e.target.value,
-                  }))
-                }
-                placeholder={
-                  activeDay === "dimanche"
-                    ? "RDV à partir de 8h00 en salle 114"
-                    : "RDV à partir de 18h30 en salle 114"
-                }
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Laissez vide pour revenir au texte généré automatiquement.
-            </p>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={resetHeaderDraft}
-              >
-                Réinitialiser
-              </Button>
-              <Button className="flex-1" onClick={saveHeaderDraft}>
-                Enregistrer
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <EditHeaderDialog
+            activeDay={activeDay}
+            currentMonth={currentMonth}
+            currentYear={currentYear}
+            editHeaderDialog={editHeaderDialog}
+            headerDraft={headerDraft}
+            resetHeaderDraft={resetHeaderDraft}
+            saveHeaderDraft={saveHeaderDraft}
+            setEditHeaderDialog={setEditHeaderDialog}
+            setHeaderDraft={setHeaderDraft}
+          />
 
       {/* Edit Date Label Dialog */}
-      <Dialog
-        open={!!editDateLabelDialog}
-        onOpenChange={(open) => !open && setEditDateLabelDialog(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Texte sous la date
-              {editDateLabelDialog
-                ? ` (${formatDate(editDateLabelDialog)})`
-                : ""}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              value={dateLabelDraft}
-              onChange={(e) => setDateLabelDraft(e.target.value)}
-              placeholder="Ex : Invité : Jonathan Stockstill, ou Fête des pères"
-            />
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={clearDateLabelDraft}
-              >
-                Effacer
-              </Button>
-              <Button className="flex-1" onClick={saveDateLabelDraft}>
-                Enregistrer
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <EditDateLabelDialog
+            clearDateLabelDraft={clearDateLabelDraft}
+            dateLabelDraft={dateLabelDraft}
+            editDateLabelDialog={editDateLabelDialog}
+            formatDate={formatDate}
+            saveDateLabelDraft={saveDateLabelDraft}
+            setDateLabelDraft={setDateLabelDraft}
+            setEditDateLabelDialog={setEditDateLabelDialog}
+          />
 
       {/* Edit Role Dialog */}
-      <Dialog
-        open={!!editSectionDialog}
-        onOpenChange={() => setEditSectionDialog(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Options du poste</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              value={editRoleLabel}
-              onChange={(e) => setEditRoleLabel(e.target.value)}
-              placeholder="Nom du poste"
-            />
-            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={editRoleSeparateur}
-                onChange={(e) => setEditRoleSeparateur(e.target.checked)}
-              />
-              Ajouter un séparateur (ligne épaisse) juste après ce poste
-            </label>
-            <Button onClick={saveRoleLabel} className="w-full">
-              Enregistrer
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <EditSectionDialog
+            editRoleLabel={editRoleLabel}
+            editRoleSeparateur={editRoleSeparateur}
+            editSectionDialog={editSectionDialog}
+            saveRoleLabel={saveRoleLabel}
+            setEditRoleLabel={setEditRoleLabel}
+            setEditRoleSeparateur={setEditRoleSeparateur}
+            setEditSectionDialog={setEditSectionDialog}
+          />
 
       {/* Add Category Dialog */}
-      <Dialog
-        open={!!addCategoryDialog}
-        onOpenChange={(open) => !open && setAddCategoryDialog(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ajouter une catégorie</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="Ex: PHOTOGRAPHES"
-              onKeyDown={(e) => e.key === "Enter" && saveNewCategory()}
-            />
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setAddCategoryDialog(null)}
-              >
-                Annuler
-              </Button>
-              <Button onClick={saveNewCategory} className="flex-1">
-                Ajouter
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AddCategoryDialog
+            addCategoryDialog={addCategoryDialog}
+            newCategoryName={newCategoryName}
+            saveNewCategory={saveNewCategory}
+            setAddCategoryDialog={setAddCategoryDialog}
+            setNewCategoryName={setNewCategoryName}
+          />
 
       {/* Edit Category Dialog */}
-      <Dialog
-        open={!!editCategoryDialog}
-        onOpenChange={(open) => !open && setEditCategoryDialog(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Renommer la catégorie</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              value={editCategoryLabel}
-              onChange={(e) => setEditCategoryLabel(e.target.value)}
-              placeholder="Nom de la catégorie"
-              onKeyDown={(e) => e.key === "Enter" && saveCategoryLabel()}
-            />
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setEditCategoryDialog(null)}
-              >
-                Annuler
-              </Button>
-              <Button onClick={saveCategoryLabel} className="flex-1">
-                Enregistrer
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <EditCategoryDialog
+            editCategoryDialog={editCategoryDialog}
+            editCategoryLabel={editCategoryLabel}
+            saveCategoryLabel={saveCategoryLabel}
+            setEditCategoryDialog={setEditCategoryDialog}
+            setEditCategoryLabel={setEditCategoryLabel}
+          />
 
       {/* Copier Dimanche <-> Vendredi (demande Nathalie 22/08/2026) */}
       {/* Duplication du mois précédent — contrôle total : choix des sections,
           avec le nom de la dernière personne ayant modifié chacune. */}
-      <Dialog open={duplicateDialog} onOpenChange={setDuplicateDialog}>
-        <DialogContent className="max-w-lg">
+      <DuplicateDialog
+            duplicateChoice={duplicateChoice}
+            duplicateDialog={duplicateDialog}
+            duplicateSectionNames={duplicateSectionNames}
+            duplicating={duplicating}
+            handleDuplicateLastMonth={handleDuplicateLastMonth}
+            planning={planning}
+            setDuplicateChoice={setDuplicateChoice}
+            setDuplicateDialog={setDuplicateDialog}
+          />
+
+      <Dialog open={publishRecapOpen} onOpenChange={setPublishRecapOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" data-testid="publish-recap">
           <DialogHeader>
-            <DialogTitle>Dupliquer le mois dernier</DialogTitle>
+            <DialogTitle>Avant de publier : {activeConflicts.length} point(s) à vérifier</DialogTitle>
             <DialogDescription>
-              Choisissez les sections à remplir avec les affectations du mois
-              précédent. Seules les cases vides sont complétées, rien n'est
-              écrasé.
+              Ces cases sont encadrées en rouge (absence déclarée) ou en orange (case incomplète) en mode édition. Rien n'a été modifié : tu peux ignorer une alerte, revenir au planning pour corriger, ou publier quand même.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-1.5 max-h-[50vh] overflow-y-auto">
-            {duplicateSectionNames.map((name) => {
-              const last = planning?.section_last_edit?.[name];
-              return (
-                <label
-                  key={name}
-                  className="flex items-center gap-3 rounded-md border px-3 py-2 cursor-pointer hover:bg-muted/50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={!!duplicateChoice[name]}
-                    onChange={(e) =>
-                      setDuplicateChoice((c) => ({
-                        ...c,
-                        [name]: e.target.checked,
-                      }))
-                    }
-                  />
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium">{name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {last
-                        ? `Dernière modification : ${last.user_name} · ${new Date(
-                            last.at,
-                          ).toLocaleDateString("fr-FR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}`
-                        : "Aucune modification enregistrée"}
-                    </span>
-                  </span>
-                </label>
-              );
-            })}
+          <div className="overflow-y-auto space-y-2 py-1">
+            {activeConflicts.length === 0 && <p className="text-sm text-muted-foreground">Plus aucune incohérence : tu peux publier.</p>}
+            {activeConflicts.map((c) => (
+              <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
+                <span className={`w-2 h-2 rounded-full ${c.type === "absence" ? "bg-red-500" : "bg-amber-500"}`} />
+                <span className="flex-1 min-w-[12rem]"><span className="font-medium">{c.name}</span> · {fmtIso(c.iso)}<br /><span className="text-muted-foreground text-xs">{c.detail}</span></span>
+                <Button size="sm" className="gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => focusConflict(c)}><Eye className="w-4 h-4" /> Voir</Button>
+                {canIgnoreConflicts && <Button size="sm" variant="outline" onClick={() => ignoreConflict(c.id)}>Ignorer</Button>}
+              </div>
+            ))}
           </div>
-          <DialogFooter className="gap-2 sm:justify-between">
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  setDuplicateChoice(
-                    Object.fromEntries(
-                      duplicateSectionNames.map((n) => [n, true]),
-                    ),
-                  )
-                }
-              >
-                Tout cocher
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  setDuplicateChoice(
-                    Object.fromEntries(
-                      duplicateSectionNames.map((n) => [n, false]),
-                    ),
-                  )
-                }
-              >
-                Tout décocher
-              </Button>
-            </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setPublishRecapOpen(false)}>Revenir au planning</Button>
+            {canIgnoreConflicts && activeConflicts.length > 0 && (
+              <Button variant="outline" onClick={ignoreAllConflicts}>Tout ignorer</Button>
+            )}
             <Button
-              disabled={
-                duplicating ||
-                !duplicateSectionNames.some((n) => duplicateChoice[n])
-              }
-              onClick={() => {
-                const chosen = duplicateSectionNames.filter(
-                  (n) => duplicateChoice[n],
-                );
-                setDuplicateDialog(false);
-                handleDuplicateLastMonth(chosen);
-              }}
+              disabled={publishing || (activeConflicts.length > 0 && !canIgnoreConflicts)}
+              onClick={async () => { if (activeConflicts.length > 0) ignoreAllConflicts(); setPublishRecapOpen(false); await handlePublish(); }}
+              data-testid="publish-anyway-btn"
             >
-              Dupliquer ({duplicateSectionNames.filter((n) => duplicateChoice[n]).length})
+              {activeConflicts.length > 0 ? "Ignorer tout et publier" : "Publier"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={copyDaysDialog} onOpenChange={setCopyDaysDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ArrowLeftRight className="w-5 h-5" />
-              Copier entre Dimanche et Vendredi
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Copie les cases remplies d'un jour vers les rôles équivalents de
-              l'autre jour, pour ce même mois ({MOIS_NOMS[currentMonth - 1]}{" "}
-              {currentYear}). Les cases déjà remplies côté destination seront
-              remplacées.
-            </p>
-            <Select
-              value={copyDaysDirection}
-              onValueChange={setCopyDaysDirection}
-            >
-              <SelectTrigger data-testid="copy-days-direction-select">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dimanche_to_vendredi">
-                  Dimanche → Vendredi
-                </SelectItem>
-                <SelectItem value="vendredi_to_dimanche">
-                  Vendredi → Dimanche
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setCopyDaysDialog(false)}
-              >
-                Annuler
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={handleCopyBetweenDays}
-                data-testid="copy-days-confirm-btn"
-              >
-                Copier
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CopyDaysDialog
+            copyDaysDialog={copyDaysDialog}
+            copyDaysDirection={copyDaysDirection}
+            currentMonth={currentMonth}
+            currentYear={currentYear}
+            handleCopyBetweenDays={handleCopyBetweenDays}
+            setCopyDaysDialog={setCopyDaysDialog}
+            setCopyDaysDirection={setCopyDaysDirection}
+          />
 
       {/* Edit Dates Dialog */}
-      <Dialog open={editDatesDialog} onOpenChange={setEditDatesDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarDays className="w-5 h-5" />
-              Éditer les dates -{" "}
-              {activeDay === "dimanche" ? "Dimanches" : "Vendredis"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                type="date"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-                className="flex-1"
-              />
-              <Button onClick={addDate} size="sm">
-                <Plus className="w-4 h-4 mr-1" />
-                Ajouter
-              </Button>
-            </div>
-
-            <div className="border rounded-lg p-2 max-h-[250px] overflow-y-auto space-y-1">
-              {editingDates.length === 0 ? (
-                <p className="text-center text-muted-foreground text-sm py-4">
-                  Aucune date. Ajoutez-en ou réinitialisez.
-                </p>
-              ) : (
-                editingDates.map((date) => (
-                  <div
-                    key={date}
-                    className="flex items-center justify-between p-2 hover:bg-muted rounded"
-                  >
-                    <span className="font-medium">
-                      {new Date(date + "T00:00:00").toLocaleDateString(
-                        "fr-FR",
-                        {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "long",
-                        },
-                      )}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 w-7 p-0 text-destructive"
-                      onClick={() => removeDate(date)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={resetDatesToDefault}
-                className="flex-1"
-              >
-                Réinitialiser
-              </Button>
-              <Button onClick={saveDates} className="flex-1">
-                <Save className="w-4 h-4 mr-2" />
-                Enregistrer
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <EditDatesDialog
+            activeDay={activeDay}
+            addDate={addDate}
+            editDatesDialog={editDatesDialog}
+            editingDates={editingDates}
+            newDate={newDate}
+            removeDate={removeDate}
+            resetDatesToDefault={resetDatesToDefault}
+            saveDates={saveDates}
+            setEditDatesDialog={setEditDatesDialog}
+            setNewDate={setNewDate}
+          />
     </div>
   );
 }

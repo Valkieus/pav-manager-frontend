@@ -15,6 +15,7 @@ import IdleGuard from "./components/IdleGuard";
 // bundling every page into the initial load (faster first paint, especially on mobile).
 const Login = lazyWithRetry(() => import("./pages/Login"));
 const SsoLed = lazyWithRetry(() => import("./pages/SsoLed"));
+const SsoSongs = lazyWithRetry(() => import("./pages/SsoSongs"));
 const SsoAcademy = lazyWithRetry(() => import("./pages/SsoAcademy"));
 const Register = lazyWithRetry(() => import("./pages/Register"));
 const Confidentialite = lazyWithRetry(() => import("./pages/Confidentialite"));
@@ -63,6 +64,18 @@ const ProtectedRoute = ({ children }) => {
     return <KioskShell />;
   }
 
+  // Compte de service (ex. « incrustation ») : pas de PAV Manager, on l'envoie
+  // directement vers l'application à laquelle il a droit (CEC Songs).
+  if (user?.service_account) {
+    return (user.service_apps || []).includes("songs") ? (
+      <SsoSongs />
+    ) : (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 text-center text-sm text-muted-foreground">
+        Ce compte n'a accès à aucune application pour le moment. Contactez un administrateur.
+      </div>
+    );
+  }
+
   return (
     <>
       <IdleGuard />
@@ -86,7 +99,7 @@ const PublicRoute = ({ children }) => {
   if (isAuthenticated) {
     // Retour vers l'entrée SSO (site LED ou PAV Academy) si la connexion venait de là.
     const next = sessionStorage.getItem("post_login_next");
-    return <Navigate to={["/sso-led", "/sso-academy"].includes(next) ? next : "/"} replace />;
+    return <Navigate to={["/sso-led", "/sso-academy", "/sso-songs"].includes(next) ? next : "/"} replace />;
   }
 
   return children;
@@ -99,6 +112,7 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/sso-led" element={<SsoLed />} />
+      <Route path="/sso-songs" element={<SsoSongs />} />
       <Route path="/sso-academy" element={<SsoAcademy />} />
       <Route path="/inscription" element={<PublicRoute><Register /></PublicRoute>} />
       <Route path="/reservation/:token" element={<PublicReservation />} />

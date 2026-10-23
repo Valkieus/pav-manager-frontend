@@ -65,9 +65,11 @@ export const AuthProvider = ({ children }) => {
     try { sessionStorage.removeItem(VIEW_AS_KEY); } catch (e) { /* ignore */ }
     setViewAs(null);
   };
-  // Aperçu = lecture seule : toute requête qui modifierait des données est bloquée.
+  // Aperçu = lecture seule : toute requête qui modifierait des données est bloquée. Le serveur évalue aussi les droits
+  // du niveau simulé (en-tête X-View-As) : les écrans montrent ce que verrait vraiment cette personne.
   useEffect(() => {
-    if (!viewAsActive) return undefined;
+    if (!viewAsActive) { delete axios.defaults.headers.common["X-View-As"]; return undefined; }
+    axios.defaults.headers.common["X-View-As"] = viewAsActive;
     const id = axios.interceptors.request.use((config) => {
       const method = (config.method || "get").toLowerCase();
       if (!["get", "head", "options"].includes(method) && !String(config.url || "").includes("/auth/")) {
@@ -80,7 +82,7 @@ export const AuthProvider = ({ children }) => {
       }
       return config;
     });
-    return () => axios.interceptors.request.eject(id);
+    return () => { axios.interceptors.request.eject(id); delete axios.defaults.headers.common["X-View-As"]; };
   }, [viewAsActive]);
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [loading, setLoading] = useState(true);

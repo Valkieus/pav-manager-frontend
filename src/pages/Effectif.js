@@ -3,27 +3,8 @@ import axios from "axios";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
-import { Checkbox } from "../components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "../components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,35 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import {
-  Plus,
-  Users,
-  Loader2,
-  Search,
-  IdCard,
-  Edit,
-  Archive,
-  Trash2,
-  Settings,
-  X,
-  Check,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Send,
-  Download,
-  ChevronDown,
-  FileSpreadsheet,
-  FileText,
-  LayoutGrid,
-  List as ListIcon,
-  Phone,
-  Mail,
-  FilterX,
-} from "lucide-react";
-import * as XLSX from "xlsx-js-style";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import { Users, Loader2, IdCard, Clock, CheckCircle2, XCircle, Download, ChevronDown, FileSpreadsheet, FileText, Phone, Mail } from 'lucide-react';
 import {
   downloadOrShareFile,
   downloadStatusMessage,
@@ -69,91 +22,25 @@ import { invalidateTechniciensCache } from "../lib/technicienCache";
 import TeamAbsenceDashboard from "./TeamAbsenceDashboard";
 
 import { sanitizeContainer } from '../lib/safeHtml';
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { API, NIVEAU_ORDER, XLSX, getBranchColor, loadXLSX } from './effectif/constants';
+import { TechDetailDialog } from './effectif/TechDetailDialog';
+import { EffectifList } from './effectif/EffectifList';
+import { EffectifToolbar } from './effectif/EffectifToolbar';
+import { TechEditDialog } from './effectif/TechEditDialog';
+import { PosteManagerDialog } from './effectif/PosteManagerDialog';
+import { BadgesQueueDialog } from './effectif/BadgesQueueDialog';
+import { PendingTechniciensDialog } from './effectif/PendingTechniciensDialog';
 
-// Couleurs distinctives par branche
-const BRANCH_COLORS = {
-  Live: {
-    bg: "bg-red-100 dark:bg-red-900/30",
-    text: "text-red-700 dark:text-red-400",
-    border: "border-red-300 dark:border-red-700",
-    dot: "bg-red-500",
-  },
-  "Post-Prod": {
-    bg: "bg-blue-100 dark:bg-blue-900/30",
-    text: "text-blue-700 dark:text-blue-400",
-    border: "border-blue-300 dark:border-blue-700",
-    dot: "bg-blue-500",
-  },
-  Studio: {
-    bg: "bg-purple-100 dark:bg-purple-900/30",
-    text: "text-purple-700 dark:text-purple-400",
-    border: "border-purple-300 dark:border-purple-700",
-    dot: "bg-purple-500",
-  },
-  Technique: {
-    bg: "bg-amber-100 dark:bg-amber-900/30",
-    text: "text-amber-700 dark:text-amber-400",
-    border: "border-amber-300 dark:border-amber-700",
-    dot: "bg-amber-500",
-  },
-  Production: {
-    bg: "bg-emerald-100 dark:bg-emerald-900/30",
-    text: "text-emerald-700 dark:text-emerald-400",
-    border: "border-emerald-300 dark:border-emerald-700",
-    dot: "bg-emerald-500",
-  },
-  Diffusion: {
-    bg: "bg-cyan-100 dark:bg-cyan-900/30",
-    text: "text-cyan-700 dark:text-cyan-400",
-    border: "border-cyan-300 dark:border-cyan-700",
-    dot: "bg-cyan-500",
-  },
-  Animation: {
-    bg: "bg-orange-100 dark:bg-orange-900/30",
-    text: "text-orange-700 dark:text-orange-400",
-    border: "border-orange-300 dark:border-orange-700",
-    dot: "bg-orange-500",
-  },
-  Coordination: {
-    bg: "bg-indigo-100 dark:bg-indigo-900/30",
-    text: "text-indigo-700 dark:text-indigo-400",
-    border: "border-indigo-300 dark:border-indigo-700",
-    dot: "bg-indigo-500",
-  },
-  Supervision: {
-    bg: "bg-slate-100 dark:bg-slate-900/30",
-    text: "text-slate-700 dark:text-slate-400",
-    border: "border-slate-300 dark:border-slate-700",
-    dot: "bg-slate-500",
-  },
-  Régisseurs: {
-    bg: "bg-pink-100 dark:bg-pink-900/30",
-    text: "text-pink-700 dark:text-pink-400",
-    border: "border-pink-300 dark:border-pink-700",
-    dot: "bg-pink-500",
-  },
-  Logistique: {
-    bg: "bg-pink-100 dark:bg-pink-900/30",
-    text: "text-pink-700 dark:text-pink-400",
-    border: "border-pink-300 dark:border-pink-700",
-    dot: "bg-pink-500",
-  },
-};
 
-// Fenêtre « fiche » : centrée sur PC, plein écran sur téléphone (zones de sécurité iOS/Android respectées).
-const SHEET_CLASS =
-  "flex flex-col gap-0 overflow-hidden p-0 sm:max-w-xl sm:max-h-[90vh] sm:rounded-xl max-sm:left-0 max-sm:top-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-screen max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none";
 
-const NIVEAU_ORDER = { Expert: 0, Confirmé: 1, Intermédiaire: 2, Débutant: 3, Novice: 4 };
 
-const getBranchColor = (branche) =>
-  BRANCH_COLORS[branche] || {
-    bg: "bg-gray-100",
-    text: "text-gray-700",
-    border: "border-gray-300",
-    dot: "bg-gray-500",
-  };
+
+
+
+
+
+
+
 
 export default function Effectif() {
   const {
@@ -171,6 +58,7 @@ export default function Effectif() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTech, setSelectedTech] = useState(null);
+  const [autoOpenWizard, setAutoOpenWizard] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -523,7 +411,9 @@ export default function Effectif() {
   // ---- Gestion des badges — Coordination+ (fusionné dans la fiche technicien) ----
   // Explicitly excludes Responsable (visibilité badge retirée des droits Responsable).
   const canManageBadges = () =>
-    ["Super Admin", "Admin", "Coordination"].includes(user?.niveau_acces);
+    ["Super Admin", "Admin", "Coordination", "Admin (lecture seule)"].includes(user?.niveau_acces);
+  // Admin (lecture seule) voit tout (demandes, photos, badge fabriqué) mais ne valide / archive / supprime rien.
+  const badgeReadOnly = user?.niveau_acces === "Admin (lecture seule)";
   const [badgeDetail, setBadgeDetail] = useState(null);
   const [badgeDetailLoading, setBadgeDetailLoading] = useState(false);
   const [badgeActionBusy, setBadgeActionBusy] = useState(false);
@@ -853,6 +743,7 @@ export default function Effectif() {
   const handleExportListXlsx = async () => {
     setExportingListXlsx(true);
     try {
+      await loadXLSX();
       const blob = buildEffectifListXLSX(filteredTechniciens);
       const filename = `effectif-${new Date().toISOString().slice(0, 10)}.xlsx`;
       const status = await downloadOrShareFile(blob, filename, { title: filename });
@@ -946,6 +837,7 @@ export default function Effectif() {
     sanitizeContainer(container);
     document.body.appendChild(container);
     try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
       const canvas = await html2canvas(container, { scale: 2, backgroundColor: "#ffffff" });
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
@@ -988,6 +880,22 @@ export default function Effectif() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {canManageBadges() && (
+            <BadgesQueueDialog
+              onOpenRequest={(r) => {
+                const norm = (x) => String(x || "").trim().toLowerCase();
+                const tech =
+                  techniciens.find((t) => r.technicien_id && t.id === r.technicien_id) ||
+                  techniciens.find((t) => norm(t.nom) === norm(r.full_name));
+                if (!tech) {
+                  toast.error("Fiche technicien introuvable pour cette demande.");
+                  return;
+                }
+                setAutoOpenWizard(true);
+                setSelectedTech(tech);
+              }}
+            />
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -1026,122 +934,6 @@ export default function Effectif() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {canApproveTechniciens() && (
-            <Dialog
-              open={pendingManagerOpen}
-              onOpenChange={setPendingManagerOpen}
-            >
-              <DialogTrigger asChild>
-                <Button variant="outline" className="relative">
-                  <Send className="w-4 h-4 mr-2" />
-                  Fiches à valider
-                  {pendingTechs.length > 0 && (
-                    <Badge className="ml-2 bg-amber-500 hover:bg-amber-500">
-                      {pendingTechs.length}
-                    </Badge>
-                  )}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-                <DialogHeader>
-                  <DialogTitle>Fiches techniciens à valider</DialogTitle>
-                  <DialogDescription>
-                    Fiches proposées par un Responsable — elles n'intègrent
-                    l'effectif qu'après validation.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="flex-1 overflow-y-auto space-y-3">
-                  {pendingTechsLoading ? (
-                    <div className="p-8 text-center">
-                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
-                    </div>
-                  ) : pendingTechs.length === 0 ? (
-                    <p className="text-center text-sm text-muted-foreground py-8">
-                      Aucune fiche en attente
-                    </p>
-                  ) : (
-                    pendingTechs.map((t) => (
-                      <div
-                        key={t.id}
-                        className="border rounded-lg p-3 space-y-2"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{t.nom}</p>
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Clock className="w-3 h-3" /> Proposée par{" "}
-                              {t.proposed_by_name || "un Responsable"}
-                            </p>
-                          </div>
-                          <Badge variant="outline">
-                            {t.branches?.join(", ")}
-                          </Badge>
-                        </div>
-                        {rejectingPendingId === t.id ? (
-                          <div className="space-y-2">
-                            <Label className="text-xs">Motif (optionnel)</Label>
-                            <Input
-                              value={pendingRejectMessage}
-                              onChange={(e) =>
-                                setPendingRejectMessage(e.target.value)
-                              }
-                              placeholder="Motif du rejet..."
-                            />
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                disabled={pendingActionBusy === t.id}
-                                onClick={() => handleRejectPending(t.id)}
-                              >
-                                Confirmer le rejet
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setRejectingPendingId(null);
-                                  setPendingRejectMessage("");
-                                }}
-                              >
-                                Annuler
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              disabled={pendingActionBusy === t.id}
-                              onClick={() => handleApprovePending(t.id)}
-                            >
-                              {pendingActionBusy === t.id ? (
-                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="w-4 h-4 mr-1" />
-                              )}
-                              Valider
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-destructive"
-                              onClick={() => {
-                                setRejectingPendingId(t.id);
-                                setPendingRejectMessage("");
-                              }}
-                            >
-                              <XCircle className="w-4 h-4 mr-1" /> Rejeter
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
           {/* Tâche #295 : dashboard des absences d'équipe — Responsable et
             Coordination+ (le filtrage par équipe/branche est déjà fait
             côté serveur, voir GET /absences). */}
@@ -1161,456 +953,70 @@ export default function Effectif() {
             />
           )}
           {(isAdmin() || isSuperAdmin()) && (
-            <Dialog
-              open={posteManagerOpen}
-              onOpenChange={(open) => {
-                setPosteManagerOpen(open);
-                if (!open) {
-                  setNewPosteLabel("");
-                  setRenamingPoste(null);
-                }
-              }}
-            >
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Gérer les postes
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Gérer les postes</DialogTitle>
-                  <DialogDescription>
-                    Ajoutez, renommez ou supprimez les postes
-                    principal/secondaires proposés sur les fiches.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-2 max-h-72 overflow-y-auto">
-                  {(enums.postes || []).map((p) => (
-                    <div
-                      key={p}
-                      className="flex items-center gap-2 border rounded-lg px-3 py-2"
-                    >
-                      {renamingPoste?.old === p ? (
-                        <>
-                          <Input
-                            className="h-8"
-                            value={renamingPoste.value}
-                            onChange={(e) =>
-                              setRenamingPoste({
-                                ...renamingPoste,
-                                value: e.target.value,
-                              })
-                            }
-                            autoFocus
-                          />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 shrink-0"
-                            disabled={posteBusy}
-                            onClick={handleRenamePosteSave}
-                          >
-                            <Check className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 shrink-0"
-                            onClick={() => setRenamingPoste(null)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <span className="flex-1 text-sm truncate">{p}</span>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 shrink-0"
-                            onClick={() =>
-                              setRenamingPoste({ old: p, value: p })
-                            }
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 shrink-0 text-destructive"
-                            disabled={posteBusy}
-                            onClick={() => handleDeletePoste(p)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                  {(enums.postes || []).length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      Aucun poste défini.
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-2 pt-2 border-t">
-                  <Input
-                    placeholder="Nouveau poste..."
-                    value={newPosteLabel}
-                    onChange={(e) => setNewPosteLabel(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddPoste();
-                      }
-                    }}
-                  />
-                  <Button
-                    onClick={handleAddPoste}
-                    disabled={posteBusy || !newPosteLabel.trim()}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Ajouter
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <PosteManagerDialog
+            enums={enums}
+            handleAddPoste={handleAddPoste}
+            handleDeletePoste={handleDeletePoste}
+            handleRenamePosteSave={handleRenamePosteSave}
+            newPosteLabel={newPosteLabel}
+            posteBusy={posteBusy}
+            posteManagerOpen={posteManagerOpen}
+            renamingPoste={renamingPoste}
+            setNewPosteLabel={setNewPosteLabel}
+            setPosteManagerOpen={setPosteManagerOpen}
+            setRenamingPoste={setRenamingPoste}
+          />
           )}
 
           {canManage() && (
-            <Dialog
-              open={dialogOpen}
-              onOpenChange={(open) => {
-                setDialogOpen(open);
-                if (!open) resetForm();
-              }}
-            >
-              {/* Tâche #415 : un Responsable ne peut plus créer de fiche
-                technicien (le backend le refuse désormais aussi) — seul le
-                bouton "Modifier" depuis la fiche d'un technicien existant
-                reste disponible pour lui, via le même Dialog contrôlé plus
-                haut par dialogOpen/editingId. */}
-              {user?.niveau_acces !== "Responsable" && (
-                <DialogTrigger asChild>
-                  <Button
-                    className="shadow-lg shadow-primary/20"
-                    data-testid="add-tech-btn"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Ajouter
-                  </Button>
-                </DialogTrigger>
-              )}
-              <DialogContent
-                className={SHEET_CLASS}
-                data-testid="tech-edit-dialog"
-              >
-                <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-                  <div className="border-b px-4 pb-3 pt-4 sm:px-6">
-                    <DialogHeader className="space-y-1 text-left">
-                      <DialogTitle className="flex items-center gap-2 pr-8">
-                        {editingId ? <Edit className="h-5 w-5 text-primary" /> : <Plus className="h-5 w-5 text-primary" />}
-                        {editingId ? "Modifier la fiche" : "Nouveau technicien"}
-                      </DialogTitle>
-                      <DialogDescription>
-                        {editingId ? (form.nom || "Technicien") : "Remplissez les informations de la personne"}
-                      </DialogDescription>
-                    </DialogHeader>
-                  </div>
-
-                  <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-6">
-                    {/* Identité */}
-                    <section className="space-y-3 rounded-xl border p-3 sm:p-4">
-                      <h3 className="text-sm font-semibold">Identité</h3>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="tech-nom">Nom *</Label>
-                        <Input
-                          id="tech-nom"
-                          value={form.nom}
-                          onChange={(e) => setForm({ ...form, nom: e.target.value })}
-                          className="h-11 text-base sm:h-10 sm:text-sm"
-                          autoComplete="off"
-                          required
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                          <Label>Niveau technicien</Label>
-                          <Select value={form.niveau_technicien} onValueChange={(v) => setForm({ ...form, niveau_technicien: v })}>
-                            <SelectTrigger className="h-11 sm:h-10"><SelectValue placeholder="Optionnel" /></SelectTrigger>
-                            <SelectContent>
-                              {enums.niveaux_technicien?.map((n) => (<SelectItem key={n} value={n}>{n}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label>Niveau d'accès *</Label>
-                          <Select value={form.niveau_acces} onValueChange={(v) => setForm({ ...form, niveau_acces: v })}>
-                            <SelectTrigger className="h-11 sm:h-10"><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                            <SelectContent>
-                              {enums.niveaux_acces?.map((n) => (<SelectItem key={n} value={n}>{n}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </section>
-
-                    {/* Coordonnées */}
-                    <section className="space-y-3 rounded-xl border p-3 sm:p-4">
-                      <h3 className="text-sm font-semibold">Coordonnées</h3>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="tech-tel">Téléphone</Label>
-                          <div className="relative">
-                            <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input id="tech-tel" type="tel" inputMode="tel" autoComplete="off" value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} className="h-11 pl-9 text-base sm:h-10 sm:text-sm" />
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="tech-mail">Email</Label>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input id="tech-mail" type="email" inputMode="email" autoComplete="off" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-11 pl-9 text-base sm:h-10 sm:text-sm" />
-                          </div>
-                        </div>
-                      </div>
-                    </section>
-
-                    {/* Branches : pastilles à toucher */}
-                    <section className="space-y-3 rounded-xl border p-3 sm:p-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="text-sm font-semibold">Branches *</h3>
-                        <span className="text-xs text-muted-foreground">{form.branches.length} choisie(s)</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {
-                          // Un Responsable/Coordination scopé à une ou plusieurs branches
-                          // (User.branches) ne peut créer/éditer que dans son propre
-                          // périmètre — le backend le refuse aussi (tâche #292).
-                          (!isAdminOrReadOnly() && user?.branches?.length
-                            ? enums.branches?.filter((b) => user.branches.includes(b))
-                            : enums.branches
-                          )?.map((b) => {
-                            const c = getBranchColor(b);
-                            const on = form.branches.includes(b);
-                            return (
-                              <button
-                                key={b}
-                                type="button"
-                                aria-pressed={on}
-                                onClick={() => toggleBranche(b)}
-                                className={`inline-flex min-h-[40px] items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition ${on ? `${c.bg} ${c.text} ${c.border} ring-2 ring-primary/40` : "hover:bg-muted"}`}
-                              >
-                                <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
-                                {b}
-                                {on && <Check className="h-3.5 w-3.5" />}
-                              </button>
-                            );
-                          })
-                        }
-                      </div>
-                    </section>
-
-                    {/* Postes : sert à filtrer les noms proposés dans le Planning */}
-                    <section className="space-y-3 rounded-xl border p-3 sm:p-4">
-                      <h3 className="text-sm font-semibold">Postes</h3>
-                      <div className="space-y-1.5">
-                        <Label>Poste principal</Label>
-                        <Select
-                          value={form.poste_principal || "__none__"}
-                          onValueChange={(v) => setForm({ ...form, poste_principal: v === "__none__" ? "" : v })}
-                        >
-                          <SelectTrigger className="h-11 sm:h-10"><SelectValue placeholder="Optionnel" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">Aucun</SelectItem>
-                            {enums.postes?.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Postes secondaires</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {enums.postes?.filter((p) => p !== form.poste_principal).map((p) => {
-                            const on = form.postes_secondaires.includes(p);
-                            return (
-                              <button
-                                key={p}
-                                type="button"
-                                aria-pressed={on}
-                                onClick={() => togglePosteSecondaire(p)}
-                                className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 text-sm transition ${on ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/40" : "hover:bg-muted"}`}
-                              >
-                                {on && <Check className="h-3.5 w-3.5" />}
-                                {p}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Dans le Planning, la liste des noms proposée pour un poste ne montre que les personnes ayant ce poste en principal ou secondaire.
-                        </p>
-                      </div>
-                      {isGestionnairePlus() && (
-                        <div className="space-y-1.5 border-t pt-3">
-                          <Label htmlFor="tech-orga">Étiquette dans l'organigramme (optionnel)</Label>
-                          <Input
-                            id="tech-orga"
-                            value={form.organigramme_label}
-                            onChange={(e) => setForm({ ...form, organigramme_label: e.target.value })}
-                            placeholder={form.poste_principal || "Par défaut : poste principal"}
-                            className="h-11 text-base sm:h-10 sm:text-sm"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Petit badge affiché à côté du nom dans l'organigramme du Dashboard. Laissez vide pour reprendre le poste principal.
-                          </p>
-                        </div>
-                      )}
-                    </section>
-
-                    {/* Badge */}
-                    <label
-                      htmlFor="badge"
-                      className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 sm:p-4"
-                    >
-                      <span className="flex items-center gap-2 text-sm font-medium">
-                        <IdCard className="h-4 w-4 text-muted-foreground" /> Badge attribué
-                      </span>
-                      <Checkbox
-                        id="badge"
-                        checked={form.badge_attribue}
-                        onCheckedChange={(checked) => setForm({ ...form, badge_attribue: checked })}
-                        className="h-6 w-6"
-                      />
-                    </label>
-                  </div>
-
-                  <div
-                    className="flex gap-2 border-t bg-background px-4 py-3 sm:justify-end sm:px-6"
-                    style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-                  >
-                    <Button type="button" variant="outline" className="h-11 flex-1 sm:h-10 sm:flex-none" onClick={() => { setDialogOpen(false); resetForm(); }}>
-                      Annuler
-                    </Button>
-                    <Button type="submit" className="h-11 flex-1 sm:h-10 sm:flex-none sm:min-w-[160px]" disabled={submitting} data-testid="tech-save-btn">
-                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {editingId ? "Enregistrer" : "Créer"}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <TechEditDialog
+            dialogOpen={dialogOpen}
+            editingId={editingId}
+            enums={enums}
+            form={form}
+            handleSubmit={handleSubmit}
+            isAdminOrReadOnly={isAdminOrReadOnly}
+            isGestionnairePlus={isGestionnairePlus}
+            resetForm={resetForm}
+            setDialogOpen={setDialogOpen}
+            setForm={setForm}
+            submitting={submitting}
+            toggleBranche={toggleBranche}
+            togglePosteSecondaire={togglePosteSecondaire}
+            user={user}
+          />
           )}
         </div>
       </div>
 
       {/* Barre d'outils : recherche, filtres en pastilles (branches + badge), vue, tri, regroupement */}
       {!loading && (
-        <Card data-testid="effectif-toolbar">
-          <CardContent className="space-y-3 p-3 sm:p-4">
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher un nom, un poste, un téléphone…"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                  data-testid="effectif-search"
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Select value={sortBy} onValueChange={(v) => savePref("effectif_sort", v, setSortBy)}>
-                  <SelectTrigger className="w-[150px]" aria-label="Trier"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nom">Trier : nom</SelectItem>
-                    <SelectItem value="branche">Trier : branche</SelectItem>
-                    <SelectItem value="poste">Trier : poste</SelectItem>
-                    <SelectItem value="niveau">Trier : niveau</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={groupBy} onValueChange={(v) => savePref("effectif_group", v, setGroupBy)}>
-                  <SelectTrigger className="w-[160px]" aria-label="Regrouper"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sans regroupement</SelectItem>
-                    <SelectItem value="lettre">Par lettre</SelectItem>
-                    <SelectItem value="branche">Par branche</SelectItem>
-                    <SelectItem value="poste">Par poste</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="inline-flex rounded-md border p-0.5" role="group" aria-label="Affichage">
-                  <Button type="button" size="sm" variant={viewMode === "cards" ? "secondary" : "ghost"} className="h-8 px-2" onClick={() => savePref("effectif_view", "cards", setViewMode)} title="Cartes" data-testid="effectif-view-cards">
-                    <LayoutGrid className="h-4 w-4" />
-                  </Button>
-                  <Button type="button" size="sm" variant={viewMode === "table" ? "secondary" : "ghost"} className="h-8 px-2" onClick={() => savePref("effectif_view", "table", setViewMode)} title="Liste" data-testid="effectif-view-table">
-                    <ListIcon className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5" data-testid="effectif-chips">
-              <button
-                type="button"
-                onClick={() => setFilterBranche("all")}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${filterBranche === "all" ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-              >
-                Toutes ({techniciens.length})
-              </button>
-              {Object.entries(branchCounts).map(([branche, count]) => {
-                const c = getBranchColor(branche);
-                const active = filterBranche === branche;
-                return (
-                  <button
-                    key={branche}
-                    type="button"
-                    onClick={() => setFilterBranche(active ? "all" : branche)}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${active ? `${c.bg} ${c.text} ${c.border} ring-2 ring-primary/40` : "hover:bg-muted"}`}
-                  >
-                    <span className={`h-2 w-2 rounded-full ${c.dot}`} />
-                    {branche} <span className="opacity-70">{count}</span>
-                  </button>
-                );
-              })}
-              {canManageBadges() && badgeCounts.total > 0 && (
-                <>
-                  <span className="mx-1 hidden h-5 w-px bg-border sm:inline-block" />
-                  <button
-                    type="button"
-                    onClick={() => setFilterBadge(filterBadge === "avec" ? "all" : "avec")}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${filterBadge === "avec" ? "border-emerald-400 bg-emerald-100 text-emerald-800 ring-2 ring-primary/40 dark:bg-emerald-900/30 dark:text-emerald-300" : "hover:bg-muted"}`}
-                  >
-                    <IdCard className="h-3.5 w-3.5 text-emerald-600" /> Avec badge <span className="opacity-70">{badgeCounts.avec}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFilterBadge(filterBadge === "sans" ? "all" : "sans")}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${filterBadge === "sans" ? "border-amber-400 bg-amber-100 text-amber-800 ring-2 ring-primary/40 dark:bg-amber-900/30 dark:text-amber-300" : "hover:bg-muted"}`}
-                  >
-                    <IdCard className="h-3.5 w-3.5 text-amber-600" /> Sans badge <span className="opacity-70">{badgeCounts.sans}</span>
-                  </button>
-                  {badgeCounts.enAttente > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800 dark:bg-blue-950/30 dark:text-blue-300">
-                      <Send className="h-3.5 w-3.5" /> {badgeCounts.enAttente} demande(s) en attente
-                    </span>
-                  )}
-                </>
-              )}
-              {filtersActive && (
-                <Button type="button" size="sm" variant="ghost" className="ml-auto h-7 text-xs" onClick={resetFilters}>
-                  <FilterX className="mr-1 h-3.5 w-3.5" /> Réinitialiser
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <EffectifToolbar
+            badgeCounts={badgeCounts}
+            branchCounts={branchCounts}
+            canManageBadges={canManageBadges}
+            filterBadge={filterBadge}
+            filterBranche={filterBranche}
+            filtersActive={filtersActive}
+            groupBy={groupBy}
+            resetFilters={resetFilters}
+            savePref={savePref}
+            searchTerm={searchTerm}
+            setFilterBadge={setFilterBadge}
+            setFilterBranche={setFilterBranche}
+            setGroupBy={setGroupBy}
+            setSearchTerm={setSearchTerm}
+            setSortBy={setSortBy}
+            setViewMode={setViewMode}
+            sortBy={sortBy}
+            techniciens={techniciens}
+            viewMode={viewMode}
+          />
       )}
 
       {/* Liste */}
       {loading ? (
-        <div className="flex items-center justify-center min-h-[300px]">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+        <EffectifList />
       ) : sortedTechniciens.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
@@ -1740,314 +1146,37 @@ export default function Effectif() {
       )}
 
       {/* Fiche d'un technicien (PC : fenêtre ; téléphone : plein écran) */}
-      <Dialog open={!!selectedTech} onOpenChange={handleCloseDetail}>
-        <DialogContent className={SHEET_CLASS} data-testid="tech-detail-dialog">
-          {selectedTech && (() => {
-            const t = selectedTech;
-            const bc = getBranchColor((t.branches || [])[0]);
-            return (
-              <>
-                <div className={`${bc.bg} px-4 pb-4 pt-5 sm:px-6`}>
-                  <DialogHeader className="space-y-0 text-left">
-                    <DialogTitle className="flex items-center gap-3 pr-8">
-                      <span className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-background/70 text-2xl font-bold shadow-sm ${bc.text}`}>
-                        {(t.nom || "?").charAt(0)}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-xl font-bold leading-tight">{t.nom}</span>
-                        <span className="block truncate text-sm font-normal text-foreground/70">
-                          {t.poste_principal || "Poste non renseigné"}
-                        </span>
-                      </span>
-                    </DialogTitle>
-                    <DialogDescription className="sr-only">Fiche de {t.nom}</DialogDescription>
-                  </DialogHeader>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {t.niveau_technicien && <Badge className={`${getNiveauColor(t.niveau_technicien)} border-0`}>{t.niveau_technicien}</Badge>}
-                    <Badge variant="outline" className="flex items-center gap-1 bg-background/60">
-                      <span className={`h-2 w-2 rounded-full ${getAccesColor(t.niveau_acces)}`} />
-                      {t.niveau_acces}
-                    </Badge>
-                    <Badge variant="outline" className={`flex items-center gap-1 bg-background/60 ${t.badge_attribue ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
-                      <IdCard className="h-3 w-3" /> {t.badge_attribue ? "Badge attribué" : "Sans badge"}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
-                  {/* Joindre la personne en un geste */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {t.telephone ? (
-                      <a href={`tel:${t.telephone}`} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm active:scale-[0.98]">
-                        <Phone className="h-4 w-4" /> Appeler
-                      </a>
-                    ) : (
-                      <span className="flex h-12 items-center justify-center gap-2 rounded-xl border border-dashed text-sm text-muted-foreground"><Phone className="h-4 w-4" /> Pas de numéro</span>
-                    )}
-                    {t.email ? (
-                      <a href={`mailto:${t.email}`} className="flex h-12 items-center justify-center gap-2 rounded-xl border text-sm font-semibold hover:bg-muted active:scale-[0.98]">
-                        <Mail className="h-4 w-4" /> Écrire
-                      </a>
-                    ) : (
-                      <span className="flex h-12 items-center justify-center gap-2 rounded-xl border border-dashed text-sm text-muted-foreground"><Mail className="h-4 w-4" /> Pas d'email</span>
-                    )}
-                  </div>
-
-                  <section className="space-y-2 rounded-xl border p-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Coordonnées</h3>
-                    <dl className="space-y-1 text-sm">
-                      <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Téléphone</dt><dd className="truncate font-medium">{t.telephone || "—"}</dd></div>
-                      <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Email</dt><dd className="truncate font-medium">{t.email || "—"}</dd></div>
-                    </dl>
-                  </section>
-
-                  <section className="space-y-2 rounded-xl border p-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Branches</h3>
-                    {(t.branches || []).length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Aucune branche</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {t.branches.map((b) => {
-                          const c = getBranchColor(b);
-                          return (
-                            <span key={b} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${c.bg} ${c.text} ${c.border}`}>
-                              <span className={`h-2 w-2 rounded-full ${c.dot}`} />{b}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </section>
-
-                  <section className="space-y-2 rounded-xl border p-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Postes</h3>
-                    {!t.poste_principal && (t.postes_secondaires || []).length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Aucun poste renseigné</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {t.poste_principal && <Badge className="border border-primary/30 bg-primary/10 text-primary">{t.poste_principal}</Badge>}
-                        {(t.postes_secondaires || []).map((p) => (<Badge key={p} variant="secondary">{p}</Badge>))}
-                      </div>
-                    )}
-                  </section>
-
-                  <section className="rounded-xl border p-3">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      <IdCard className="w-4 h-4" /> Badge
-                    </p>
-                    {!canManageBadges() && (
-                      <Badge
-                        className={
-                          selectedTech.badge_attribue
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                            : ""
-                        }
-                        variant={
-                          selectedTech.badge_attribue ? undefined : "outline"
-                        }
-                      >
-                        {selectedTech.badge_attribue
-                          ? "Attribué"
-                          : "Non attribué"}
-                      </Badge>
-                    )}
-                  </div>
-
-                  {!canManageBadges() ? null : badgeDetailLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Chargement...
-                    </div>
-                  ) : (
-                    badgeDetail && (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge
-                            className={
-                              getBadgeStatusInfo(badgeDetail.badge_status).color
-                            }
-                          >
-                            {getBadgeStatusInfo(badgeDetail.badge_status).label}
-                          </Badge>
-                          {badgeDetail.badge_is_renewal && (
-                            <Badge variant="outline">Renouvellement</Badge>
-                          )}
-                          {badgeDetail.badge_archived && (
-                            <Badge variant="outline">Archivée</Badge>
-                          )}
-                        </div>
-
-                        {badgeDetail.badge_photo_url && (
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={`${process.env.REACT_APP_BACKEND_URL}${badgeDetail.badge_photo_url}`}
-                              alt="Photo badge"
-                              className="w-16 h-16 rounded-lg object-cover border"
-                            />
-                            <a
-                              href={`${process.env.REACT_APP_BACKEND_URL}${badgeDetail.badge_photo_url}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary underline flex items-center gap-1"
-                            >
-                              <Download className="w-3 h-3" /> Voir /
-                              télécharger
-                            </a>
-                          </div>
-                        )}
-
-                        {badgeDetail.badge_message && (
-                          <p className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
-                            Motif du dernier refus : {badgeDetail.badge_message}
-                          </p>
-                        )}
-
-                        {badgeDetail.badge_status === "en_attente_validation" &&
-                          (rejectingBadge ? (
-                            <div className="space-y-2">
-                              <textarea
-                                className="w-full text-sm border rounded-md p-2 bg-background"
-                                rows={2}
-                                placeholder="Motif du refus (envoyé au technicien)..."
-                                value={rejectMessage}
-                                onChange={(e) =>
-                                  setRejectMessage(e.target.value)
-                                }
-                              />
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  disabled={badgeActionBusy}
-                                  onClick={handleRejectBadge}
-                                >
-                                  {badgeActionBusy && (
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  )}
-                                  Confirmer le refus
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    setRejectingBadge(false);
-                                    setRejectMessage("");
-                                  }}
-                                >
-                                  Annuler
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex gap-2 flex-wrap">
-                              <Button
-                                size="sm"
-                                disabled={badgeActionBusy}
-                                onClick={handleConfirmBadge}
-                              >
-                                {badgeActionBusy && (
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                )}
-                                <Check className="w-4 h-4 mr-1" /> Valider la
-                                photo
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-destructive"
-                                onClick={() => setRejectingBadge(true)}
-                              >
-                                <X className="w-4 h-4 mr-1" /> Refuser
-                              </Button>
-                            </div>
-                          ))}
-
-                        {badgeDetail.badge_status === "pret_a_recuperer" && (
-                          <Button
-                            size="sm"
-                            disabled={badgeActionBusy}
-                            onClick={handleCollectBadge}
-                          >
-                            {badgeActionBusy && (
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            )}
-                            <IdCard className="w-4 h-4 mr-1" /> Marquer comme
-                            remis
-                          </Button>
-                        )}
-
-                        {badgeDetail.badge_status && (
-                          <div className="flex gap-2 pt-2 border-t">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={badgeActionBusy}
-                              onClick={() =>
-                                handleArchiveBadge(!badgeDetail.badge_archived)
-                              }
-                            >
-                              <Archive className="w-3.5 h-3.5 mr-1" />{" "}
-                              {badgeDetail.badge_archived
-                                ? "Désarchiver"
-                                : "Archiver"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive"
-                              disabled={badgeActionBusy}
-                              onClick={handleDeleteBadge}
-                            >
-                              <Trash2 className="w-3.5 h-3.5 mr-1" /> Supprimer
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  )}
-                </div>
-
-                  </section>
-                </div>
-
-                {/* Actions toujours visibles en bas */}
-                <div
-                  className="flex flex-wrap items-center gap-2 border-t bg-background px-4 py-3 sm:px-6"
-                  style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-                >
-                  {canManage() && (
-                    <Button className="h-11 flex-1 sm:h-10" onClick={() => handleEdit(t)} data-testid="tech-edit-btn">
-                      <Edit className="mr-2 h-4 w-4" /> Modifier
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    className="h-11 sm:h-10"
-                    disabled={exportingFichePdf}
-                    onClick={handleExportFichePdf}
-                    data-testid="effectif-fiche-export-pdf-btn"
-                    title="Exporter la fiche (PDF)"
-                  >
-                    {exportingFichePdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-                    <span className="ml-2 hidden sm:inline">PDF</span>
-                  </Button>
-                  {canManage() && isAdmin() && (
-                    <Button variant="outline" className="h-11 sm:h-10" onClick={() => handleArchive(t.id)} title="Archiver">
-                      <Archive className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {canManage() && isSuperAdmin() && (
-                    <Button variant="destructive" size="icon" className="h-11 w-11 sm:h-10 sm:w-10" onClick={() => handleDelete(t.id)} title="Supprimer">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+      <TechDetailDialog
+            badgeReadOnly={badgeReadOnly}
+            autoOpenWizard={autoOpenWizard}
+            setAutoOpenWizard={setAutoOpenWizard}
+            badgeActionBusy={badgeActionBusy}
+            badgeDetail={badgeDetail}
+            badgeDetailLoading={badgeDetailLoading}
+            canManage={canManage}
+            canManageBadges={canManageBadges}
+            exportingFichePdf={exportingFichePdf}
+            getAccesColor={getAccesColor}
+            getBadgeStatusInfo={getBadgeStatusInfo}
+            getNiveauColor={getNiveauColor}
+            handleArchive={handleArchive}
+            handleArchiveBadge={handleArchiveBadge}
+            handleCloseDetail={handleCloseDetail}
+            handleCollectBadge={handleCollectBadge}
+            handleConfirmBadge={handleConfirmBadge}
+            handleDelete={handleDelete}
+            handleDeleteBadge={handleDeleteBadge}
+            handleEdit={handleEdit}
+            handleExportFichePdf={handleExportFichePdf}
+            handleRejectBadge={handleRejectBadge}
+            isAdmin={isAdmin}
+            isSuperAdmin={isSuperAdmin}
+            rejectMessage={rejectMessage}
+            rejectingBadge={rejectingBadge}
+            selectedTech={selectedTech}
+            setRejectMessage={setRejectMessage}
+            setRejectingBadge={setRejectingBadge}
+          />
     </div>
   );
 }

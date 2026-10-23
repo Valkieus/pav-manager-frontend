@@ -65,6 +65,8 @@ import {
   PlusSquare,
   ArrowDown,
   Lightbulb,
+  Music,
+  ExternalLink,
   FlaskConical,
 } from "lucide-react";
 import {
@@ -80,6 +82,7 @@ import {
   isIOSDevice,
   isSafariDesktop,
 } from "../utils/pwaInstall";
+import { openSongsSite } from "../lib/songs";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -544,12 +547,18 @@ export const Layout = ({ children }) => {
     return `il y a ${days} j`;
   };
 
+  const openSongsSiteFromMenu = async () => {
+    await openSongsSite();
+    setSidebarOpen(false);
+  };
+
   // Check if user has access to a menu item based on role, and — for the
   // handful of items marked groupPerms (Salles, Régisseurs) — based on
   // group membership too, when the user's role is Responsable/Coordination
   // (see comment on navItems above).
   const hasAccess = (item) => {
     if (!user) return true;
+    if (item.hideIfNoSongs && user.songs_access === false) return false;
     if (item.minRole) {
       const userLevel = ROLE_HIERARCHY[user.niveau_acces] || 0;
       const requiredLevel = ROLE_HIERARCHY[item.minRole] || 0;
@@ -900,6 +909,22 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
                 const isUnderMaintenance = maintenanceEntries.some(
                   (e) => e.scope === "page" && e.page_path === item.path,
                 );
+                if (item.external) {
+                  return (
+                    <button
+                      key={item.path}
+                      type="button"
+                      onClick={openSongsSiteFromMenu}
+                      className={`sidebar-link w-full text-left ${nested ? "text-sm" : ""}`}
+                      data-testid="nav-songs"
+                      title="Ouvre CEC Songs dans un nouvel onglet (connexion automatique)"
+                    >
+                      <Icon className="w-5 h-5 shrink-0" />
+                      <span className="flex-1 truncate">{item.label}</span>
+                      <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </button>
+                  );
+                }
                 return (
                   <Link
                     key={item.path}

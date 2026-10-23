@@ -2024,7 +2024,7 @@ export default function Administration() {
                 {/* Quota de stockage */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Quota de stockage</CardTitle>
+                    <CardTitle>Quota de la base de données (MongoDB)</CardTitle>
                     <CardDescription>
                       Définis une limite de référence (en Go) pour suivre
                       l'espace utilisé / restant. Sans quota défini, seul

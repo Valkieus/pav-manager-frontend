@@ -91,7 +91,7 @@ export function SupBackup({
           <div className="space-y-2 rounded-lg border border-dashed p-3">
             <p className="text-sm font-semibold">Sauvegardes des données (Planning, Régisseurs, Communication)</p>
             <p className="text-[11px] text-muted-foreground">
-              Copiées sur {dataBackup.stockages?.join(", ") || "aucun stockage"} · {dataBackup.retention}.
+              {dataBackup.planning ? `${dataBackup.planning} · ` : ""}Copiées sur {dataBackup.stockages?.join(", ") || "aucun stockage"} · {dataBackup.retention}.
             </p>
             <ul className="space-y-2 text-xs">
               {Object.entries(dataBackup.domaines || {}).map(([name, d]) => (

@@ -82,10 +82,16 @@ export function SupBackup({
             {r2Status.used_bytes != null && (
               <div className="h-2 rounded bg-muted overflow-hidden">
                 <div
-                  className={`h-full ${r2Status.used_bytes / r2Status.free_bytes >= 0.9 ? "bg-red-500" : r2Status.used_bytes / r2Status.free_bytes >= 0.75 ? "bg-amber-500" : "bg-emerald-500"}`}
+                  className={`h-full ${r2Status.used_bytes / r2Status.free_bytes >= 0.75 ? "bg-amber-500" : "bg-emerald-500"}`}
                   style={{ width: `${Math.min(100, (r2Status.used_bytes / r2Status.free_bytes) * 100)}%` }}
                 />
               </div>
+            )}
+            {r2Status.used_bytes != null && r2Status.used_bytes / r2Status.free_bytes >= 0.9 && (
+              <p className="text-[11px] text-muted-foreground">
+                R2 n'est plus utilisé pour les sauvegardes de données (elles sont sur B2 Europe + États-Unis) : c'est sans danger. Le nettoyage quotidien
+                (Maintenance) libère cet espace petit à petit.
+              </p>
             )}
             {r2Status.backup_cloudinary && (
               <p className="text-xs text-muted-foreground">

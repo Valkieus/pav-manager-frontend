@@ -1837,7 +1837,7 @@ export default function Planning() {
     return false;
   });
 
-  // ---- Incohérences (absence déclarée mais planifié, doublon) : visibles au Responsable+, ignorables par la Coordination+ ----
+  // ---- Incohérences (personne planifiée malgré une absence déclarée) : visibles au Responsable+, ignorables par la Coordination+ ----
   const allConflicts = canManage()
     ? computeConflicts({ dates, sections, defaultSections: DEFAULT_SECTIONS, affectations, monthAbsences, notes, absences })
     : [];

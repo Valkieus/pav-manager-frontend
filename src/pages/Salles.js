@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAuth } from "../contexts/AuthContext";
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { Building2, CalendarDays, ClipboardList, Inbox, Loader2, Settings, UserCheck } from "lucide-react";
 import { Badge } from "../components/ui/badge";
@@ -13,21 +12,8 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // Salles : planning visuel + demandes des Responsables, validées par les gestionnaires désignés ;
 // l'ancienne gestion (salles, créneaux, liens externes, e-mails) reste dans l'onglet « Gestion ».
 export default function Salles() {
-  const { viewAs } = useAuth();
   const [meRaw, setMe] = useState(null);
-  // Aperçu « en tant que » : les droits viennent du compte réel (Super Admin) ; on les ramène au niveau prévisualisé
-  // pour que l'écran soit celui que verrait vraiment cette personne (un Responsable ne réserve pas directement).
-  const me = useMemo(() => {
-    if (!meRaw || !viewAs) return meRaw;
-    const adminLike = viewAs === "Admin" || viewAs === "Super Admin";
-    return {
-      ...meRaw,
-      can_manage: adminLike ? meRaw.can_manage : false,
-      can_book: ["Responsable", "Coordination", "Admin", "Super Admin"].includes(viewAs),
-      can_edit_managers: adminLike ? meRaw.can_edit_managers : false,
-      admin_access: adminLike || viewAs === "Admin (lecture seule)" ? meRaw.admin_access : false,
-    };
-  }, [meRaw, viewAs]);
+  const me = meRaw; // en aperçu, le serveur renvoie déjà les droits du niveau simulé (en-tête X-View-As)
   const [tab, setTab] = useState("planning");
   const [pending, setPending] = useState(0);
   const [mine, setMine] = useState(0);

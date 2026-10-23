@@ -2167,8 +2167,8 @@ export default function Planning() {
                                 key={dateIdx}
                                 data-cell={`${activeDay}|${key}|${dateIdx}`}
                                 data-editable={!cellBlocked && !cellModeActive && canEditPlanningCell(section.name, role.key, role.label) ? "1" : "0"}
-                                className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}${(() => { const cf = conflictByCell[`${activeDay}|${key}|${dateIdx}`]; if (!cf) return ""; return isIgnoredConflict(cf) ? " outline outline-2 -outline-offset-2 outline-dashed outline-amber-400 print:outline-none" : " ring-2 ring-inset ring-red-500 !bg-red-100 dark:!bg-red-900/40 print:ring-0 print:!bg-white"; })()}`}
-                                title={(() => { const cf = conflictByCell[`${activeDay}|${key}|${dateIdx}`]; return cf ? `${isIgnoredConflict(cf) ? "Alerte ignorée — " : "⚠ "}${cf.detail}` : undefined; })()}
+                                className={`border border-black p-1 ${cellBlocked ? "bg-gray-300 print:bg-gray-300" : "bg-white"} ${cellModeActive ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary" : ""}${boundaryTdClass(slotIdx === 0 && isGroupBoundary)}${(() => { const cf = planningEditMode ? conflictByCell[`${activeDay}|${key}|${dateIdx}`] : null; if (!cf) return ""; return isIgnoredConflict(cf) ? " outline outline-2 -outline-offset-2 outline-dashed outline-amber-400 print:outline-none" : " ring-2 ring-inset ring-red-500 !bg-red-100 dark:!bg-red-900/40 print:ring-0 print:!bg-white"; })()}`}
+                                title={(() => { const cf = planningEditMode ? conflictByCell[`${activeDay}|${key}|${dateIdx}`] : null; return cf ? `${isIgnoredConflict(cf) ? "Alerte ignorée — " : "⚠ "}${cf.detail}` : undefined; })()}
                                 onClick={() =>
                                   cellModeActive &&
                                   toggleCellBlocked(role.key, slotIdx, dateIdx)
@@ -2457,7 +2457,7 @@ as the affectations are edited. */}
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-semibold text-sm text-red-800 dark:text-red-400 flex items-center gap-2 flex-1">
                   <CalendarOff className="w-4 h-4" />
-                  {activeConflicts.length} incohérence(s) dans le planning — cases encadrées en rouge (le contenu n'est pas modifié)
+                  {activeConflicts.length} incohérence(s) dans le planning{planningEditMode ? " — cases encadrées en rouge" : " — passe en mode édition pour voir les cases"} (le contenu n'est pas modifié)
                 </p>
                 {canIgnoreConflicts && (
                   <Button size="sm" variant="outline" onClick={ignoreAllConflicts}>Tout ignorer</Button>
@@ -2632,7 +2632,7 @@ tap sur l'onglet = bascule sur mobile (pas de hover tactile fiable). */}
           <DialogHeader>
             <DialogTitle>Avant de publier : {activeConflicts.length} point(s) à vérifier</DialogTitle>
             <DialogDescription>
-              Ces cases sont encadrées en rouge dans le planning. Rien n'a été modifié : tu peux ignorer une alerte, revenir au planning pour corriger, ou publier quand même.
+              Ces cases sont encadrées en rouge en mode édition. Rien n'a été modifié : tu peux ignorer une alerte, revenir au planning pour corriger, ou publier quand même.
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto space-y-2 py-1">

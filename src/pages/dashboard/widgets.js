@@ -1,6 +1,6 @@
 import { useRef, useState, useMemo, useLayoutEffect } from 'react';
-import { ChevronDown, ChevronUp, Maximize2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { createPortal } from 'react-dom';
+import { ChevronDown, ChevronUp, Maximize2, X } from 'lucide-react';
 import { eventsOf as datesClesOf } from '../../components/DatesCles';
 import { isLiveMember, polesOf } from '../effectif/poles';
 
@@ -231,6 +231,75 @@ const FitToWidth = ({ children }) => {
   );
 };
 
+// Remplit exactement sa boîte (largeur ET hauteur) : l'arbre entier est visible d'un coup d'œil.
+const FitToBox = ({ children }) => {
+  const outerRef = useRef(null);
+  const innerRef = useRef(null);
+  const [fit, setFit] = useState({ scale: 1, w: 0, h: 0 });
+  useLayoutEffect(() => {
+    const measure = () => {
+      const o = outerRef.current, i = innerRef.current;
+      if (!o || !i) return;
+      const w = i.scrollWidth, h = i.scrollHeight;
+      if (!w || !h) return;
+      setFit({ scale: Math.min(o.clientWidth / w, o.clientHeight / h, 2), w, h });
+    };
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    if (ro) { ro.observe(outerRef.current); ro.observe(innerRef.current); }
+    window.addEventListener("resize", measure);
+    return () => { if (ro) ro.disconnect(); window.removeEventListener("resize", measure); };
+  }, []);
+  return (
+    <div ref={outerRef} style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+      <div ref={innerRef} style={{ position: "absolute", left: "50%", top: "50%", width: "max-content", transform: `translate(-50%, -50%) scale(${fit.scale})`, transformOrigin: "center center" }}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
+// Plein écran en PAYSAGE : téléphone tenu droit → on tourne l'écran de 90° pour que l'organigramme tienne en entier ;
+// téléphone déjà couché → tel quel. Un bouton ferme, toucher un pôle ouvre ses membres.
+const OrgFullscreen = ({ data, isClickable, onNodeClick, onClose }) => {
+  const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
+  useLayoutEffect(() => {
+    const on = () => setSize({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", on);
+    window.addEventListener("orientationchange", on);
+    try { window.screen?.orientation?.lock?.("landscape").catch(() => {}); } catch (e) { /* non pris en charge */ }
+    return () => {
+      window.removeEventListener("resize", on); window.removeEventListener("orientationchange", on);
+      try { window.screen?.orientation?.unlock?.(); } catch (e) { /* ignoré */ }
+    };
+  }, []);
+  const portrait = size.h > size.w;
+  const frame = portrait
+    ? { position: "fixed", top: 0, left: 0, width: size.h, height: size.w, transformOrigin: "top left", transform: `translateX(${size.w}px) rotate(90deg)` }
+    : { position: "fixed", inset: 0 };
+  return createPortal(
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "hsl(var(--background))" }} role="dialog" aria-label="Organigramme" data-testid="org-fullscreen">
+      <div style={frame}>
+        <div style={{ position: "absolute", inset: 0, padding: "12px 56px 12px 12px" }}>
+          <div style={{ position: "relative", width: "100%", height: "100%" }}>
+            <FitToBox>
+              <ul className="org-tree inline-flex">
+                <OrgTreeNode node={data} onNodeClick={onNodeClick} isClickable={isClickable} isRoot />
+              </ul>
+            </FitToBox>
+          </div>
+        </div>
+      </div>
+      <button type="button" onClick={onClose} aria-label="Fermer" data-testid="org-fullscreen-close"
+        style={{ position: "fixed", zIndex: 10, top: "calc(env(safe-area-inset-top) + 0.75rem)", right: "calc(env(safe-area-inset-right) + 0.75rem)" }}
+        className="flex h-11 w-11 items-center justify-center rounded-full border bg-background shadow-lg">
+        <X className="h-5 w-5" />
+      </button>
+    </div>,
+    document.body,
+  );
+};
+
 // Téléphone : arbre vertical lisible (chaque niveau décalé, traits de liaison), tout visible sans défiler.
 export const OrgTreeVertical = ({ node, onNodeClick, isClickable, depth = 0 }) => {
   const kids = node.children || [];
@@ -452,23 +521,14 @@ export const OrgChart = ({ data, onNodeClick, allowedNodes }) => {
         </FitToWidth>
       </div>
 
-      <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
-        <DialogContent className="!fixed !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !w-screen !h-[100dvh] !rounded-none !p-0 !gap-0 flex flex-col">
-          <DialogHeader className="px-4 py-3 border-b">
-            <DialogTitle className="text-base">Organigramme PAV</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-auto p-4" style={{ touchAction: "pan-x pan-y pinch-zoom", WebkitOverflowScrolling: "touch" }}>
-            <ul className="org-tree inline-flex mx-auto">
-              <OrgTreeNode
-                node={data}
-                onNodeClick={(n) => { setZoomOpen(false); onNodeClick && onNodeClick(n); }}
-                isClickable={isClickable}
-                isRoot
-              />
-            </ul>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {zoomOpen && (
+        <OrgFullscreen
+          data={data}
+          isClickable={isClickable}
+          onNodeClick={(n) => { setZoomOpen(false); onNodeClick && onNodeClick(n); }}
+          onClose={() => setZoomOpen(false)}
+        />
+      )}
     </div>
   );
 };

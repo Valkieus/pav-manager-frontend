@@ -8,6 +8,18 @@ export const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Couleurs distinctives par branche
 export const BRANCH_COLORS = {
+  Captation: {
+    bg: "bg-red-100 dark:bg-red-900/30",
+    text: "text-red-700 dark:text-red-400",
+    border: "border-red-300 dark:border-red-700",
+    dot: "bg-red-500",
+  },
+  Incrustation: {
+    bg: "bg-rose-100 dark:bg-rose-900/30",
+    text: "text-rose-700 dark:text-rose-400",
+    border: "border-rose-300 dark:border-rose-700",
+    dot: "bg-rose-500",
+  },
   Live: {
     bg: "bg-red-100 dark:bg-red-900/30",
     text: "text-red-700 dark:text-red-400",

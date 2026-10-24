@@ -2,33 +2,28 @@ import { useRef, useState, useMemo, useLayoutEffect } from 'react';
 import { ChevronDown, ChevronUp, Maximize2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { eventsOf as datesClesOf } from '../../components/DatesCles';
+import { isLiveMember, polesOf } from '../effectif/poles';
 
 export const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Maps organigramme node names to predicates matched against technicien
 // records, so clicking a branch on the chart can show exactly who's in it.
 export const BRANCH_MEMBER_MATCH = {
-  LIVE: (t) => (t.branches || []).includes("Live"),
-  INCRUSTATION: (t) =>
-    (t.branches || []).includes("Live") &&
-    (t.sous_branches || []).includes("Incrustation"),
-  CAPTATION: (t) =>
-    (t.branches || []).includes("Live") &&
-    (t.sous_branches || []).includes("Cadreur"),
-  DIFFUSION: (t) =>
-    (t.branches || []).includes("Live") &&
-    (t.sous_branches || []).includes("Diffusion"),
-  ANIMATION: (t) => (t.branches || []).includes("Animation"),
-  RÉGISSEURS: (t) => (t.branches || []).includes("Régisseurs"),
-  COORDINATION: (t) => (t.branches || []).includes("Coordination"),
-  PRODUCTION: (t) => (t.branches || []).includes("Production"),
-  "RESPONSABLE PAV": (t) => (t.branches || []).includes("Supervision"),
+  LIVE: isLiveMember, // titre : tous ceux qui sont dans un de ses pôles
+  INCRUSTATION: (t) => polesOf(t).includes("Incrustation"),
+  CAPTATION: (t) => polesOf(t).includes("Captation"),
+  DIFFUSION: (t) => polesOf(t).includes("Diffusion"),
+  ANIMATION: (t) => polesOf(t).includes("Animation"),
+  RÉGISSEURS: (t) => polesOf(t).includes("Régisseurs"),
+  COORDINATION: (t) => polesOf(t).includes("Coordination"),
+  PRODUCTION: (t) => polesOf(t).includes("Production"),
+  "RESPONSABLE PAV": (t) => polesOf(t).includes("Supervision"),
 };
 
 // Reverse map: which org-chart nodes a branch-scoped user (Coordination /
 // Responsable with a limited `branches` list) is allowed to click into.
 export const BRANCH_TO_NODES = {
-  Live: ["LIVE", "CAPTATION", "INCRUSTATION", "DIFFUSION"],
+  Live: ["LIVE", "CAPTATION", "INCRUSTATION", "DIFFUSION", "RÉGISSEURS", "ANIMATION"],
   Animation: ["ANIMATION"],
   Régisseurs: ["RÉGISSEURS"],
   Coordination: ["COORDINATION"],

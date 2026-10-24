@@ -20,6 +20,7 @@ import { DashboardStatsSection } from './dashboard/DashboardStatsSection';
 import { DashboardMonthCard } from './dashboard/DashboardMonthCard';
 import { DashboardTodayCard } from './dashboard/DashboardTodayCard';
 import { DashboardWelcome } from './dashboard/DashboardWelcome';
+import { MonBadgeCard } from './dashboard/MonBadgeCard';
 
 
 
@@ -341,6 +342,9 @@ export default function Dashboard() {
             greeting={greeting}
             user={user}
           />
+
+      {/* Badge validé : à afficher en plein écran (paysage) les jours de service */}
+      <MonBadgeCard user={user} />
 
       {/* Résumé rapide + Calendrier — côte à côte sur desktop (au lieu
 d'empiler deux cartes pleine largeur) : ça évite au calendrier de

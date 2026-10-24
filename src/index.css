@@ -213,7 +213,8 @@
     html {
         -webkit-text-size-adjust: 100%;
         text-size-adjust: 100%;
-        overflow-x: hidden;
+        /* pas d'overflow sur html : avec le verrou de défilement des menus/fenêtres (overflow: hidden sur body),
+           l'en-tête collant sortait de l'écran. Le blocage horizontal est fait par « body { overflow-x: clip } » plus bas. */
         /* pas de « rebond » ni de geste retour déclenché par un glissé horizontal accidentel */
         overscroll-behavior-x: none;
         -webkit-tap-highlight-color: transparent;
@@ -250,6 +251,13 @@
 @layer base {
     [data-sonner-toaster] { --offset: calc(env(safe-area-inset-top, 0px) + 16px) !important; }
     [role="dialog"], [data-radix-popper-content-wrapper] { scroll-padding-top: env(safe-area-inset-top); }
+
+    /* Fenêtres plein écran (fiches) et panneaux latéraux : le contenu commence sous la barre d'état / Dynamic Island
+       et s'arrête au-dessus de la barre de gestes. */
+    @media (max-width: 639px) {
+        [role="dialog"][class*="100dvh"] { padding-top: env(safe-area-inset-top) !important; padding-bottom: env(safe-area-inset-bottom) !important; }
+    }
+    [role="dialog"][class*="inset-y-0"] { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
 }
 
 /* Planning : sélection multiple de cases (façon Excel) */
@@ -257,3 +265,15 @@ td[data-sel="1"] { background-color: rgba(59, 130, 246, 0.22) !important; box-sh
 body.planning-selecting { user-select: none; -webkit-user-select: none; }
 @media print { td[data-sel="1"] { background-color: transparent !important; box-shadow: none; } }
 td[data-cut="1"] { outline: 2px dashed #f59e0b; outline-offset: -2px; }
+
+/* ---- Sensation « vraie appli » : aucun glissé horizontal de la page, aucun rebond sur le blanc ---- */
+html, body {
+    max-width: 100%;
+    overscroll-behavior: none;            /* pas de rebond / « élastique » ni de tirer-pour-rafraîchir au bord de page */
+    touch-action: pan-y pinch-zoom;       /* la page ne se déplace que verticalement */
+}
+body { overflow-x: clip; }                /* « clip » ne crée pas de conteneur de défilement (le sticky continue de marcher) */
+#root { max-width: 100%; overflow-x: clip; }
+/* Les zones faites pour défiler à l'horizontale (tableaux, planning, listes) gardent leur glissé latéral. */
+[class*="overflow-x-auto"], [class*="overflow-x-scroll"], [class*="overflow-auto"], [class*="overflow-scroll"],
+[data-radix-scroll-area-viewport], .scroll-x { touch-action: pan-x pan-y pinch-zoom; overscroll-behavior-x: contain; }

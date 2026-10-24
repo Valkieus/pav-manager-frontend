@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Check, X, Loader2, Download, FileText } from 'lucide-react';
-import { renderBadge, splitName, badgeFileName, downloadPng, downloadPdf } from './badgeRender';
+import { Check, X, Loader2, Download, FileText, Wand2, RotateCcw } from 'lucide-react';
+import { renderBadge, autoFrame, DEFAULT_ADJUST, splitName, badgeFileName, downloadPng, downloadPdf } from './badgeRender';
 
 // Badge en deux pages : 1. validation de la photo, 2. badge fabriqué (aperçu, PNG, PDF).
 export function BadgeWizard({
@@ -18,11 +19,56 @@ export function BadgeWizard({
   const [rendering, setRendering] = useState(false);
   const [error, setError] = useState('');
   const canvasRef = useRef(null);
+  const [adjust, setAdjust] = useState(DEFAULT_ADJUST);
+  const [framing, setFraming] = useState(false);
+  const panRef = useRef({ mx: 0, my: 0 });
+  const dragRef = useRef(null);
+  const adjustKey = tech?.id ? `pav-badge-cadrage-${tech.id}` : null;
   const photoUrl = badgeDetail?.badge_photo_url ? `${process.env.REACT_APP_BACKEND_URL}${badgeDetail.badge_photo_url}` : null;
 
   // Après validation, on passe tout seul à la page 2.
   useEffect(() => { if (open) setStep(validated ? 2 : 1); }, [open, validated]);
   useEffect(() => { if (open) setNames(splitName(tech?.nom)); }, [open, tech?.nom]);
+  // Le cadrage choisi est enregistré sur le compte de la personne (copie locale en secours).
+  useEffect(() => {
+    if (!open) return;
+    let saved = badgeDetail?.badge_adjust || null;
+    try { if (!saved && adjustKey) saved = JSON.parse(localStorage.getItem(adjustKey) || 'null'); } catch (e) { /* ignoré */ }
+    setAdjust(saved && typeof saved.zoom === 'number' ? saved : DEFAULT_ADJUST);
+  }, [open, adjustKey, photoUrl, badgeDetail?.badge_adjust]);
+  const saveAdjust = (a) => {
+    setAdjust(a);
+    try { if (adjustKey) localStorage.setItem(adjustKey, JSON.stringify(a)); } catch (e) { /* ignoré */ }
+    // Enregistré sur le compte : la personne voit son badge avec ce même cadrage.
+    if (badgeDetail?.user_id && !readOnly) {
+      axios.put(`${process.env.REACT_APP_BACKEND_URL}/api/admin/badges/${badgeDetail.user_id}/adjust`, a).catch(() => {});
+    }
+  };
+  const runAutoFrame = async () => {
+    if (!photoUrl) return;
+    setFraming(true);
+    try { saveAdjust(await autoFrame(photoUrl)); } finally { setFraming(false); }
+  };
+
+  // Glisser la photo directement sur l'aperçu (souris ou doigt).
+  const onPointerDown = (e) => {
+    if (!photoUrl) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    dragRef.current = { px: e.clientX, py: e.clientY, a: adjust };
+  };
+  const onPointerMove = (e) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const k = 726 / e.currentTarget.getBoundingClientRect().width; // pixels écran -> pixels du badge
+    const { mx, my } = panRef.current;
+    const clamp = (v) => Math.max(-1, Math.min(1, v));
+    setAdjust({
+      ...d.a,
+      x: mx > 0 ? clamp(d.a.x + ((e.clientX - d.px) * k) / mx) : 0,
+      y: my > 0 ? clamp(d.a.y + ((e.clientY - d.py) * k) / my) : 0,
+    });
+  };
+  const onPointerUp = () => { if (dragRef.current) { dragRef.current = null; saveAdjust(adjust); } };
 
   useEffect(() => {
     if (!open || step !== 2) return undefined;
@@ -31,13 +77,13 @@ export function BadgeWizard({
     setError('');
     const t = setTimeout(() => {
       if (!canvasRef.current) return;
-      renderBadge(canvasRef.current, { photoUrl, ...names })
-        .then((res) => { if (!cancelled && res && res.photoOk === false) setError("La photo n'a pas pu être chargée dans l'aperçu (le texte reste modifiable)."); })
+      renderBadge(canvasRef.current, { photoUrl, ...names, adjust })
+        .then((res) => { if (res?.pan) panRef.current = res.pan; if (!cancelled && res && res.photoOk === false) setError("La photo n'a pas pu être chargée dans l'aperçu (le texte reste modifiable)."); })
         .catch(() => !cancelled && setError("Impossible de dessiner le badge"))
         .finally(() => !cancelled && setRendering(false));
-    }, 150);
+    }, 40);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [open, step, names, photoUrl]);
+  }, [open, step, names, photoUrl, adjust]);
 
   const tabCls = (n) => `flex-1 rounded-md px-3 py-1.5 text-sm font-medium ${step === n ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`;
 
@@ -94,10 +140,32 @@ export function BadgeWizard({
               <Input className="font-bold uppercase" value={names.nom} onChange={(e) => setNames({ ...names, nom: e.target.value.toUpperCase() })} placeholder="NOM" />
             </div>
             <div className="relative">
-              <canvas ref={canvasRef} className="w-full rounded-lg border shadow-sm" data-testid="badge-canvas" />
+              <canvas ref={canvasRef} className={`w-full rounded-lg border shadow-sm ${photoUrl ? 'cursor-grab active:cursor-grabbing' : ''}`} style={{ touchAction: 'none' }} data-testid="badge-canvas"
+                onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} />
               {rendering && <Loader2 className="absolute right-2 top-2 w-4 h-4 animate-spin text-muted-foreground" />}
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
+            {photoUrl && (
+              <div className="rounded-lg border p-3 space-y-2" data-testid="badge-adjust">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">Cadrage de la photo <span className="text-xs font-normal text-muted-foreground">(glissez la photo sur l'aperçu ou utilisez les curseurs)</span></p>
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" variant="outline" disabled={framing} onClick={runAutoFrame} data-testid="badge-autoframe">
+                      {framing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1" />}Cadrage auto
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => saveAdjust(DEFAULT_ADJUST)}><RotateCcw className="w-4 h-4 mr-1" />Réinitialiser</Button>
+                  </div>
+                </div>
+                {[['Zoom', 'zoom', 1, 3, 0.02], ['Gauche ↔ droite', 'x', -1, 1, 0.01], ['Haut ↕ bas', 'y', -1, 1, 0.01]].map(([label, key, min, max, step]) => (
+                  <label key={key} className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="w-28 shrink-0">{label}</span>
+                    <input type="range" className="flex-1 accent-primary h-6" min={min} max={max} step={step} value={adjust[key]}
+                      onChange={(e) => setAdjust({ ...adjust, [key]: parseFloat(e.target.value) })}
+                      onPointerUp={() => saveAdjust(adjust)} onKeyUp={() => saveAdjust(adjust)} aria-label={label} />
+                  </label>
+                ))}
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button disabled={rendering} data-testid="badge-png"
                 onClick={() => downloadPng(canvasRef.current, badgeFileName(names.prenom, names.nom, 'png'))}>

@@ -65,6 +65,7 @@ import {
   PlusSquare,
   ArrowDown,
   Lightbulb,
+  IdCard,
   Music,
   ExternalLink,
   FlaskConical,
@@ -172,6 +173,12 @@ const navItems = [
     label: "Mon espace",
     minRole: "Technicien",
   },
+  {
+    path: "/mon-badge",
+    icon: IdCard,
+    label: "Mon badge",
+    minRole: "Technicien",
+  },
   { path: "/effectif", icon: Users, label: "Effectif", minRole: "Responsable" },
   // Salles/Régisseurs (20/08/2026) : opt-in pour Responsable/Coordination —
   // ces deux rôles ne voient l'entrée que s'ils appartiennent à un groupe
@@ -237,11 +244,13 @@ const navItems = [
 // lien s'il ne lui en reste qu'une. Un élément "path" seul reste au premier niveau.
 const NAV_STRUCTURE = [
   { path: "/" },
-  { folder: "Planning & lieux", icon: CalendarDays, paths: ["/planning", "/mon-espace", "/salles"] },
-  { path: "/logistique" }, // Régisseurs : inchangé, au premier niveau
-  { folder: "Ressources humaines", icon: Users, paths: ["/effectif", "/formations"] },
-  { folder: "Matériel & achats", icon: Package, paths: ["/elements-led", "/devis"] },
-  { folder: "Communication", icon: MessageSquare, paths: ["/actualites", "/communication", "/documents"] },
+  { path: "/mon-badge" },   // accès direct : le badge, ou la raison pour laquelle il n'est pas encore disponible
+  { path: "/mon-espace" },  // absences, sécurité, données personnelles
+  { folder: "Agenda", icon: CalendarDays, paths: ["/planning", "/salles"] },
+  { path: "/logistique" },  // Régisseurs
+  { folder: "Équipe", icon: Users, paths: ["/effectif", "/formations"] },
+  { path: "/devis" },       // Devis & Achat
+  { folder: "Contenus", icon: MessageSquare, paths: ["/actualites", "/communication", "/documents", "/elements-led"] },
   { path: "/administration" },
 ];
 const NAV_FOLDERS_KEY = "nav_open_folders";

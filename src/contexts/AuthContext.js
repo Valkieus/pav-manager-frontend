@@ -47,6 +47,14 @@ const readKioskUser = () => {
 export const AuthProvider = ({ children }) => {
   const { syncThemeFromServer } = useTheme();
   const [rawUser, setUser] = useState(null);
+  // Garde le serveur éveillé tant que l'application est ouverte et visible (l'offre gratuite de l'hébergeur l'endort
+  // après quelques minutes d'inactivité, et le premier appel « moulinait » ensuite pendant près d'une minute).
+  useEffect(() => {
+    const ping = () => { if (document.visibilityState === 'visible') fetch(`${API}/health`, { cache: 'no-store' }).catch(() => {}); };
+    const id = setInterval(ping, 4 * 60 * 1000);
+    document.addEventListener('visibilitychange', ping);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', ping); };
+  }, []);
   const [viewAs, setViewAs] = useState(() => {
     try { return sessionStorage.getItem(VIEW_AS_KEY) || null; } catch (e) { return null; }
   });

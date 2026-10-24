@@ -1,3 +1,5 @@
+import { compressImage } from "../lib/compressImage";
+import { BadgeViewer, hasBadgeToShow } from "./dashboard/MonBadgeCard";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -76,7 +78,10 @@ const FREQUENCES = [
 export default function MonEspace() {
   const { user, isGestionnairePlus } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState("absences");
+  const [tab, setTab] = useState(() => {
+    const t = new URLSearchParams(window.location.search).get("tab"); // ex. /mon-espace?tab=badge
+    return ["absences", "badge", "securite", "donnees"].includes(t) ? t : "absences";
+  });
   const [absences, setAbsences] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -104,6 +109,7 @@ export default function MonEspace() {
   const [badgePhotoPreview, setBadgePhotoPreview] = useState(null);
   const [badgeSubmitting, setBadgeSubmitting] = useState(false);
   const [badgeMotif, setBadgeMotif] = useState("");
+  const [badgeViewerOpen, setBadgeViewerOpen] = useState(false);
 
   const fetchAbsences = useCallback(async () => {
     try {
@@ -244,7 +250,7 @@ export default function MonEspace() {
     setBadgeSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append("photo", badgePhotoFile);
+      formData.append("photo", await compressImage(badgePhotoFile));
       if (badgeMotif.trim()) formData.append("motif", badgeMotif.trim());
       await axios.post(`${API}/me/badge`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -896,6 +902,21 @@ export default function MonEspace() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Version digitale : le badge à afficher en plein écran (paysage), dès que la coordination a validé la photo */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/5 p-3" data-testid="badge-digital">
+            <div className="min-w-0">
+              <p className="font-semibold">Version digitale</p>
+              <p className="text-xs text-muted-foreground">
+                {hasBadgeToShow(badgeInfo)
+                  ? "Ton badge, à présenter en plein écran (paysage)."
+                  : "Disponible dès que la coordination aura validé ta photo."}
+              </p>
+            </div>
+            <Button disabled={!hasBadgeToShow(badgeInfo)} onClick={() => setBadgeViewerOpen(true)} data-testid="badge-digital-open">
+              <IdCard className="w-4 h-4 mr-2" /> Voir mon badge
+            </Button>
+          </div>
+          {badgeViewerOpen && hasBadgeToShow(badgeInfo) && <BadgeViewer user={badgeInfo} onClose={() => setBadgeViewerOpen(false)} />}
           {badgeInfo?.badge_status === "en_attente_validation" && (
             <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20" data-testid="badge-request-recap">
               {badgeInfo.badge_photo_url && (

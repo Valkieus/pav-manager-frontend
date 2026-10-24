@@ -23,6 +23,7 @@ const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"));
 const Actualites = lazyWithRetry(() => import("./pages/Actualites"));
 const Planning = lazyWithRetry(() => import("./pages/PlanningHub"));
 const MonEspace = lazyWithRetry(() => import("./pages/MonEspace"));
+const MonBadge = lazyWithRetry(() => import("./pages/MonBadge"));
 const Effectif = lazyWithRetry(() => import("./pages/Effectif"));
 const Logistique = lazyWithRetry(() => import("./pages/Logistique"));
 const ElementsLED = lazyWithRetry(() => import("./pages/ElementsLED"));
@@ -123,6 +124,7 @@ function AppRoutes() {
       <Route path="/actualites" element={<ProtectedRoute><Actualites /></ProtectedRoute>} />
       <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
       <Route path="/mon-espace" element={<ProtectedRoute><MonEspace /></ProtectedRoute>} />
+      <Route path="/mon-badge" element={<ProtectedRoute><MonBadge /></ProtectedRoute>} />
       <Route path="/effectif" element={<ProtectedRoute><Effectif /></ProtectedRoute>} />
       <Route path="/logistique" element={<ProtectedRoute><Logistique /></ProtectedRoute>} />
       <Route path="/elements-led" element={<ProtectedRoute><ElementsLED /></ProtectedRoute>} />

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -28,16 +29,20 @@ export function BadgeWizard({
   // Après validation, on passe tout seul à la page 2.
   useEffect(() => { if (open) setStep(validated ? 2 : 1); }, [open, validated]);
   useEffect(() => { if (open) setNames(splitName(tech?.nom)); }, [open, tech?.nom]);
-  // Le cadrage choisi est retenu pour cette personne (sur cet appareil).
+  // Le cadrage choisi est enregistré sur le compte de la personne (copie locale en secours).
   useEffect(() => {
     if (!open) return;
-    let saved = null;
-    try { saved = adjustKey ? JSON.parse(localStorage.getItem(adjustKey) || 'null') : null; } catch (e) { /* ignoré */ }
+    let saved = badgeDetail?.badge_adjust || null;
+    try { if (!saved && adjustKey) saved = JSON.parse(localStorage.getItem(adjustKey) || 'null'); } catch (e) { /* ignoré */ }
     setAdjust(saved && typeof saved.zoom === 'number' ? saved : DEFAULT_ADJUST);
-  }, [open, adjustKey, photoUrl]);
+  }, [open, adjustKey, photoUrl, badgeDetail?.badge_adjust]);
   const saveAdjust = (a) => {
     setAdjust(a);
     try { if (adjustKey) localStorage.setItem(adjustKey, JSON.stringify(a)); } catch (e) { /* ignoré */ }
+    // Enregistré sur le compte : la personne voit son badge avec ce même cadrage.
+    if (badgeDetail?.user_id && !readOnly) {
+      axios.put(`${process.env.REACT_APP_BACKEND_URL}/api/admin/badges/${badgeDetail.user_id}/adjust`, a).catch(() => {});
+    }
   };
   const runAutoFrame = async () => {
     if (!photoUrl) return;

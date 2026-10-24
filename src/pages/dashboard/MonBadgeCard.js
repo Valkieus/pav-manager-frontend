@@ -22,7 +22,7 @@ const useScreen = () => {
 };
 
 // Plein écran en paysage : téléphone tenu droit → le badge est tourné de 90° pour remplir l'écran ; téléphone couché → tel quel.
-function BadgeViewer({ user, onClose }) {
+export function BadgeViewer({ user, onClose }) {
   const canvasRef = useRef(null);
   const { w, h } = useScreen();
   const portrait = h > w;

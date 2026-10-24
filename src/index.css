@@ -264,3 +264,15 @@ td[data-sel="1"] { background-color: rgba(59, 130, 246, 0.22) !important; box-sh
 body.planning-selecting { user-select: none; -webkit-user-select: none; }
 @media print { td[data-sel="1"] { background-color: transparent !important; box-shadow: none; } }
 td[data-cut="1"] { outline: 2px dashed #f59e0b; outline-offset: -2px; }
+
+/* ---- Sensation « vraie appli » : aucun glissé horizontal de la page, aucun rebond sur le blanc ---- */
+html, body {
+    max-width: 100%;
+    overscroll-behavior: none;            /* pas de rebond / « élastique » ni de tirer-pour-rafraîchir au bord de page */
+    touch-action: pan-y pinch-zoom;       /* la page ne se déplace que verticalement */
+}
+body { overflow-x: clip; }                /* « clip » ne crée pas de conteneur de défilement (le sticky continue de marcher) */
+#root { max-width: 100%; overflow-x: clip; }
+/* Les zones faites pour défiler à l'horizontale (tableaux, planning, listes) gardent leur glissé latéral. */
+[class*="overflow-x-auto"], [class*="overflow-x-scroll"], [class*="overflow-auto"], [class*="overflow-scroll"],
+[data-radix-scroll-area-viewport], .scroll-x { touch-action: pan-x pan-y pinch-zoom; overscroll-behavior-x: contain; }

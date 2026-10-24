@@ -250,6 +250,13 @@
 @layer base {
     [data-sonner-toaster] { --offset: calc(env(safe-area-inset-top, 0px) + 16px) !important; }
     [role="dialog"], [data-radix-popper-content-wrapper] { scroll-padding-top: env(safe-area-inset-top); }
+
+    /* Fenêtres plein écran (fiches) et panneaux latéraux : le contenu commence sous la barre d'état / Dynamic Island
+       et s'arrête au-dessus de la barre de gestes. */
+    @media (max-width: 639px) {
+        [role="dialog"][class*="100dvh"] { padding-top: env(safe-area-inset-top) !important; padding-bottom: env(safe-area-inset-bottom) !important; }
+    }
+    [role="dialog"][class*="inset-y-0"] { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
 }
 
 /* Planning : sélection multiple de cases (façon Excel) */

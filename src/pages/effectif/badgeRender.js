@@ -37,7 +37,44 @@ function fitText(ctx, text, weight, maxPx, maxWidth) {
   } while (ctx.measureText(text).width > maxWidth && size > 16);
 }
 
-export async function renderBadge(canvas, { photoUrl, prenom, nom }) {
+export const DEFAULT_ADJUST = { zoom: 1, x: 0, y: 0 };
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+// Cadre intérieur de la photo (en pixels du badge) et dimensions de l'image une fois zoomée.
+function photoGeometry(img, { zoom = 1 }) {
+  const { x, y, w, h, inset } = PHOTO;
+  const iw = w - inset * 2, ih = h - inset * 2;
+  const s = Math.max(iw / img.width, ih / img.height) * zoom; // « cover » × zoom
+  return { ix: x + inset, iy: y + inset, iw, ih, s, dw: img.width * s, dh: img.height * s };
+}
+
+// Cadrage automatique : visage détecté (si le navigateur sait le faire), sinon haut de l'image (là où se trouve la tête).
+export async function autoFrame(photoUrl) {
+  const img = await loadPhoto(photoUrl);
+  if (!img) return DEFAULT_ADJUST;
+  const g = photoGeometry(img, DEFAULT_ADJUST);
+  try {
+    if (typeof window !== 'undefined' && 'FaceDetector' in window) {
+      const faces = await new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 }).detect(img);
+      const b = faces[0]?.boundingBox;
+      if (b) {
+        const zoom = clamp((g.ih * 0.42) / (b.height * g.s), 1, 3);
+        const s = g.s * zoom;
+        const dw = img.width * s, dh = img.height * s;
+        const fx = b.x + b.width / 2, fy = b.y + b.height / 2;
+        const mx = (dw - g.iw) / 2, my = (dh - g.ih) / 2;
+        return {
+          zoom,
+          x: mx > 0 ? clamp((dw / 2 - fx * s) / mx, -1, 1) : 0,
+          y: my > 0 ? clamp((dh / 2 - fy * s) / my, -1, 1) : 0,
+        };
+      }
+    }
+  } catch (e) { /* repli ci-dessous */ }
+  return { zoom: 1, x: 0, y: g.dh > g.ih ? 0.55 : 0 };
+}
+
+export async function renderBadge(canvas, { photoUrl, prenom, nom, adjust = DEFAULT_ADJUST }) {
   canvas.width = W * SCALE;
   canvas.height = H * SCALE;
   const ctx = canvas.getContext('2d');
@@ -49,23 +86,24 @@ export async function renderBadge(canvas, { photoUrl, prenom, nom }) {
   drawNames(ctx, prenom, nom);
 
   let photoOk = true;
+  let pan = { mx: 0, my: 0 };
   if (photoUrl) {
     photoOk = false;
     const img = await loadPhoto(photoUrl);
     if (img) {
-      const { x, y, w, h, r, inset } = PHOTO;
-      const ix = x + inset, iy = y + inset, iw = w - inset * 2, ih = h - inset * 2;
+      const { r } = PHOTO;
+      const { ix, iy, iw, ih, dw, dh } = photoGeometry(img, adjust);
+      const mx = Math.max(0, (dw - iw) / 2), my = Math.max(0, (dh - ih) / 2);
+      pan = { mx, my };
       ctx.save();
       roundRect(ctx, ix, iy, iw, ih, r - 6);
       ctx.clip();
-      const s = Math.max(iw / img.width, ih / img.height); // cover
-      const dw = img.width * s, dh = img.height * s;
-      ctx.drawImage(img, ix + (iw - dw) / 2, iy + (ih - dh) / 2, dw, dh);
+      ctx.drawImage(img, ix + (iw - dw) / 2 + clamp(adjust.x, -1, 1) * mx, iy + (ih - dh) / 2 + clamp(adjust.y, -1, 1) * my, dw, dh);
       ctx.restore();
       photoOk = true;
     }
   }
-  return { canvas, photoOk };
+  return { canvas, photoOk, pan };
 }
 
 // Plusieurs essais : <img> avec CORS, puis fetch -> blob (selon ce que le navigateur / le service worker acceptent).

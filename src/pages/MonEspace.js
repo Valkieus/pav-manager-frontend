@@ -1,3 +1,4 @@
+import { compressImage } from "../lib/compressImage";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -244,7 +245,7 @@ export default function MonEspace() {
     setBadgeSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append("photo", badgePhotoFile);
+      formData.append("photo", await compressImage(badgePhotoFile));
       if (badgeMotif.trim()) formData.append("motif", badgeMotif.trim());
       await axios.post(`${API}/me/badge`, formData, {
         headers: { "Content-Type": "multipart/form-data" },

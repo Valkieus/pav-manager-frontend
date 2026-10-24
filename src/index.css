@@ -213,7 +213,8 @@
     html {
         -webkit-text-size-adjust: 100%;
         text-size-adjust: 100%;
-        overflow-x: hidden;
+        /* pas d'overflow sur html : avec le verrou de défilement des menus/fenêtres (overflow: hidden sur body),
+           l'en-tête collant sortait de l'écran. Le blocage horizontal est fait par « body { overflow-x: clip } » plus bas. */
         /* pas de « rebond » ni de geste retour déclenché par un glissé horizontal accidentel */
         overscroll-behavior-x: none;
         -webkit-tap-highlight-color: transparent;

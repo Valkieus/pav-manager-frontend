@@ -37,7 +37,7 @@ export function BadgeViewer({ user, onClose }) {
 
   useEffect(() => {
     let cancelled = false;
-    const { prenom, nom } = splitName(user.full_name);
+    const { prenom, nom } = user.badge_names || splitName(user.full_name);
     renderBadge(canvasRef.current, {
       photoUrl: `${process.env.REACT_APP_BACKEND_URL}${user.badge_photo_url}`, prenom, nom, adjust: user.badge_adjust || DEFAULT_ADJUST,
     })

@@ -28,7 +28,25 @@ export function BadgeWizard({
 
   // Après validation, on passe tout seul à la page 2.
   useEffect(() => { if (open) setStep(validated ? 2 : 1); }, [open, validated]);
-  useEffect(() => { if (open) setNames(splitName(tech?.nom)); }, [open, tech?.nom]);
+  // Prénom / NOM du badge : propres au badge (la fiche ne change pas). On reprend ceux enregistrés, sinon ceux de la fiche.
+  const namesDirty = useRef(false);
+  const savedNamesRef = useRef({}); // noms enregistrés pendant cette session (la fiche détail n'est pas rechargée à chaque ouverture)
+  const [namesSaved, setNamesSaved] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    namesDirty.current = false;
+    setNamesSaved(false);
+    setNames(savedNamesRef.current[badgeDetail?.user_id] || badgeDetail?.badge_names || splitName(tech?.nom));
+  }, [open, tech?.nom, badgeDetail?.badge_names]);
+  const editNames = (next) => { namesDirty.current = true; setNamesSaved(false); setNames(next); };
+  useEffect(() => {
+    if (!open || !namesDirty.current || readOnly || !badgeDetail?.user_id) return undefined;
+    const t = setTimeout(() => {
+      axios.put(`${process.env.REACT_APP_BACKEND_URL}/api/admin/badges/${badgeDetail.user_id}/names`, names)
+        .then(() => { savedNamesRef.current[badgeDetail.user_id] = names; setNamesSaved(true); }).catch(() => {});
+    }, 700);
+    return () => clearTimeout(t);
+  }, [names, open, readOnly, badgeDetail?.user_id]);
   // Le cadrage choisi est enregistré sur le compte de la personne (copie locale en secours).
   useEffect(() => {
     if (!open) return;
@@ -136,9 +154,12 @@ export function BadgeWizard({
         {step === 2 && (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <Input className="font-bold" value={names.prenom} onChange={(e) => setNames({ ...names, prenom: e.target.value })} placeholder="Prénom" />
-              <Input className="font-bold uppercase" value={names.nom} onChange={(e) => setNames({ ...names, nom: e.target.value.toUpperCase() })} placeholder="NOM" />
+              <Input className="font-bold" value={names.prenom} onChange={(e) => editNames({ ...names, prenom: e.target.value })} placeholder="Prénom" />
+              <Input className="font-bold uppercase" value={names.nom} onChange={(e) => editNames({ ...names, nom: e.target.value.toUpperCase() })} placeholder="NOM" />
             </div>
+            <p className="-mt-1 text-xs text-muted-foreground">
+              Ces noms ne servent qu'à ce badge : la fiche reste inchangée.{namesSaved && <span className="ml-1 text-emerald-600">Enregistré ✓</span>}
+            </p>
             <div className="relative">
               <canvas ref={canvasRef} className={`w-full rounded-lg border shadow-sm ${photoUrl ? 'cursor-grab active:cursor-grabbing' : ''}`} style={{ touchAction: 'none' }} data-testid="badge-canvas"
                 onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} />

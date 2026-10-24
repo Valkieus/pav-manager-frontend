@@ -78,7 +78,10 @@ const FREQUENCES = [
 export default function MonEspace() {
   const { user, isGestionnairePlus } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState("absences");
+  const [tab, setTab] = useState(() => {
+    const t = new URLSearchParams(window.location.search).get("tab"); // ex. /mon-espace?tab=badge
+    return ["absences", "badge", "securite", "donnees"].includes(t) ? t : "absences";
+  });
   const [absences, setAbsences] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);

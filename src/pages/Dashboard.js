@@ -15,6 +15,9 @@ import { DayPreviewDialog } from './dashboard/DayPreviewDialog';
 import { RetardDialog } from './dashboard/RetardDialog';
 import { OrgNodeDialog } from './dashboard/OrgNodeDialog';
 import { CharismaDialog } from './dashboard/CharismaDialog';
+import { PortalEditorDialog } from './dashboard/PortalEditorDialog';
+import { mergeLinks, visibleLinks } from './dashboard/portalLinks';
+import { openSongsSite } from '../lib/songs';
 import { DashboardOrgCard } from './dashboard/DashboardOrgCard';
 import { DashboardStatsSection } from './dashboard/DashboardStatsSection';
 import { DashboardMonthCard } from './dashboard/DashboardMonthCard';
@@ -43,7 +46,7 @@ import { MonBadgeCard } from './dashboard/MonBadgeCard';
 
 
 export default function Dashboard() {
-  const { user, isAdmin, isAdminOrReadOnly } = useAuth();
+  const { user, isAdmin, isAdminOrReadOnly, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [orgData, setOrgData] = useState(null);
@@ -63,6 +66,8 @@ export default function Dashboard() {
   // une fenêtre qui reste sur PAV Manager (pas de navigation, juste un
   // Dialog) — plus lisible et plus "user friendly" au doigt.
   const [charismaOpen, setCharismaOpen] = useState(false);
+  const [portalStored, setPortalStored] = useState(null); // barre Portail : configuration du Super Admin (null = par défaut)
+  const [portalEditorOpen, setPortalEditorOpen] = useState(false);
   // Aperçu rapide au clic sur un jour de service dans le mini calendrier —
   // date + poste occupé ce jour-là + rappel des horaires déjà affiché plus
   // haut sur le Dashboard (service_info_text), pour ne pas avoir à
@@ -142,6 +147,7 @@ export default function Dashboard() {
       // /techniciens/roster is the PII-free variant (no téléphone/email/badge)
       // reachable by any authenticated role, so the popup keeps working for
       // Technicien even though the full /techniciens list is Responsable+.
+      axios.get(`${API}/dashboard/portal-links`).then((r) => setPortalStored(r.data.links)).catch(() => {});
       const [orgRes, techRes, briefRes] = await Promise.all([
         axios.get(`${API}/organigramme`),
         axios.get(`${API}/techniciens/roster`).catch(() => ({ data: [] })),
@@ -226,6 +232,28 @@ export default function Dashboard() {
       );
       setAcademySsoLoading(false);
     }
+  };
+
+  // PAV LED : ouvre le site LED déjà connecté (jeton à usage unique) ; la fenêtre est ouverte tout de suite pour éviter le blocage popup.
+  const [ledSsoLoading, setLedSsoLoading] = useState(false);
+  const handleLedSSO = async () => {
+    const win = window.open("", "_blank");
+    setLedSsoLoading(true);
+    try {
+      const res = await axios.post(`${API}/led/sso-handoff`);
+      if (win) win.location.href = res.data.redirect_url;
+      else window.location.href = res.data.redirect_url;
+    } catch (err) {
+      if (win) win.close();
+      toast.error(err.response?.data?.detail || "Impossible d'ouvrir PAV LED");
+    } finally {
+      setLedSsoLoading(false);
+    }
+  };
+  const openPortalLink = (link) => {
+    if (link.kind === "academy") handleAcademySSO();
+    else if (link.kind === "led") handleLedSSO();
+    else if (link.kind === "songs") openSongsSite();
   };
 
   if (loading) {
@@ -314,6 +342,11 @@ export default function Dashboard() {
     ["academy.examiner", "academy.student"].some((p) =>
       modulePerms.includes(p),
     );
+  const hasLedAccess =
+    isAdminOrReadOnly() || ["led.read", "led.write"].some((p) => modulePerms.includes(p));
+  const portalAll = mergeLinks(portalStored);
+  const portalLinks = visibleLinks(portalAll, { niveau: user?.niveau_acces, hasAcademyAccess, hasLedAccess });
+  const portalBusyKind = academySsoLoading ? "academy" : ledSsoLoading ? "led" : null;
   const accessChips = [];
   if (user) {
     if (["Responsable", "Coordination"].includes(user.niveau_acces)) {
@@ -410,21 +443,24 @@ paraît disproportionné sur desktop. */}
 
       {/* Portail Charisma */}
       <DashboardOrgCard
-            academySsoLoading={academySsoLoading}
-            handleAcademySSO={handleAcademySSO}
-            hasAcademyAccess={hasAcademyAccess}
-            isMembre={isMembre}
+            busyKind={portalBusyKind}
+            canEdit={isSuperAdmin()}
+            links={portalLinks}
+            onEdit={() => setPortalEditorOpen(true)}
+            onOpenLink={openPortalLink}
             setCharismaOpen={setCharismaOpen}
           />
 
             <CharismaDialog
-            academySsoLoading={academySsoLoading}
+            busyKind={portalBusyKind}
             charismaOpen={charismaOpen}
-            handleAcademySSO={handleAcademySSO}
-            hasAcademyAccess={hasAcademyAccess}
-            isMembre={isMembre}
+            links={portalLinks}
+            onOpenLink={openPortalLink}
             setCharismaOpen={setCharismaOpen}
           />
+          {isSuperAdmin() && (
+            <PortalEditorDialog open={portalEditorOpen} onOpenChange={setPortalEditorOpen} links={portalAll} onSaved={setPortalStored} />
+          )}
 
       {/* Organigramme — visible to everyone, Membre included */}
       <Card className="animate-fadeIn stagger-5 rounded-2xl border-primary/10 shadow-sm">

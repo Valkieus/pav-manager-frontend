@@ -1,3 +1,4 @@
+import { toYmd } from "../lib/dates";
 import { compressImage } from "../lib/compressImage";
 import { BadgeViewer, hasBadgeToShow } from "./dashboard/MonBadgeCard";
 import { useState, useEffect, useCallback } from "react";
@@ -752,11 +753,11 @@ export default function MonEspace() {
                     onSelect={(range) => {
                       setDateDebut(
                         range?.from
-                          ? range.from.toISOString().slice(0, 10)
+                          ? toYmd(range.from)
                           : "",
                       );
                       setDateFin(
-                        range?.to ? range.to.toISOString().slice(0, 10) : "",
+                        range?.to ? toYmd(range.to) : "",
                       );
                     }}
                     numberOfMonths={1}

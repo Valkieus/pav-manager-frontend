@@ -1,3 +1,4 @@
+import { toYmd } from '../../lib/dates';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Plus, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
@@ -114,7 +115,7 @@ export function FormationFormDialog({
                         setForm({
                           ...form,
                           dates_souhaitees: (days || [])
-                            .map((d) => d.toISOString().slice(0, 10))
+                            .map((d) => toYmd(d))
                             .sort(),
                         })
                       }

@@ -22,6 +22,7 @@ import { invalidateTechniciensCache } from "../lib/technicienCache";
 import TeamAbsenceDashboard from "./TeamAbsenceDashboard";
 
 import { sanitizeContainer } from '../lib/safeHtml';
+import { LIVE_POLES, POLES, isLiveMember, polesOf, toRaw } from './effectif/poles';
 import { API, NIVEAU_ORDER, XLSX, getBranchColor, loadXLSX } from './effectif/constants';
 import { TechDetailDialog } from './effectif/TechDetailDialog';
 import { EffectifList } from './effectif/EffectifList';
@@ -79,6 +80,7 @@ export default function Effectif() {
     niveau_acces: "",
     branches: [],
     sous_branches: [],
+    branches_raw: [],
     poste_principal: "",
     postes_secondaires: [],
     organigramme_label: "",
@@ -132,7 +134,8 @@ export default function Effectif() {
           (t.branches || []).some((b) => user.branches.includes(b)),
         );
       }
-      setTechniciens(list);
+      // `branches` = pôles (alignés sur l'organigramme) pour tout l'affichage ; `branches_raw` = valeurs enregistrées.
+      setTechniciens(list.map((t) => ({ ...t, branches_raw: t.branches || [], branches: polesOf(t) })));
       setEnums(enumsRes.data);
     } catch (err) {
       toast.error("Erreur lors du chargement");
@@ -149,6 +152,7 @@ export default function Effectif() {
       niveau_acces: "",
       branches: [],
       sous_branches: [],
+    branches_raw: [],
       poste_principal: "",
       postes_secondaires: [],
       organigramme_label: "",
@@ -175,6 +179,7 @@ export default function Effectif() {
       niveau_acces: tech.niveau_acces,
       branches: tech.branches || [],
       sous_branches: tech.sous_branches || [],
+      branches_raw: tech.branches_raw || [],
       poste_principal: tech.poste_principal || "",
       postes_secondaires: tech.postes_secondaires || [],
       organigramme_label: tech.organigramme_label || "",
@@ -196,17 +201,20 @@ export default function Effectif() {
     }));
   };
 
-  const toggleBranche = (branche) => {
-    setForm((prev) => {
-      const newBranches = prev.branches.includes(branche)
-        ? prev.branches.filter((b) => b !== branche)
-        : [...prev.branches, branche];
-      // Dropping "Live" clears any sous-branches selected (they only apply to Live)
-      const newSousBranches = newBranches.includes("Live")
-        ? prev.sous_branches
-        : [];
-      return { ...prev, branches: newBranches, sous_branches: newSousBranches };
-    });
+  // Même règle que le serveur : un Responsable / une Coordination limité(e) à des branches ne modifie que les fiches qui en partagent une.
+  const canEditTech = (t) => {
+    if (!canManage()) return false;
+    if (!["Responsable", "Coordination"].includes(user?.niveau_acces)) return true;
+    const mine = user?.branches || [];
+    if (mine.length === 0) return true;
+    return (t?.branches_raw || t?.branches || []).some((b) => mine.includes(b));
+  };
+
+  const toggleBranche = (pole) => {
+    setForm((prev) => ({
+      ...prev,
+      branches: prev.branches.includes(pole) ? prev.branches.filter((b) => b !== pole) : [...prev.branches, pole],
+    }));
   };
 
   const toggleSousBranche = (sb) => {
@@ -228,7 +236,7 @@ export default function Effectif() {
     try {
       const data = {
         ...form,
-        sous_branches: form.branches.includes("Live") ? form.sous_branches : [],
+        ...toRaw(form.branches, form.branches_raw || [], form.sous_branches), // pôles choisis -> branches / sous-branches enregistrées (valeurs d'origine gardées si rien ne change)
       };
       if (editingId) {
         await axios.put(`${API}/techniciens/${editingId}`, data);
@@ -606,12 +614,9 @@ export default function Effectif() {
 
   // Comptage par branche pour l'overview
   const branchCounts = useMemo(() => {
-    const counts = {};
-    techniciens.forEach((t) => {
-      (t.branches || []).forEach((b) => {
-        counts[b] = (counts[b] || 0) + 1;
-      });
-    });
+    // Ordre d'affichage : le titre « Live » (ensemble), ses cinq pôles, puis Production / Coordination / Supervision.
+    const counts = { Live: techniciens.filter(isLiveMember).length };
+    POLES.forEach((p) => { counts[p] = techniciens.filter((t) => (t.branches || []).includes(p)).length; });
     return counts;
   }, [techniciens]);
 
@@ -642,7 +647,7 @@ export default function Effectif() {
           .some((v) => String(v).toLowerCase().includes(q));
       const branches = t.branches || [];
       const matchBranche =
-        filterBranche === "all" || branches.includes(filterBranche);
+        filterBranche === "all" || (filterBranche === "Live" ? isLiveMember(t) : branches.includes(filterBranche));
       const matchBadge =
         filterBadge === "all" ||
         (filterBadge === "avec" && t.badge_attribue) ||
@@ -1154,6 +1159,7 @@ export default function Effectif() {
             badgeDetail={badgeDetail}
             badgeDetailLoading={badgeDetailLoading}
             canManage={canManage}
+            canEditTech={canEditTech}
             canManageBadges={canManageBadges}
             exportingFichePdf={exportingFichePdf}
             getAccesColor={getAccesColor}

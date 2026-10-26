@@ -1,3 +1,4 @@
+import { LIVE_POLES, POLES } from './poles';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Plus, Edit, Phone, Mail, Check, IdCard, Loader2 } from 'lucide-react';
@@ -125,7 +126,7 @@ export function TechEditDialog({
             {/* Branches : pastilles à toucher */}
             <section className="space-y-3 rounded-xl border p-3 sm:p-4">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold">Branches *</h3>
+                <h3 className="text-sm font-semibold">Pôles * <span className="font-normal text-muted-foreground">(Captation, Régisseurs, Animation, Incrustation, Diffusion font partie du Live)</span></h3>
                 <span className="text-xs text-muted-foreground">{form.branches.length} choisie(s)</span>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -134,9 +135,9 @@ export function TechEditDialog({
                   // (User.branches) ne peut créer/éditer que dans son propre
                   // périmètre — le backend le refuse aussi (tâche #292).
                   (!isAdminOrReadOnly() && user?.branches?.length
-                    ? enums.branches?.filter((b) => user.branches.includes(b))
-                    : enums.branches
-                  )?.map((b) => {
+                    ? POLES.filter((p) => user.branches.includes(p) || (user.branches.includes("Live") && LIVE_POLES.includes(p)))
+                    : POLES
+                  ).map((b) => {
                     const c = getBranchColor(b);
                     const on = form.branches.includes(b);
                     return (

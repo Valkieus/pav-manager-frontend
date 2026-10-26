@@ -1,3 +1,4 @@
+import { toYmd } from '../lib/dates';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
@@ -78,7 +79,7 @@ export default function PublicReservation() {
       // Set default date to tomorrow
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      setSelectedDate(tomorrow.toISOString().split('T')[0]);
+      setSelectedDate(toYmd(tomorrow));
     } catch (err) {
       if (err.response?.status === 401) {
         setNeedsPassword(true);
@@ -153,7 +154,7 @@ export default function PublicReservation() {
   for (let i = 1; i <= 60; i++) {
     const d = new Date();
     d.setDate(d.getDate() + i);
-    availableDates.push(d.toISOString().split('T')[0]);
+    availableDates.push(toYmd(d));
   }
 
   if (loading) {

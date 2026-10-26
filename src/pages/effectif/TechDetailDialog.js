@@ -14,6 +14,7 @@ export function TechDetailDialog({
   badgeDetail,
   badgeDetailLoading,
   canManage,
+  canEditTech,
   canManageBadges,
   exportingFichePdf,
   getAccesColor,
@@ -329,10 +330,15 @@ export function TechDetailDialog({
                 className="flex flex-wrap items-center gap-2 border-t bg-background px-4 py-3 sm:px-6"
                 style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
               >
-                {canManage() && (
+                {canManage() && canEditTech(t) && (
                   <Button className="h-11 flex-1 sm:h-10" onClick={() => handleEdit(t)} data-testid="tech-edit-btn">
                     <Edit className="mr-2 h-4 w-4" /> Modifier
                   </Button>
+                )}
+                {canManage() && !canEditTech(t) && (
+                  <p className="flex-1 text-xs text-muted-foreground" data-testid="tech-edit-locked">
+                    Consultation seule : cette fiche est en dehors de vos branches, sa modification est réservée à la Coordination.
+                  </p>
                 )}
                 <Button
                   variant="outline"

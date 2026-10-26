@@ -42,7 +42,7 @@ export default function MonBadge() {
     if (!ready) { setState('message'); return undefined; }
     let cancelled = false;
     setState('loading');
-    const { prenom, nom } = splitName(info.full_name);
+    const { prenom, nom } = info.badge_names || splitName(info.full_name);
     // le canvas n'existe qu'une fois « ready » rendu : on attend le prochain tour
     const t = setTimeout(() => {
       if (!canvasRef.current) return;

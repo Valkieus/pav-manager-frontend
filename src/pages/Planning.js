@@ -24,7 +24,7 @@ import {
   downloadStatusMessage,
   reserveTabForIOSFallback,
 } from "../utils/fileDownload";
-import { API, DEFAULT_SECTIONS, MOIS_NOMS, THEME, canonPoste, delimiterGroup, slugPoste, stripAccents, withCamera7 } from './planning/constants';
+import { API, DEFAULT_SECTIONS, MOIS_NOMS, THEME, canonPoste, delimiterGroup, slugPoste, stripAccents, withCamera7, withCamera8 } from './planning/constants';
 import { buildPlanningExportSVG, buildPlanningExportXLSX, loadXLSX, svgToPngDataUrl, svgToStoryPngDataUrl } from './planning/exportUtils';
 import { PlanningCell } from './planning/cells';
 import { useCellSelection } from './planning/useCellSelection';
@@ -200,6 +200,10 @@ export default function Planning() {
   // panneau d'affectation...). N'affecte jamais la vue Technicien, qui reste
   // toujours en lecture seule.
   const [planningEditMode, setPlanningEditMode] = useState(false);
+  // Structure (lignes) modifiable : Admin+ partout ; un Responsable dont le groupe a ce droit, uniquement dans les sections de son périmètre.
+  const structScope = planningScope.structure_scope || [];
+  const canStruct = (sectionName) =>
+    canValidate() && planningEditMode && (!planningScope.is_restricted || structScope.includes(String(sectionName || "").trim().toUpperCase()));
   const toggleEditMode = () => {
     setPlanningEditMode((v) => {
       const next = !v;
@@ -410,7 +414,7 @@ export default function Planning() {
         setNotPublished(false);
         setDates(planningRes.data.dates || { dimanche: [], vendredi: [] });
         setAffectations(planningRes.data.affectations || {});
-        setSections(withCamera7(planningRes.data.sections || DEFAULT_SECTIONS, currentYear, currentMonth));
+        setSections(planningRes.data.sections ? withCamera7(planningRes.data.sections, currentYear, currentMonth) : withCamera8(withCamera7(DEFAULT_SECTIONS, currentYear, currentMonth), currentYear, currentMonth));
         setNotes(planningRes.data.notes || { dimanche: "", vendredi: "" });
         setAbsences(
           planningRes.data.absences || { dimanche: "", vendredi: "" },
@@ -435,7 +439,7 @@ export default function Planning() {
         const vendredis = getDaysOfMonth(currentYear, currentMonth, 5);
         setDates({ dimanche: dimanches, vendredi: vendredis });
         setAffectations({});
-        setSections(withCamera7(DEFAULT_SECTIONS, currentYear, currentMonth));
+        setSections(withCamera8(withCamera7(DEFAULT_SECTIONS, currentYear, currentMonth), currentYear, currentMonth));
         setNotes({ dimanche: "", vendredi: "" });
         setAbsences({ dimanche: "", vendredi: "" });
         setBlockedCells({});
@@ -1150,7 +1154,7 @@ export default function Planning() {
 
     setSections((prev) => ({
       ...prev,
-      [activeDay]: withCamera7(DEFAULT_SECTIONS, currentYear, currentMonth)[activeDay],
+      [activeDay]: withCamera8(withCamera7(DEFAULT_SECTIONS, currentYear, currentMonth), currentYear, currentMonth)[activeDay],
     }));
     setAffectations(stripKeys);
     setBlockedCells(stripKeys);
@@ -1971,11 +1975,7 @@ export default function Planning() {
                     <td
                       colSpan={
                         currentDates.length +
-                        (canValidate() &&
-                        planningEditMode &&
-                        !planningScope.is_restricted
-                          ? 2
-                          : 1)
+                        (canStruct(section.name) ? 2 : 1)
                       }
                       className={`border border-black border-b-2 border-b-black print:border-b-2 print:border-b-black p-1 font-bold text-center ${theme.band}`}
                     >
@@ -1993,10 +1993,9 @@ export default function Planning() {
                         )}
                         {section.name}
                       </span>
-                      {canValidate() &&
-                        planningEditMode &&
-                        !planningScope.is_restricted && (
+                      {canStruct(section.name) && (
                           <span className="inline-flex items-center gap-1 ml-2 print:hidden align-middle">
+                            {!planningScope.is_restricted && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -2013,6 +2012,7 @@ export default function Planning() {
                             >
                               <Pencil className="w-3 h-3" />
                             </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="ghost"
@@ -2063,6 +2063,7 @@ export default function Planning() {
                                 <X className="w-3 h-3" />
                               </Button>
                             )}
+                            {!planningScope.is_restricted && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -2074,6 +2075,7 @@ export default function Planning() {
                             >
                               <Trash2 className="w-3 h-3" />
                             </Button>
+                            )}
                           </span>
                         )}
                     </td>
@@ -2129,17 +2131,13 @@ export default function Planning() {
                                 <span
                                   className={
                                     !isGroupModeHere &&
-                                    canValidate() &&
-                                    planningEditMode &&
-                                    !planningScope.is_restricted
+                                    canStruct(section.name)
                                       ? "cursor-pointer hover:underline flex-1"
                                       : "flex-1"
                                   }
                                   onClick={() =>
                                     !isGroupModeHere &&
-                                    canValidate() &&
-                                    planningEditMode &&
-                                    !planningScope.is_restricted &&
+                                    canStruct(section.name) &&
                                     handleEditRole(
                                       tableKey,
                                       sectionIdx,
@@ -2162,8 +2160,7 @@ export default function Planning() {
                               role.blocked || singleCellBlocked;
                             const cellModeActive =
                               cellBlockMode &&
-                              canValidate() &&
-                              planningEditMode &&
+                              canStruct(section.name) &&
                               !role.blocked;
                             return (
                               <td
@@ -2226,9 +2223,7 @@ export default function Planning() {
                               </td>
                             );
                           })}
-                          {canValidate() &&
-                            planningEditMode &&
-                            !planningScope.is_restricted &&
+                          {canStruct(section.name) &&
                             slotIdx === 0 && (
                               <td
                                 className="border border-black p-1 print:hidden"

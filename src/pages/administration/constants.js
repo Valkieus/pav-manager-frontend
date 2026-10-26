@@ -143,7 +143,7 @@ export const PERMISSION_MATRIX_MODULES = [
 
 export const ADMINISTRATION_PERMISSIONS = [
   { key: "admin.users", label: "Utilisateurs" },
-  { key: "admin.groups", label: "Groupes" },
+  { key: "admin.groups", label: "Groupes & Droits (consulter)" },
   { key: "admin.logs", label: "Logs" },
 ];
 

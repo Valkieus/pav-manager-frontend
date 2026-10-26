@@ -234,7 +234,8 @@ const navItems = [
     path: "/administration",
     icon: Settings,
     label: "Administration",
-    minRole: "Responsable", // Responsable : consultation de Groupes & Droits uniquement (lecture seule)
+    minRole: "Coordination",
+    orPerms: ["admin.groups"], // membre d'un groupe qui accorde la consultation de Groupes & Droits (lecture seule)
   },
 ];
 
@@ -571,7 +572,10 @@ export const Layout = ({ children }) => {
     if (item.minRole) {
       const userLevel = ROLE_HIERARCHY[user.niveau_acces] || 0;
       const requiredLevel = ROLE_HIERARCHY[item.minRole] || 0;
-      if (userLevel < requiredLevel) return false;
+      if (userLevel < requiredLevel) {
+        // Accès ouvert par un droit de groupe (ex. consulter Groupes & Droits) malgré un niveau inférieur.
+        return !!item.orPerms && item.orPerms.some((p) => (user.module_permissions || []).includes(p));
+      }
     }
     if (
       item.groupPerms &&

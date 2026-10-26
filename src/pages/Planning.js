@@ -24,7 +24,7 @@ import {
   downloadStatusMessage,
   reserveTabForIOSFallback,
 } from "../utils/fileDownload";
-import { API, DEFAULT_SECTIONS, MOIS_NOMS, THEME, canonPoste, delimiterGroup, slugPoste, stripAccents, withCamera7 } from './planning/constants';
+import { API, DEFAULT_SECTIONS, MOIS_NOMS, THEME, canonPoste, delimiterGroup, slugPoste, stripAccents, withCamera7, withCamera8 } from './planning/constants';
 import { buildPlanningExportSVG, buildPlanningExportXLSX, loadXLSX, svgToPngDataUrl, svgToStoryPngDataUrl } from './planning/exportUtils';
 import { PlanningCell } from './planning/cells';
 import { useCellSelection } from './planning/useCellSelection';
@@ -414,7 +414,7 @@ export default function Planning() {
         setNotPublished(false);
         setDates(planningRes.data.dates || { dimanche: [], vendredi: [] });
         setAffectations(planningRes.data.affectations || {});
-        setSections(withCamera7(planningRes.data.sections || DEFAULT_SECTIONS, currentYear, currentMonth));
+        setSections(planningRes.data.sections ? withCamera7(planningRes.data.sections, currentYear, currentMonth) : withCamera8(withCamera7(DEFAULT_SECTIONS, currentYear, currentMonth), currentYear, currentMonth));
         setNotes(planningRes.data.notes || { dimanche: "", vendredi: "" });
         setAbsences(
           planningRes.data.absences || { dimanche: "", vendredi: "" },
@@ -439,7 +439,7 @@ export default function Planning() {
         const vendredis = getDaysOfMonth(currentYear, currentMonth, 5);
         setDates({ dimanche: dimanches, vendredi: vendredis });
         setAffectations({});
-        setSections(withCamera7(DEFAULT_SECTIONS, currentYear, currentMonth));
+        setSections(withCamera8(withCamera7(DEFAULT_SECTIONS, currentYear, currentMonth), currentYear, currentMonth));
         setNotes({ dimanche: "", vendredi: "" });
         setAbsences({ dimanche: "", vendredi: "" });
         setBlockedCells({});
@@ -1154,7 +1154,7 @@ export default function Planning() {
 
     setSections((prev) => ({
       ...prev,
-      [activeDay]: withCamera7(DEFAULT_SECTIONS, currentYear, currentMonth)[activeDay],
+      [activeDay]: withCamera8(withCamera7(DEFAULT_SECTIONS, currentYear, currentMonth), currentYear, currentMonth)[activeDay],
     }));
     setAffectations(stripKeys);
     setBlockedCells(stripKeys);

@@ -23,6 +23,7 @@ import { SupervisionTab } from './administration/SupervisionTab';
 import { LogsTab } from './administration/LogsTab';
 import { RightsTab } from './administration/RightsTab';
 import { GroupsTab } from './administration/GroupsTab';
+import { UserRightsTab } from './administration/UserRightsTab';
 import { UsersTab } from './administration/UsersTab';
 import { MaintenanceTab } from './administration/MaintenanceTab';
 // Bibliothèque lourde (~330 Ko) : chargée seulement quand on exporte, pas à l'ouverture de la page.
@@ -117,14 +118,16 @@ export default function Administration() {
   // par bouton — on préfère ne pas l'exposer plutôt que d'afficher des actions
   // qui échoueraient côté serveur).
   const isReadOnlyAdmin = currentUser?.niveau_acces === "Admin (lecture seule)";
-  // Responsable : peut CONSULTER Groupes & Droits (les droits établis pour chaque section), sans rien modifier.
-  const isGroupsViewer = currentUser?.niveau_acces === "Responsable";
+  // Membre d'un groupe accordant « Administration — Groupes » : peut CONSULTER Groupes & Droits (les droits établis), sans rien modifier.
+  const isGroupsViewer =
+    !["Super Admin", "Admin", "Admin (lecture seule)", "Coordination"].includes(currentUser?.niveau_acces) &&
+    (currentUser?.module_permissions || []).includes("admin.groups");
   // Onglets à contenu purement lecture (Logs/Maintenance/Supervision) : leurs
   // actions sensibles sont déjà individuellement protégées par isSuperAdmin()
   // au niveau du bouton, donc sûr d'ouvrir la vue à Admin (lecture seule).
   const canViewReadOnlyTabs = isAdmin() || isReadOnlyAdmin;
   const [activeTab, setActiveTab] = useState(() =>
-    ["Coordination", "Responsable"].includes(currentUser?.niveau_acces) ? "groups" : "users",
+    ["Coordination"].includes(currentUser?.niveau_acces) || (currentUser?.module_permissions || []).includes("admin.groups") && !["Super Admin", "Admin", "Admin (lecture seule)"].includes(currentUser?.niveau_acces) ? "groups" : "users",
   );
   const [users, setUsers] = useState([]);
   // Compte tablette « Régisseurs iPad » (Super Admin) : session permanente,
@@ -1813,6 +1816,7 @@ export default function Administration() {
       items: [
         { value: "users", label: "Utilisateurs", desc: "Comptes, niveaux, comptes de service", icon: Users, tone: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300", show: canViewReadOnlyTabs || isGestionnaireOnly },
         { value: "groups", label: "Groupes & Droits", desc: "Groupes, membres, permissions", icon: Shield, tone: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300", show: !isReadOnlyAdmin },
+        { value: "userrights", label: "Droits par personne", desc: "Qui peut quoi, en détail, et d'où ça vient", icon: Users, tone: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300", show: isSuperAdmin() || isAdmin() },
         { value: "rights", label: "Droits d'accès", desc: "Droits par niveau d'accès", icon: Lock, tone: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300", show: isSuperAdmin() || isAdmin() },
       ],
     },
@@ -1970,6 +1974,8 @@ export default function Administration() {
             users={users}
           />
         )}
+
+        {(isSuperAdmin() || isAdmin()) && <UserRightsTab />}
 
         {/* USERS TAB */}
         {(canViewReadOnlyTabs || isGestionnaireOnly) && (

@@ -199,6 +199,24 @@ export const withCamera7 = (sections, annee, mois) => {
   return next;
 };
 
+// Caméra 8 : identique à la 7, juste après elle (novembre 2026 et après). Appliquée UNIQUEMENT à un planning créé depuis le modèle par
+// défaut ; pour les plannings déjà enregistrés, une migration unique côté serveur l'ajoute, et une ligne supprimée ensuite reste supprimée.
+export const withCamera8 = (sections, annee, mois) => {
+  if (!sections || !sections.dimanche || Number(annee) * 100 + Number(mois) < 202611) return sections;
+  const next = JSON.parse(JSON.stringify(sections));
+  ["table1", "table2"].forEach((tk) => {
+    (next.dimanche[tk] || []).forEach((sec) => {
+      const roles = sec.roles || [];
+      const keys = roles.map((r) => r.key);
+      if (keys.includes("camera_7") && !keys.includes("camera_8")) {
+        roles.splice(keys.indexOf("camera_7") + 1, 0, { key: "camera_8", label: "Caméra 8", slots: 2 });
+        sec.roles = roles;
+      }
+    });
+  });
+  return next;
+};
+
 export const DEFAULT_SECTIONS = {
   dimanche: {
     table1: [

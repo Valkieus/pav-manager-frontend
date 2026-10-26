@@ -80,6 +80,7 @@ export default function Effectif() {
     niveau_acces: "",
     branches: [],
     sous_branches: [],
+    branches_raw: [],
     poste_principal: "",
     postes_secondaires: [],
     organigramme_label: "",
@@ -151,6 +152,7 @@ export default function Effectif() {
       niveau_acces: "",
       branches: [],
       sous_branches: [],
+    branches_raw: [],
       poste_principal: "",
       postes_secondaires: [],
       organigramme_label: "",
@@ -177,6 +179,7 @@ export default function Effectif() {
       niveau_acces: tech.niveau_acces,
       branches: tech.branches || [],
       sous_branches: tech.sous_branches || [],
+      branches_raw: tech.branches_raw || [],
       poste_principal: tech.poste_principal || "",
       postes_secondaires: tech.postes_secondaires || [],
       organigramme_label: tech.organigramme_label || "",
@@ -196,6 +199,15 @@ export default function Effectif() {
         ? prev.postes_secondaires.filter((p) => p !== poste)
         : [...prev.postes_secondaires, poste],
     }));
+  };
+
+  // Même règle que le serveur : un Responsable / une Coordination limité(e) à des branches ne modifie que les fiches qui en partagent une.
+  const canEditTech = (t) => {
+    if (!canManage()) return false;
+    if (!["Responsable", "Coordination"].includes(user?.niveau_acces)) return true;
+    const mine = user?.branches || [];
+    if (mine.length === 0) return true;
+    return (t?.branches_raw || t?.branches || []).some((b) => mine.includes(b));
   };
 
   const toggleBranche = (pole) => {
@@ -224,7 +236,7 @@ export default function Effectif() {
     try {
       const data = {
         ...form,
-        ...toRaw(form.branches, form.sous_branches), // pôles choisis -> branches / sous-branches enregistrées
+        ...toRaw(form.branches, form.branches_raw || [], form.sous_branches), // pôles choisis -> branches / sous-branches enregistrées (valeurs d'origine gardées si rien ne change)
       };
       if (editingId) {
         await axios.put(`${API}/techniciens/${editingId}`, data);
@@ -1147,6 +1159,7 @@ export default function Effectif() {
             badgeDetail={badgeDetail}
             badgeDetailLoading={badgeDetailLoading}
             canManage={canManage}
+            canEditTech={canEditTech}
             canManageBadges={canManageBadges}
             exportingFichePdf={exportingFichePdf}
             getAccesColor={getAccesColor}

@@ -28,14 +28,31 @@ export function polesOf(t) {
 export const isLiveMember = (t) => polesOf(t).some((p) => LIVE_POLES.includes(p));
 
 // Pôles choisis dans le formulaire -> branches / sous-branches enregistrées (forme historique, accès par branche inchangés).
-export function toRaw(poles, prevSous = []) {
+// Si les pôles n'ont pas changé, les valeurs d'origine sont renvoyées TELLES QUELLES (aucune réécriture : un régisseur gardé
+// « Live + Régisseurs » reste ainsi dans son périmètre). Sinon, seules les différences sont appliquées.
+export function toRaw(poles, prevBranches = [], prevSous = []) {
+  const prevPoles = polesOf({ branches: prevBranches, sous_branches: prevSous });
   const set = new Set(poles);
-  const branches = [];
-  const sous = [];
-  if (set.has("Captation") || set.has("Incrustation")) branches.push("Live");
-  if (set.has("Captation")) { sous.push("Cadreur"); if (has(prevSous, "Réalisation")) sous.push("Réalisation"); }
-  if (set.has("Incrustation")) sous.push("Incrustation");
-  if (set.has("Diffusion")) branches.push("Diffusion");
-  ["Régisseurs", "Animation", "Production", "Coordination", "Supervision"].forEach((p) => set.has(p) && branches.push(p));
+  if (prevPoles.length === set.size && prevPoles.every((p) => set.has(p))) {
+    return { branches: [...prevBranches], sous_branches: [...prevSous] };
+  }
+  let branches = [...prevBranches];
+  let sous = [...prevSous];
+  const drop = (arr, ...vals) => arr.filter((v) => !vals.includes(v));
+  prevPoles.filter((p) => !set.has(p)).forEach((p) => {
+    if (p === 'Captation') sous = drop(sous, 'Cadreur', 'Réalisation');
+    else if (p === 'Incrustation') sous = drop(sous, 'Incrustation');
+    else if (p === 'Diffusion') { branches = drop(branches, 'Diffusion'); sous = drop(sous, 'Diffusion'); }
+    else branches = drop(branches, p);
+  });
+  poles.filter((p) => !prevPoles.includes(p)).forEach((p) => {
+    if (p === 'Captation') { if (!branches.includes('Live')) branches.push('Live'); if (!sous.includes('Cadreur')) sous.push('Cadreur'); }
+    else if (p === 'Incrustation') { if (!branches.includes('Live')) branches.push('Live'); if (!sous.includes('Incrustation')) sous.push('Incrustation'); }
+    else if (p === 'Diffusion') { if (!branches.includes('Diffusion')) branches.push('Diffusion'); }
+    else if (!branches.includes(p)) branches.push(p);
+  });
+  // « Live » n'est conservé que s'il sert encore à un pôle choisi (Captation / Incrustation) ou à une ancienne sous-branche.
+  const liveStillUsed = set.has('Captation') || set.has('Incrustation') || sous.some((x) => ['Cadreur', 'Réalisation', 'Incrustation', 'Diffusion'].includes(x));
+  if (!liveStillUsed) { branches = drop(branches, 'Live'); sous = []; }
   return { branches, sous_branches: sous };
 }

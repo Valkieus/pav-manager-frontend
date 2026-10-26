@@ -91,7 +91,7 @@ export function PlanningTableArea({
 
           {canValidate() &&
             planningEditMode &&
-            !planningScope.is_restricted && (
+            (!planningScope.is_restricted || (planningScope.structure_scope || []).length > 0) && (
               <div className="flex justify-end items-center gap-2 mb-2 print:hidden">
                 {cellBlockMode && (
                   <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -106,10 +106,12 @@ export function PlanningTableArea({
                   <Ban className="w-4 h-4 mr-2" />
                   {cellBlockMode ? "Terminer" : "Griser une case"}
                 </Button>
-                <Button variant="outline" size="sm" onClick={openEditDates}>
-                  <Settings className="w-4 h-4 mr-2" />
-                  Éditer dates
-                </Button>
+                {!planningScope.is_restricted && (
+                  <Button variant="outline" size="sm" onClick={openEditDates}>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Éditer dates
+                  </Button>
+                )}
               </div>
             )}
 

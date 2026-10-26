@@ -117,12 +117,14 @@ export default function Administration() {
   // par bouton — on préfère ne pas l'exposer plutôt que d'afficher des actions
   // qui échoueraient côté serveur).
   const isReadOnlyAdmin = currentUser?.niveau_acces === "Admin (lecture seule)";
+  // Responsable : peut CONSULTER Groupes & Droits (les droits établis pour chaque section), sans rien modifier.
+  const isGroupsViewer = currentUser?.niveau_acces === "Responsable";
   // Onglets à contenu purement lecture (Logs/Maintenance/Supervision) : leurs
   // actions sensibles sont déjà individuellement protégées par isSuperAdmin()
   // au niveau du bouton, donc sûr d'ouvrir la vue à Admin (lecture seule).
   const canViewReadOnlyTabs = isAdmin() || isReadOnlyAdmin;
   const [activeTab, setActiveTab] = useState(() =>
-    currentUser?.niveau_acces === "Coordination" ? "groups" : "users",
+    ["Coordination", "Responsable"].includes(currentUser?.niveau_acces) ? "groups" : "users",
   );
   const [users, setUsers] = useState([]);
   // Compte tablette « Régisseurs iPad » (Super Admin) : session permanente,
@@ -1110,6 +1112,7 @@ export default function Administration() {
     category: "",
     permissions: [],
     planning_full_control: false,
+    planning_structure: false,
     planning_scope: [],
     scope_map: {},
   });
@@ -1655,6 +1658,7 @@ export default function Administration() {
         category: "",
         permissions: [],
         planning_full_control: false,
+        planning_structure: false,
         planning_scope: [],
         scope_map: {},
       });
@@ -1676,6 +1680,7 @@ export default function Administration() {
       category: group.category || "",
       permissions: group.permissions || [],
       planning_full_control: group.planning_full_control || false,
+      planning_structure: group.planning_structure || false,
       planning_scope: group.planning_scope || [],
       scope_map: group.scope_map || {},
     });
@@ -2191,7 +2196,7 @@ export default function Administration() {
             handleGroupSubmit={handleGroupSubmit}
             isCategoryExpanded={isCategoryExpanded}
             isPlanningCategory={isPlanningCategory}
-            isReadOnlyAdmin={isReadOnlyAdmin}
+            isReadOnlyAdmin={isReadOnlyAdmin || isGroupsViewer}
             isSuperAdmin={isSuperAdmin}
             openMembersDialog={openMembersDialog}
             planningScopeInput={planningScopeInput}
@@ -2490,7 +2495,7 @@ the reverse of "Attribuer des groupes" above. */}
             <DialogTitle>Membres du groupe</DialogTitle>
             <DialogDescription>
               {selectedGroupForMembers &&
-                (isReadOnlyAdmin
+                ((isReadOnlyAdmin || isGroupsViewer)
                   ? `Membres de « ${selectedGroupForMembers.name} » (lecture seule)`
                   : `Sélectionnez les membres de « ${selectedGroupForMembers.name} »`)}
             </DialogDescription>
@@ -2518,13 +2523,13 @@ the reverse of "Attribuer des groupes" above. */}
                 .map((u) => (
                   <label
                     key={u.id}
-                    className={`flex items-center gap-2 py-1 ${isReadOnlyAdmin ? "" : "cursor-pointer"}`}
+                    className={`flex items-center gap-2 py-1 ${(isReadOnlyAdmin || isGroupsViewer) ? "" : "cursor-pointer"}`}
                   >
                     <Checkbox
                       checked={selectedMemberUserIds.includes(u.id)}
-                      disabled={isReadOnlyAdmin}
+                      disabled={(isReadOnlyAdmin || isGroupsViewer)}
                       onCheckedChange={() => {
-                        if (isReadOnlyAdmin) return;
+                        if ((isReadOnlyAdmin || isGroupsViewer)) return;
                         setSelectedMemberUserIds((prev) =>
                           prev.includes(u.id)
                             ? prev.filter((id) => id !== u.id)
@@ -2545,7 +2550,7 @@ the reverse of "Attribuer des groupes" above. */}
               )}
             </div>
             <DialogFooter>
-              {isReadOnlyAdmin ? (
+              {(isReadOnlyAdmin || isGroupsViewer) ? (
                 <Button
                   variant="outline"
                   onClick={() => setMembersDialogOpen(false)}

@@ -73,6 +73,7 @@ export function GroupsTab({
                 category: "",
                 permissions: [],
                 planning_full_control: false,
+                planning_structure: false,
                 planning_scope: [],
                 scope_map: {},
               });
@@ -81,11 +82,13 @@ export function GroupsTab({
             }
           }}
         >
-          <DialogTrigger asChild>
-            <Button data-testid="add-group-btn">
-              <Plus className="w-4 h-4 mr-2" /> Nouveau groupe
-            </Button>
-          </DialogTrigger>
+          {!isReadOnlyAdmin && (
+            <DialogTrigger asChild>
+              <Button data-testid="add-group-btn">
+                <Plus className="w-4 h-4 mr-2" /> Nouveau groupe
+              </Button>
+            </DialogTrigger>
+          )}
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
@@ -416,6 +419,18 @@ export function GroupsTab({
                   <span>Accès complet au planning (toutes sections)</span>
                 </label>
                 {!groupForm.planning_full_control && (
+                  <label className="flex items-start gap-2 cursor-pointer text-sm mt-2" data-testid="planning-structure-switch">
+                    <Switch
+                      checked={!!groupForm.planning_structure}
+                      onCheckedChange={(checked) => setGroupForm({ ...groupForm, planning_structure: checked })}
+                    />
+                    <span>
+                      Peut aussi modifier la <b>structure</b> de ces sections : ajouter, renommer, fusionner / défusionner, griser,
+                      déplacer et supprimer des lignes — uniquement dans les sections cochées ci-dessous.
+                    </span>
+                  </label>
+                )}
+                {!groupForm.planning_full_control && (
                   <div className="space-y-2 pt-1">
                     {planningScopeOptions.sections.length > 0 ||
                     planningScopeOptions.postes.length > 0 ? (
@@ -641,6 +656,11 @@ export function GroupsTab({
                       Planning : {group.planning_scope.join(", ")}
                     </Badge>
                   ) : null}
+                  {group.planning_structure && !group.planning_full_control && (
+                    <Badge variant="outline" className="text-xs border-primary/40 text-primary">
+                      Peut modifier les lignes
+                    </Badge>
+                  )}
                   {Object.entries(group.scope_map || {})
                     .filter(([, v]) => (v || []).length > 0)
                     .map(([permKey, values]) => (

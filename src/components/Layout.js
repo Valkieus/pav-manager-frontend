@@ -234,7 +234,7 @@ const navItems = [
     path: "/administration",
     icon: Settings,
     label: "Administration",
-    minRole: "Coordination",
+    minRole: "Responsable", // Responsable : consultation de Groupes & Droits uniquement (lecture seule)
   },
 ];
 

@@ -16,6 +16,7 @@ export function SupB2Return({ isSuperAdmin }) {
   const [health, setHealth] = useState(null);
   const [hidden, setHidden] = useState({ manual: [], auto: true, down_detected: [] });
   const [testing, setTesting] = useState(false);
+  const [saver, setSaver] = useState(null); // mode économie Cloudinary (null = inconnu)
 
   const load = useCallback(async () => {
     try {
@@ -30,6 +31,14 @@ export function SupB2Return({ isSuperAdmin }) {
     axios.get(`${API}/led/hidden-clouds`).then((r) => setHidden(r.data)).catch(() => {});
   }, []);
   useEffect(() => { load(); loadHidden(); }, [load, loadHidden]);
+  useEffect(() => { axios.get(`${API}/led/cloudinary-saver`).then((r) => setSaver(r.data.enabled)).catch(() => {}); }, []);
+  const saveSaver = async (enabled) => {
+    try {
+      await axios.put(`${API}/led/cloudinary-saver`, { enabled });
+      setSaver(enabled);
+      toast.success(enabled ? 'Mode économie activé : les vidéos Cloudinary ne se lancent plus toutes seules' : 'Aperçus automatiques rétablis');
+    } catch (e) { toast.error(e.response?.data?.detail || 'Échec'); }
+  };
   const saveHidden = async (patch) => {
     try {
       const r = await axios.put(`${API}/led/hidden-clouds`, patch);
@@ -157,6 +166,14 @@ export function SupB2Return({ isSuperAdmin }) {
                 {testing ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : null}Tester la livraison
               </Button>
             </div>
+            {isSuperAdmin() && saver !== null && (
+              <label className="flex items-start gap-2 text-xs rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-300 p-2" data-testid="cloudinary-saver">
+                <input type="checkbox" className="mt-0.5" checked={saver} onChange={(e) => saveSaver(e.target.checked)} />
+                <span><strong>Mode économie Cloudinary</strong> : sur PAV LED, les vidéos hébergées chez Cloudinary ne se lancent plus toutes seules
+                  sur les cartes (vignette + bouton ▶, lecture au toucher). Réduit fortement la bande passante et les transformations qui consomment
+                  les crédits mensuels. À garder tant que les fichiers ne sont pas tous revenus sur B2.</span>
+              </label>
+            )}
             {isSuperAdmin() && (
               <label className="flex items-start gap-2 text-xs">
                 <input type="checkbox" className="mt-0.5" checked={hidden.auto} onChange={(e) => saveHidden({ auto: e.target.checked })} />

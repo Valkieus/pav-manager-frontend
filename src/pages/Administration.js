@@ -1560,6 +1560,7 @@ export default function Administration() {
           niveau_acces: userForm.niveau_acces,
           username: userForm.username,
           songs_access: userForm.songs_access !== false,
+          portal_only: !!userForm.portal_only,
         });
         toast.success("Utilisateur modifié");
       } else {
@@ -1590,6 +1591,7 @@ export default function Administration() {
       full_name: user.full_name,
       niveau_acces: user.niveau_acces,
       songs_access: user.songs_access !== false,
+      portal_only: !!user.portal_only,
     });
     setEditingUser(user);
     setUserDialogOpen(true);

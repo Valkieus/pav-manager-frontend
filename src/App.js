@@ -29,6 +29,7 @@ const Logistique = lazyWithRetry(() => import("./pages/Logistique"));
 const ElementsLED = lazyWithRetry(() => import("./pages/ElementsLED"));
 // Écran du compte tablette « Régisseurs iPad » — chargé seulement pour ce compte.
 const KioskShell = lazyWithRetry(() => import("./components/KioskShell"));
+const PortalOnlyShell = lazyWithRetry(() => import("./components/PortalOnlyShell"));
 const Devis = lazyWithRetry(() => import("./pages/Devis"));
 const Formations = lazyWithRetry(() => import("./pages/Formations"));
 const Salles = lazyWithRetry(() => import("./pages/Salles"));
@@ -57,6 +58,11 @@ const ProtectedRoute = ({ children }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Vue PAV Manager verrouillée (nouvelle équipe LED) : seulement le portail (LED, CEC Songs, Bible) + message « bientôt disponible ».
+  if (user?.portal_only && !["Admin", "Super Admin"].includes(user.niveau_acces)) {
+    return <Suspense fallback={null}><PortalOnlyShell /></Suspense>;
   }
 
   // Compte tablette « Régisseurs iPad » : uniquement la vue Entrées/Sorties,

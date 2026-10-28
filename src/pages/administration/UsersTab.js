@@ -186,6 +186,20 @@ même limite pour éviter un 403 après coup. */}
                     </span>
                   </label>
                 )}
+                {editingUser && (
+                  <label className="flex items-start gap-2 text-sm" data-testid="user-portal-only">
+                    <input
+                      type="checkbox"
+                      className="mt-1 w-4 h-4"
+                      checked={!!userForm.portal_only}
+                      onChange={(e) => setUserForm({ ...userForm, portal_only: e.target.checked })}
+                    />
+                    <span>
+                      Vue PAV Manager verrouillée
+                      <span className="block text-xs text-muted-foreground">La personne ne voit que le portail (PAV LED, CEC Songs, Recherche Biblique) avec « PAV Manager sera disponible prochainement pour vous ». Décochez pour lui ouvrir PAV Manager.</span>
+                    </span>
+                  </label>
+                )}
                 <Button
                   type="submit"
                   className="w-full"

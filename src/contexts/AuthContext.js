@@ -129,6 +129,19 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  // 428 « mot de passe à changer d'abord » (première connexion SSO LED / Academy / CEC Songs) : on relit le compte, ce qui ouvre la
+  // fenêtre obligatoire de changement de mot de passe ; la personne relance ensuite l'ouverture du site.
+  useEffect(() => {
+    const id = axios.interceptors.response.use(
+      (r) => r,
+      (err) => {
+        if (err?.response?.status === 428) fetchUser();
+        return Promise.reject(err);
+      },
+    );
+    return () => axios.interceptors.response.eject(id);
+  }, [fetchUser]);
+
   useEffect(() => {
     if (token) {
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;

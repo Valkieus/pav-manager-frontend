@@ -1908,7 +1908,7 @@ export default function Planning() {
       // desktop screen, instead of it going into the actions column next
       // to the buttons (which is what made that column 200-250px wide).
       <table
-        className="w-full border-collapse text-sm mb-4 print:mb-2 border-2 border-black print:border-2 print:border-black [&>tbody>tr:last-child>td]:border-b-2 [&>tbody>tr:last-child>td]:border-b-black print:[&>tbody>tr:last-child>td]:border-b-2 print:[&>tbody>tr:last-child>td]:border-b-black"
+        className="w-full border-collapse text-sm mb-4 print:mb-2 border-2 border-black print:border-2 print:border-black border-b-[3px] [&>tbody>tr:last-child>td]:border-b-[3px] [&>tbody>tr:last-child>td]:border-b-black print:[&>tbody>tr:last-child>td]:border-b-[3px] print:[&>tbody>tr:last-child>td]:border-b-black"
         style={{ tableLayout: "fixed" }}
       >
         <colgroup>

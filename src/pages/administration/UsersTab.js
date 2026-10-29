@@ -46,6 +46,8 @@ export function UsersTab({
   userSearch,
   users,
 }) {
+  // Comptes d'appareils (tablette, incrustation) : Super Admin et Admin (droit « Comptes d'appareils » côté serveur).
+  const canDevices = ['Super Admin', 'Admin'].includes(currentUser?.niveau_acces);
   return (
     <TabsContent value="users" className="space-y-4">
       {!isReadOnlyAdmin && (
@@ -409,7 +411,7 @@ même limite pour éviter un 403 après coup. */}
           </>
         );
       })()}
-      {isSuperAdmin() && !isReadOnlyAdmin && (
+      {canDevices && !isReadOnlyAdmin && (
         <Card data-testid="service-accounts-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -556,7 +558,7 @@ même limite pour éviter un 403 après coup. */}
           </CardContent>
         </Card>
       )}
-      {isSuperAdmin && <ServiceAppsCard />}
+      {canDevices && !isReadOnlyAdmin && <ServiceAppsCard />}
     </TabsContent>
   );
 }

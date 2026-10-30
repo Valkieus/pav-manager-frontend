@@ -71,6 +71,16 @@ export const MAINTENANCE_PAGES = [
   { path: "/formations", label: "Formations" },
   { path: "/documents", label: "Base de connaissance" },
   { path: "/communication", label: "Communication" },
+  // Sites annexes (le message s'affiche à la connexion depuis le portail et sur le site s'il est déjà ouvert)
+  { path: "site:led", label: "PAV LED (site annexe)" },
+  { path: "site:songs", label: "CEC Songs (site annexe)" },
+  { path: "site:academy", label: "PAV Academy (site annexe)" },
+  // Liens externes du portail : le lien est grisé « En maintenance » dans le Portail Charisma
+  { path: "site:bible", label: "Recherche Biblique (lien du portail)" },
+  { path: "site:songspot", label: "SongSpot (lien du portail)" },
+  { path: "site:acadarts", label: "Académie des Arts (lien du portail)" },
+  { path: "site:tv", label: "Charisma TV (lien du portail)" },
+  { path: "site:site", label: "Site Web Charisma (lien du portail)" },
 ];
 
 export const MAINTENANCE_ROLES = [

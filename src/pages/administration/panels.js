@@ -438,7 +438,7 @@ export function FicheEffectifSection({ user, onLinked }) {
     setLoading(true);
     try {
       const [unclaimedRes, ficheRes] = await Promise.all([
-        axios.get(`${API}/techniciens/unclaimed`),
+        axios.get(`${API}/techniciens/linkable`).catch(() => axios.get(`${API}/techniciens/unclaimed`)),
         user.technicien_id
           ? axios
               .get(`${API}/techniciens/${user.technicien_id}`)
@@ -498,9 +498,12 @@ export function FicheEffectifSection({ user, onLinked }) {
     }
   };
 
-  const filtered = unclaimed.filter((t) =>
-    (t.nom || "").toLowerCase().includes(search.toLowerCase()),
-  );
+  // La fiche au même nom que le compte passe en premier ; la recherche porte sur nom + prénom.
+  const norm = (v) => (v || "").toLowerCase().trim();
+  const mine = norm(user.full_name);
+  const filtered = unclaimed
+    .filter((t) => norm(`${t.prenom || ""} ${t.nom || ""}`).includes(norm(search)) || norm(t.nom).includes(norm(search)))
+    .sort((a, b) => Number(norm(b.nom) === mine) - Number(norm(a.nom) === mine));
 
   return (
     <div className="border-t pt-3 mt-1 space-y-2">

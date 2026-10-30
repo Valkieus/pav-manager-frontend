@@ -9,6 +9,7 @@ import { Switch } from '../../components/ui/switch';
 import { Input } from '../../components/ui/input';
 import { MAINTENANCE_PAGES, MAINTENANCE_ROLES } from './constants';
 import { PortalLockCard } from './PortalLockCard';
+import { BasketValidatorsCard } from './BasketValidatorsCard';
 
 export function MaintenanceTab({
   handleAddMaintenanceEntry,
@@ -44,6 +45,7 @@ export function MaintenanceTab({
   return (
     <TabsContent value="maintenance" className="space-y-4">
       <PortalLockCard users={users} canEdit={isSuperAdmin()} />
+      <BasketValidatorsCard users={users} canEdit={isSuperAdmin() || isAdmin()} />
 <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

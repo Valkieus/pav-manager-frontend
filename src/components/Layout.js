@@ -424,7 +424,9 @@ export const Layout = ({ children }) => {
     setTestPushBusy(true);
     try {
       const res = await axios.post(`${API}/push/test`);
-      toast.success(res.data?.message || "Notification de test envoyée");
+      // Le serveur indique, appareil par appareil, si le service de notification (Apple, Google…) a accepté ou refusé le push.
+      if (res.data && res.data.total > 0 && res.data.ok < res.data.total) toast.error(res.data.message, { duration: 15000 });
+      else toast.success(res.data?.message || "Notification de test envoyée", { duration: 12000 });
       fetchNotifications();
     } catch (err) {
       toast.error(

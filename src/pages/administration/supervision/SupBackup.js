@@ -117,7 +117,7 @@ export function SupBackup({
         )}
         {dataBackup && (
           <div className="space-y-2 rounded-lg border border-dashed p-3">
-            <p className="text-sm font-semibold">Sauvegardes des données (Planning, Régisseurs, Communication)</p>
+            <p className="text-sm font-semibold">Sauvegardes des données (comptes, effectif, LED, planning, régisseurs, communication, gestion, Academy)</p>
             <p className="text-[11px] text-muted-foreground">
               {dataBackup.planning ? `${dataBackup.planning} · ` : ""}Copiées sur {dataBackup.stockages?.join(", ") || "aucun stockage"} · {dataBackup.retention}.
             </p>
@@ -126,7 +126,7 @@ export function SupBackup({
               {Object.entries(dataBackup.domaines || {}).map(([name, d]) => (
                 <li key={name} className="rounded-lg bg-muted/40 p-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium capitalize">{name}</span>
+                    <span className="font-medium">{({ comptes: "Comptes, effectif et droits", led: "PAV LED (fiches, catégories, paniers)", gestion: "Gestion (salles, matériel, devis, documents, formations)", academy: "PAV Academy" })[name] || name.charAt(0).toUpperCase() + name.slice(1)}</span>
                     <span className="text-muted-foreground">
                       {d.last_ok ? new Date(d.last_ok).toLocaleString("fr-FR") : "pas encore sauvegardé"}
                       {d.counts && Object.keys(d.counts).length ? ` · ${Object.values(d.counts).reduce((a, b) => a + b, 0)} fiches` : ""}

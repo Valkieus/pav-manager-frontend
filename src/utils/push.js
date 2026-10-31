@@ -109,3 +109,35 @@ export async function unsubscribeFromPush(axios) {
     return { ok: false, error: err };
   }
 }
+
+// Auto-réparation : à chaque ouverture de l'app (compte connecté, notifications déjà autorisées), on ré-enregistre l'abonnement de cet
+// appareil auprès du serveur. Cas réparés : abonnement purgé côté serveur (service de push qui l'a déclaré expiré, base restaurée…) alors
+// que l'appareil, lui, se croit toujours abonné — il restait alors muet pour toujours — et clé VAPID changée côté serveur (abonnement
+// recréé avec la nouvelle clé). Ne demande jamais l'autorisation : si elle n'est pas déjà accordée, ne fait rien.
+export async function syncPushSubscription(axios) {
+  if (!isPushSupported() || Notification.permission !== 'granted') return { ok: false, reason: 'not-granted' };
+  try {
+    const { data: vapid } = await withTimeout(axios.get(`${API}/push/vapid-public-key`), 10000, 'vapid-key');
+    if (!vapid?.enabled || !vapid?.public_key) return { ok: false, reason: 'server_disabled' };
+    const reg = await withTimeout(navigator.serviceWorker.ready, 10000, 'sw-ready');
+    let sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      const current = sub.options && sub.options.applicationServerKey ? new Uint8Array(sub.options.applicationServerKey) : null;
+      const wanted = urlBase64ToUint8Array(vapid.public_key);
+      const same = current && current.length === wanted.length && current.every((v, i) => v === wanted[i]);
+      if (current && !same) {
+        try { await sub.unsubscribe(); } catch (e) { /* on recrée de toute façon */ }
+        sub = null;
+      }
+    }
+    if (!sub) {
+      sub = await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid.public_key) }), 10000, 'pm-subscribe');
+    }
+    const json = sub.toJSON();
+    await withTimeout(axios.post(`${API}/push/subscribe`, { endpoint: json.endpoint, keys: json.keys }), 10000, 'post-subscribe');
+    return { ok: true };
+  } catch (err) {
+    console.error('[push] syncPushSubscription failed:', err);
+    return { ok: false, reason: 'error', message: err?.message || String(err) };
+  }
+}

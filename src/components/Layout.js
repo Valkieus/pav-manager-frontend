@@ -73,6 +73,7 @@ import {
 import {
   isPushSupported,
   getPushSubscriptionState,
+  syncPushSubscription,
   subscribeToPush,
   unsubscribeFromPush,
 } from "../utils/push";
@@ -354,7 +355,8 @@ export const Layout = ({ children }) => {
   };
   useEffect(() => {
     if (!user) return;
-    refreshPushState();
+    // Réenregistre l'abonnement de cet appareil auprès du serveur (auto-réparation), puis relit l'état.
+    syncPushSubscription(axios).finally(() => refreshPushState());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 

@@ -139,11 +139,12 @@ export function HealthPill({ icon: Icon, label, status, detail }) {
 
 
 
-export function NotificationTypeRow({ row, users, savingType, onToggleRole, onToggleUser, onSetMode, onSave, onReset, isOpen, onToggleOpen }) {
+export function NotificationTypeRow({ row, users, groups = [], savingType, onToggleRole, onToggleUser, onToggleGroup, onSetMode, onSave, onReset, isOpen, onToggleOpen }) {
   const override = row.override;
   const isConfigured = !!override;
   const roles = (override && override.roles) || [];
   const extraIds = (override && override.extra_user_ids) || [];
+  const groupIds = (override && override.group_ids) || [];
   const mode = (override && override.mode) || "replace";
   const defaultHint = NOTIFICATION_DEFAULT_HINTS[row.type_];
 
@@ -197,6 +198,22 @@ export function NotificationTypeRow({ row, users, savingType, onToggleRole, onTo
               })}
             </div>
           </div>
+          {groups.length > 0 && (
+            <div>
+              <p className="text-xs font-medium mb-2 text-muted-foreground">Groupes entiers (tous leurs membres)</p>
+              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto" data-testid="notif-groups">
+                {groups.map((g) => {
+                  const active = groupIds.includes(g.id);
+                  return (
+                    <button key={g.id} type="button" onClick={() => onToggleGroup && onToggleGroup(row.type_, g.id)}
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${active ? "bg-primary text-primary-foreground border-primary" : "bg-transparent border-border text-muted-foreground hover:border-primary/40"}`}>
+                      {g.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div>
             <p className="text-xs font-medium mb-2 text-muted-foreground">Comptes individuels en plus</p>
             <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
@@ -260,6 +277,7 @@ export function NotificationTypeRow({ row, users, savingType, onToggleRole, onTo
 export function NotificationRoutingPanel() {
   const [routing, setRouting] = useState([]);
   const [users, setUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingType, setSavingType] = useState(null);
   const [openCategories, setOpenCategories] = useState(() => new Set());
@@ -268,12 +286,14 @@ export function NotificationRoutingPanel() {
   const load = async () => {
     setLoading(true);
     try {
-      const [routingRes, usersRes] = await Promise.all([
+      const [routingRes, usersRes, groupsRes] = await Promise.all([
         axios.get(`${API}/admin/notification-routing`),
         axios.get(`${API}/auth/users`),
+        axios.get(`${API}/groups/enhanced`).catch(() => ({ data: [] })),
       ]);
       setRouting(routingRes.data || []);
       setUsers(usersRes.data || []);
+      setGroups(groupsRes.data || []);
     } catch {
       toast.error("Erreur lors du chargement du routage des notifications");
     } finally {
@@ -286,7 +306,7 @@ export function NotificationRoutingPanel() {
 
   const updateLocal = (type_, patch) => {
     setRouting((prev) => prev.map((r) => r.type_ === type_
-      ? { ...r, override: { roles: [], extra_user_ids: [], mode: "replace", ...(r.override || {}), ...patch } }
+      ? { ...r, override: { roles: [], extra_user_ids: [], group_ids: [], mode: "replace", ...(r.override || {}), ...patch } }
       : r
     ));
   };
@@ -305,11 +325,18 @@ export function NotificationRoutingPanel() {
     updateLocal(type_, { extra_user_ids: next });
   };
 
+  const toggleGroup = (type_, groupId) => {
+    const row = routing.find((r) => r.type_ === type_);
+    const current = (row && row.override && row.override.group_ids) || [];
+    const next = current.includes(groupId) ? current.filter((g) => g !== groupId) : [...current, groupId];
+    updateLocal(type_, { group_ids: next });
+  };
+
   const setMode = (type_, mode) => updateLocal(type_, { mode });
 
   const save = async (type_) => {
     const row = routing.find((r) => r.type_ === type_);
-    const override = (row && row.override) || { roles: [], extra_user_ids: [], mode: "replace" };
+    const override = { group_ids: [], ...((row && row.override) || { roles: [], extra_user_ids: [], mode: "replace" }) };
     setSavingType(type_);
     try {
       await axios.put(`${API}/admin/notification-routing/${type_}`, override);
@@ -353,6 +380,9 @@ export function NotificationRoutingPanel() {
   }
 
   const routingByType = Object.fromEntries(routing.map((r) => [r.type_, r]));
+  // Toute notification du serveur est pilotable : celles qu'aucun thème ne liste atterrissent dans « Autre » (jamais cachées).
+  const classified = new Set(NOTIFICATION_CATEGORIES.flatMap((c) => c.types));
+  const leftovers = routing.map((r) => r.type_).filter((t) => !classified.has(t));
 
   return (
     <div className="space-y-4">
@@ -364,7 +394,7 @@ export function NotificationRoutingPanel() {
           </CardTitle>
           <CardDescription>
             Les notifications sont regroupées par thème. Ouvre un thème, puis une notification, pour choisir qui la
-            reçoit : des rôles entiers et/ou des comptes précis. Sans réglage, le comportement par défaut de
+            reçoit : des rôles entiers, des groupes entiers et/ou des comptes précis. Sans réglage, le comportement par défaut de
             l'application s'applique (indiqué sous chaque notification).
           </CardDescription>
         </CardHeader>
@@ -372,7 +402,7 @@ export function NotificationRoutingPanel() {
 
       {NOTIFICATION_CATEGORIES.map((cat) => {
         const CatIcon = cat.icon;
-        const rows = cat.types.map((t) => routingByType[t]).filter(Boolean);
+        const rows = (cat.key === "autre" ? [...cat.types, ...leftovers] : cat.types).map((t) => routingByType[t]).filter(Boolean);
         if (rows.length === 0) return null;
         const configuredCount = rows.filter((r) => !!r.override).length;
         const isOpen = openCategories.has(cat.key);
@@ -404,9 +434,11 @@ export function NotificationRoutingPanel() {
                     key={row.type_}
                     row={row}
                     users={users}
+                    groups={groups}
                     savingType={savingType}
                     onToggleRole={toggleRole}
                     onToggleUser={toggleUser}
+                    onToggleGroup={toggleGroup}
                     onSetMode={setMode}
                     onSave={save}
                     onReset={reset}

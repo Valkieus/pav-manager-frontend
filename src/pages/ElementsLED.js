@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
+import { DownloadsDialog } from './elementsLed/DownloadsDialog';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -76,49 +77,6 @@ function DownloadedBanner({ element }) {
         ))}
       </ul>
     </div>
-  );
-}
-
-// Journal : qui a téléchargé quoi (récents / par personne).
-function DownloadsDialog({ open, onOpenChange }) {
-  const [data, setData] = useState(null);
-  const [tab, setTab] = useState('recent');
-  const [q, setQ] = useState('');
-  useEffect(() => {
-    if (!open) return;
-    setData(null);
-    axios.get(`${API}/led/downloads`).then((r) => setData(r.data)).catch((e) => { toast.error(e.response?.data?.detail || 'Lecture impossible'); setData({ rows: [], par_personne: [] }); });
-  }, [open]);
-  const s = q.trim().toLowerCase();
-  const rows = (data?.rows || []).filter((r) => !s || [r.nom, r.titre, r.filename, r.categorie].some((x) => (x || '').toLowerCase().includes(s)));
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><DownloadCloud className="h-5 w-5" /> Téléchargements</DialogTitle></DialogHeader>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-md border p-0.5 text-sm">
-            {[['recent', 'Récents'], ['personne', 'Par personne']].map(([k, l]) => (
-              <button key={k} onClick={() => setTab(k)} className={`rounded px-3 py-1 ${tab === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>{l}</button>
-            ))}
-          </div>
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Personne, élément, fichier…" className="min-w-40 flex-1" />
-        </div>
-        {!data ? <div className="p-6 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></div>
-          : tab === 'recent' ? (rows.length === 0 ? <p className="p-6 text-center text-sm text-muted-foreground">Aucun téléchargement pour l'instant.</p> : (
-            <ul className="divide-y rounded-lg border">{rows.map((r) => (
-              <li key={`${r.element_id}-${r.user_id}-${r.filename}`} className="flex items-start gap-3 px-3 py-2">
-                <span className="min-w-0 flex-1"><span className="block text-sm"><strong>{r.nom}</strong> <span className="text-muted-foreground">a téléchargé</span></span>
-                  <span className="block truncate text-xs text-muted-foreground">{r.titre}{r.filename && r.filename !== r.titre ? ` · ${r.filename}` : ''}{r.categorie ? ` · ${r.categorie}` : ''}</span></span>
-                <span className="shrink-0 text-right text-xs text-muted-foreground">{fmtDT(r.at)}{r.count > 1 ? <><br />{r.count} fois</> : null}</span>
-              </li>))}</ul>))
-          : (
-            <ul className="divide-y rounded-lg border">{(data.par_personne || []).filter((u) => !s || (u.nom || '').toLowerCase().includes(s)).map((u) => (
-              <li key={u.user_id || u.nom} className="flex items-center gap-3 px-3 py-2">
-                <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{u.nom}</span><span className="block text-xs text-muted-foreground">dernier : {fmtDT(u.dernier)}</span></span>
-                <span className="text-right text-xs text-muted-foreground"><strong className="text-sm text-foreground">{u.telechargements}</strong> téléch.<br />{u.fichiers} fichier{u.fichiers > 1 ? 's' : ''}</span>
-              </li>))}</ul>)}
-      </DialogContent>
-    </Dialog>
   );
 }
 

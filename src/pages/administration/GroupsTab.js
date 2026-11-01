@@ -232,22 +232,21 @@ export function GroupsTab({
                             </td>
                             <td className="text-center px-2 py-2">
                               {mod.special ? (
-                                <label
-                                  className="inline-flex items-center gap-1 cursor-pointer"
-                                  title={mod.special.label}
-                                >
-                                  <Checkbox
-                                    checked={groupForm.permissions.includes(
-                                      mod.special.key,
-                                    )}
-                                    onCheckedChange={() =>
-                                      togglePermission(mod.special.key)
-                                    }
-                                  />
-                                  <span className="text-xs text-muted-foreground">
-                                    {mod.special.label}
-                                  </span>
-                                </label>
+                                <div className="flex flex-col items-start gap-1">
+                                  {[mod.special, ...(mod.extraSpecials || [])].map((sp) => (
+                                    <label
+                                      key={sp.key}
+                                      className="inline-flex items-center gap-1 cursor-pointer"
+                                      title={sp.label}
+                                    >
+                                      <Checkbox
+                                        checked={groupForm.permissions.includes(sp.key)}
+                                        onCheckedChange={() => togglePermission(sp.key)}
+                                      />
+                                      <span className="text-xs text-muted-foreground">{sp.label}</span>
+                                    </label>
+                                  ))}
+                                </div>
                               ) : (
                                 <span className="text-muted-foreground">
                                   —

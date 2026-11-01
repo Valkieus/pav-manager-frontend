@@ -1,5 +1,5 @@
 import "@/App.css";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import lazyWithRetry from "./lib/lazyWithRetry";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -146,6 +146,21 @@ function AppRoutes() {
   );
 }
 
+// Messages (toasts) : en haut à droite sur ordinateur ; sur téléphone, EN BAS de l'écran — en haut ils passaient derrière l'encoche /
+// l'îlot dynamique et l'en-tête, donc invisibles (iPhone en application installée).
+function AppToaster() {
+  const [phone, setPhone] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const on = () => setPhone(mq.matches);
+    mq.addEventListener?.("change", on);
+    return () => mq.removeEventListener?.("change", on);
+  }, []);
+  return phone
+    ? <Toaster position="bottom-center" richColors offset={{ bottom: "calc(env(safe-area-inset-bottom) + 16px)" }} mobileOffset={{ bottom: "calc(env(safe-area-inset-bottom) + 16px)", left: 12, right: 12 }} />
+    : <Toaster position="top-right" richColors />;
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -154,7 +169,7 @@ function App() {
           <BrowserRouter>
             <AppRoutes />
             <OfflineIndicator />
-            <Toaster position="top-right" richColors />
+            <AppToaster />
           </BrowserRouter>
         </AuthProvider>
       </OfflineProvider>

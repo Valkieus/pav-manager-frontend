@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
+import { Switch } from '../../components/ui/switch';
 import { API } from './constants';
 
 const NIVEAUX = ['Technicien', 'Responsable', 'Coordination'];
@@ -16,16 +17,29 @@ export function PortalLockCard({ users = [], canEdit }) {
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [autoLock, setAutoLock] = useState(true);
 
   const load = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/maintenance/portal-lock`);
       setLocked(res.data.users || []);
+      if (typeof res.data.auto_lock_new_technicians === 'boolean') setAutoLock(res.data.auto_lock_new_technicians);
     } catch (e) {
       setLocked([]);
     }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  const toggleAuto = async (enabled) => {
+    setBusy(true);
+    try {
+      await axios.put(`${API}/maintenance/portal-lock/auto`, { enabled });
+      setAutoLock(enabled);
+      toast.success(enabled ? 'Les nouveaux techniciens seront verrouillés' : 'Les nouveaux techniciens verront PAV Manager tout de suite');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Action impossible');
+    } finally { setBusy(false); }
+  };
 
   const apply = async (body, okMsg) => {
     setBusy(true);
@@ -57,6 +71,16 @@ export function PortalLockCard({ users = [], canEdit }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex items-start justify-between gap-3 rounded-lg border p-3" data-testid="portal-auto-lock">
+          <div className="space-y-1">
+            <Label className="text-sm">Verrouiller automatiquement les nouveaux techniciens</Label>
+            <p className="text-xs text-muted-foreground">
+              Chaque technicien qui s'inscrit lui-même (auto-inscription) ou dont un Admin crée le compte démarre « verrouillé » : il ne voit que le portail
+              (CEC Songs, Recherche Biblique, PAV LED). Vous le déverrouillez ensuite ci-dessous, personne par personne ou tous les Techniciens d'un coup.
+            </p>
+          </div>
+          <Switch checked={autoLock} disabled={!canEdit || busy} onCheckedChange={toggleAuto} aria-label="Verrouillage automatique des nouveaux techniciens" data-testid="portal-auto-lock-switch" />
+        </div>
         <div className="space-y-2">
           <Label>Comptes verrouillés ({locked.length})</Label>
           {locked.length === 0 ? (

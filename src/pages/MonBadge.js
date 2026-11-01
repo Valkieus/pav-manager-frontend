@@ -18,7 +18,10 @@ function statusMessage(info) {
   if (s === 'non_conforme') {
     return { icon: ShieldAlert, tone: 'text-destructive', title: 'Photo refusée', text: info?.badge_message ? `Motif : ${info.badge_message}. Envoie une nouvelle photo.` : 'Ta photo ne convient pas. Envoie une nouvelle photo (de face, visage dégagé, fond neutre).', action: true };
   }
-  if (['pret_a_recuperer', 'recupere', 'validee'].includes(s) && !info?.badge_photo_url) {
+  if (s === 'pret_a_recuperer') {
+    return { icon: IdCard, tone: 'text-blue-600', title: 'Badge prêt — à récupérer', text: "Ta photo est validée. Passe récupérer ton badge auprès de la Coordination : la version digitale apparaîtra ici dès qu'il t'aura été remis." };
+  }
+  if (['recupere', 'validee'].includes(s) && !info?.badge_photo_url) {
     return { icon: IdCard, tone: 'text-muted-foreground', title: 'Version digitale indisponible', text: "Aucune photo n'est enregistrée pour ton badge. Envoie une photo pour obtenir ta version digitale.", action: true };
   }
   return { icon: IdCard, tone: 'text-muted-foreground', title: 'Pas encore de badge', text: "Tu n'as pas encore demandé de badge. Envoie une photo récente (de face, visage dégagé) : il sera disponible ici dès sa validation.", action: true };

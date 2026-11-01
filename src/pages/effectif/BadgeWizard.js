@@ -3,18 +3,20 @@ import axios from 'axios';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { toast } from 'sonner';
 import { Check, X, Loader2, Download, FileText, Wand2, RotateCcw } from 'lucide-react';
 import { renderBadge, autoFrame, DEFAULT_ADJUST, splitName, badgeFileName, downloadPng, downloadPdf } from './badgeRender';
 
 // Badge en deux pages : 1. validation de la photo, 2. badge fabriqué (aperçu, PNG, PDF).
 export function BadgeWizard({
   open, onOpenChange, tech, readOnly, badgeDetail, badgeActionBusy,
-  handleConfirmBadge, handleRejectBadge, rejectMessage, setRejectMessage,
+  handleConfirmBadge, handleCollectBadge, handleRejectBadge, rejectMessage, setRejectMessage,
 }) {
   const status = badgeDetail?.badge_status;
   const validated = ['pret_a_recuperer', 'recupere'].includes(status);
   const [step, setStep] = useState(validated ? 2 : 1);
   const [rejecting, setRejecting] = useState(false);
+  const [handoverOpen, setHandoverOpen] = useState(false);
   const [names, setNames] = useState(splitName(tech?.nom));
   const [rendering, setRendering] = useState(false);
   const [error, setError] = useState('');
@@ -103,6 +105,22 @@ export function BadgeWizard({
     return () => { cancelled = true; clearTimeout(t); };
   }, [open, step, names, photoUrl, adjust]);
 
+  const namesOk = !!names.prenom?.trim() && !!names.nom?.trim();
+  // Valider la photo : Prénom et NOM du badge obligatoires (enregistrés d'abord), puis popup automatique « remis ? ».
+  const validatePhoto = async () => {
+    if (!namesOk) { toast.error('Renseigne le prénom et le NOM de famille du badge avant de valider.'); return; }
+    try {
+      if (badgeDetail?.user_id) await axios.put(`${process.env.REACT_APP_BACKEND_URL}/api/admin/badges/${badgeDetail.user_id}/names`, names);
+      savedNamesRef.current[badgeDetail?.user_id] = names;
+    } catch (err) { toast.error(err.response?.data?.detail || "Impossible d'enregistrer les noms du badge"); return; }
+    const ok = await handleConfirmBadge();
+    if (ok) setHandoverOpen(true);
+  };
+  const markHandedOver = async () => {
+    const ok = await handleCollectBadge?.();
+    if (ok) setHandoverOpen(false);
+  };
+
   const tabCls = (n) => `flex-1 rounded-md px-3 py-1.5 text-sm font-medium ${step === n ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`;
 
   return (
@@ -135,12 +153,19 @@ export function BadgeWizard({
                   </div>
                 </div>
               ) : (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2" data-testid="badge-names-required">
+                    <Input className="font-bold" value={names.prenom} onChange={(e) => editNames({ ...names, prenom: e.target.value })} placeholder="Prénom (obligatoire)" aria-invalid={!names.prenom?.trim()} />
+                    <Input className="font-bold uppercase" value={names.nom} onChange={(e) => editNames({ ...names, nom: e.target.value.toUpperCase() })} placeholder="NOM DE FAMILLE (obligatoire)" aria-invalid={!names.nom?.trim()} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Prénom et nom de famille obligatoires : ils s'impriment sur le badge (la fiche reste inchangée).</p>
                 <div className="flex gap-2">
-                  <Button disabled={badgeActionBusy} onClick={handleConfirmBadge} data-testid="badge-validate">
+                  <Button disabled={badgeActionBusy || !namesOk} onClick={validatePhoto} data-testid="badge-validate">
                     {badgeActionBusy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}
                     Valider la photo
                   </Button>
                   <Button variant="outline" onClick={() => setRejecting(true)}><X className="w-4 h-4 mr-1" /> Refuser</Button>
+                </div>
                 </div>
               )
             ) : (
@@ -200,6 +225,25 @@ export function BadgeWizard({
           </div>
         )}
       </DialogContent>
+      <Dialog open={handoverOpen} onOpenChange={setHandoverOpen}>
+        <DialogContent className="max-w-md" data-testid="badge-handover-popup">
+          <DialogHeader>
+            <DialogTitle>Photo validée — badge remis ?</DialogTitle>
+            <DialogDescription>
+              Le badge de {names.prenom} {names.nom} est prêt. L'avez-vous remis en main propre ?
+            </DialogDescription>
+          </DialogHeader>
+          <p className="rounded-lg border border-amber-400/60 bg-amber-500/10 p-3 text-sm">
+            <strong>Obligatoire pour la version digitale :</strong> tant que le badge n'est pas identifié comme « remis », la personne ne peut pas voir son badge digital dans « Mon badge ».
+          </p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" onClick={() => setHandoverOpen(false)} data-testid="badge-handover-later">Pas encore</Button>
+            <Button disabled={badgeActionBusy} onClick={markHandedOver} data-testid="badge-handover-yes">
+              {badgeActionBusy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}Oui, identifier comme remis
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

@@ -374,6 +374,7 @@ export function TechDetailDialog({
         badgeDetail={badgeDetail}
         badgeActionBusy={badgeActionBusy}
         handleConfirmBadge={handleConfirmBadge}
+        handleCollectBadge={handleCollectBadge}
         handleRejectBadge={handleRejectBadge}
         rejectMessage={rejectMessage}
         setRejectMessage={setRejectMessage}

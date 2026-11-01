@@ -41,7 +41,7 @@ export function BasketValidatorsCard({ users = [], canEdit }) {
         <CardTitle className="flex items-center gap-2"><ShoppingBasket className="w-5 h-5" />Validation des paniers PAV LED</CardTitle>
         <CardDescription>
           Les personnes ci-dessous valident ou refusent les paniers de vidéos (responsable de la branche Animation). Les paniers validés passent
-          ensuite aux animateurs pour la vérification des boucles. La Coordination et les Admin peuvent toujours valider.
+          ensuite aux animateurs pour la vérification des boucles. La Coordination et les Admin peuvent toujours valider. Pour une gestion complète (voir tous les paniers, les renommer, les supprimer), ajoutez la personne au groupe « LED — Gestion des paniers » dans Groupes & Droits.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

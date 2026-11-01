@@ -273,37 +273,48 @@ export default function ElementsLED() {
 
 
   return (
-    <div className="space-y-6" data-testid="elements-led-page">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Lightbulb className="w-6 h-6" /> Éléments LED</h1>
-          <p className="text-muted-foreground">Recherche et bibliothèque d'éléments LED</p>
+    <div className="space-y-4 sm:space-y-6" data-testid="elements-led-page">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 whitespace-nowrap"><Lightbulb className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" /> Éléments LED</h1>
+          <p className="hidden sm:block text-sm text-muted-foreground">Bibliothèque d'éléments LED</p>
         </div>
-        <Button variant="outline" onClick={() => setShowDownloads(true)} data-testid="open-downloads-log">
-          <DownloadCloud className="w-4 h-4 mr-2" /> Téléchargements
-        </Button>
-        <Button variant="outline" onClick={openLedSite} data-testid="open-led-site">
-          <ExternalLink className="w-4 h-4 mr-2" /> Ouvrir le site LED
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowDownloads(true)} data-testid="open-downloads-log" aria-label="Téléchargements">
+            <DownloadCloud className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">Téléchargements</span>
+          </Button>
+          <Button size="sm" onClick={openLedSite} data-testid="open-led-site">
+            <ExternalLink className="w-4 h-4 mr-2" /><span className="sm:hidden">Site LED</span><span className="hidden sm:inline">Ouvrir le site LED</span>
+          </Button>
+        </div>
       </div>
 
+      {/* Recherche d'abord, puis les catégories sur UNE ligne défilante (sur téléphone, 20 pastilles en grille remplissaient l'écran) */}
+      <div className="relative sm:max-w-md">
+        <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+        <Input className="pl-9" placeholder="Rechercher (titre, texte, tag, référence…)" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
 
-      <div className="flex flex-wrap items-center gap-2" data-testid="led-categories">
-        <Button size="sm" variant={filterCat === 'all' ? 'default' : 'outline'} onClick={() => setFilterCat('all')}>Toutes</Button>
-        {categories.map((c) => (
-          <Button key={c.id} size="sm" variant={filterCat === c.nom ? 'default' : 'outline'} onClick={() => setFilterCat(c.nom)}>
-            {c.nom} ({c.count})
+      <div className="space-y-1.5" data-testid="led-categories">
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+          <Button size="sm" className="shrink-0" variant={filterCat === 'all' ? 'default' : 'outline'} onClick={() => setFilterCat('all')}>Toutes</Button>
+          {categories.map((c) => (
+            <Button key={c.id} size="sm" className="shrink-0" variant={filterCat === c.nom ? 'default' : 'outline'} onClick={() => setFilterCat(c.nom)}>
+              {c.nom} ({c.count})
+            </Button>
+          ))}
+          <Button size="sm" className="shrink-0" variant={filterCat === '__none__' ? 'default' : 'outline'} onClick={() => setFilterCat('__none__')}>
+            Sans catégorie ({sansCat})
           </Button>
-        ))}
-        <Button size="sm" variant={filterCat === '__none__' ? 'default' : 'outline'} onClick={() => setFilterCat('__none__')}>
-          Sans catégorie ({sansCat})
-        </Button>
-        <Button size="sm" variant="ghost" onClick={addCategory}><Plus className="w-4 h-4 mr-1" />Nouvelle catégorie</Button>
-        {categories.find((c) => c.nom === filterCat) && (
-          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteCategory(categories.find((c) => c.nom === filterCat))}>
-            <Trash2 className="w-4 h-4 mr-1" />Supprimer « {filterCat} »
-          </Button>
-        )}
+        </div>
+        <div className="flex flex-wrap items-center gap-1">
+          <Button size="sm" variant="ghost" className="h-8 px-2 text-muted-foreground" onClick={addCategory}><Plus className="w-4 h-4 mr-1" />Nouvelle catégorie</Button>
+          {categories.find((c) => c.nom === filterCat) && (
+            <Button size="sm" variant="ghost" className="h-8 px-2 text-destructive" onClick={() => deleteCategory(categories.find((c) => c.nom === filterCat))}>
+              <Trash2 className="w-4 h-4 mr-1" />Supprimer « {filterCat} »
+            </Button>
+          )}
+        </div>
       </div>
 
       {checked.size > 0 && (
@@ -321,17 +332,12 @@ export default function ElementsLED() {
         </div>
       )}
 
-      <div className="relative max-w-md">
-        <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-        <Input className="pl-9" placeholder="Rechercher (titre, texte, tag, référence…)" value={q} onChange={(e) => setQ(e.target.value)} />
-      </div>
-
       {loading ? (
         <Loader2 className="w-6 h-6 animate-spin" />
       ) : elements.length === 0 ? (
         <p className="text-muted-foreground">Aucun élément pour le moment. Ajoutez des fichiers depuis le site LED.</p>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
           {elements.map((el) => {
             const cover = coverOf(el);
             return (

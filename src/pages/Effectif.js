@@ -468,8 +468,10 @@ export default function Effectif() {
       await axios.post(`${API}/admin/badges/${badgeDetail.user_id}/confirm`);
       toast.success("Photo validée — badge prêt à récupérer.");
       refreshBadgeAndList();
+      return true;
     } catch (err) {
       toast.error(err.response?.data?.detail || "Erreur");
+      return false;
     } finally {
       setBadgeActionBusy(false);
     }
@@ -504,8 +506,10 @@ export default function Effectif() {
       await axios.post(`${API}/admin/badges/${badgeDetail.user_id}/collect`);
       toast.success("Badge marqué comme remis au technicien");
       refreshBadgeAndList();
+      return true;
     } catch (err) {
       toast.error(err.response?.data?.detail || "Erreur");
+      return false;
     } finally {
       setBadgeActionBusy(false);
     }

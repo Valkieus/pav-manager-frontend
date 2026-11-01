@@ -5,7 +5,8 @@ import { Button } from '../../components/ui/button';
 import { renderBadge, splitName, DEFAULT_ADJUST } from '../effectif/badgeRender';
 
 // Badge validé par la coordination (photo acceptée) : la personne peut l'afficher depuis son tableau de bord.
-export const BADGE_READY = ['pret_a_recuperer', 'recupere', 'validee'];
+// La version digitale n'est visible qu'une fois le badge identifié comme « remis » par la Coordination (« recupere » ; « validee » = ancien statut).
+export const BADGE_READY = ['recupere', 'validee'];
 export const hasBadgeToShow = (user) => !!user && BADGE_READY.includes(user.badge_status) && !!user.badge_photo_url;
 
 // Taille de l'écran (suit la rotation et le redimensionnement) : le badge est dimensionné à la main pour remplir l'écran sans déformation.

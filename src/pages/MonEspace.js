@@ -910,7 +910,9 @@ export default function MonEspace() {
               <p className="text-xs text-muted-foreground">
                 {hasBadgeToShow(badgeInfo)
                   ? "Ton badge, à présenter en plein écran (paysage)."
-                  : "Disponible dès que la coordination aura validé ta photo."}
+                  : badgeInfo?.badge_status === "pret_a_recuperer"
+                    ? "Disponible dès que la Coordination t'aura remis ton badge."
+                    : "Disponible une fois ta photo validée et ton badge remis."}
               </p>
             </div>
             <Button disabled={!hasBadgeToShow(badgeInfo)} onClick={() => setBadgeViewerOpen(true)} data-testid="badge-digital-open">

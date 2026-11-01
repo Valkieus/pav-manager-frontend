@@ -1,4 +1,4 @@
-import { Server, Users, Calendar, GraduationCap, BookOpen, FileText, MessageSquare, Bell } from 'lucide-react';
+import { Server, Users, Calendar, GraduationCap, BookOpen, FileText, MessageSquare, Bell, Lightbulb } from 'lucide-react';
 
 export const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -167,7 +167,7 @@ export const NOTIFICATION_CATEGORIES = [
     icon: Server,
     color: "text-red-500",
     chip: "bg-red-500/10 border-red-500/30 text-red-500",
-    types: ["quota_alerte", "securite", "crash", "maintenance", "supervision"],
+    types: ["quota_alerte", "securite", "crash", "maintenance", "supervision", "stockage_rapport"],
   },
   {
     key: "comptes",
@@ -199,7 +199,7 @@ export const NOTIFICATION_CATEGORIES = [
     icon: BookOpen,
     color: "text-indigo-500",
     chip: "bg-indigo-500/10 border-indigo-500/30 text-indigo-500",
-    types: ["academy_assignment", "academy_correction", "academy_corrige"],
+    types: ["academy_assignment", "academy_correction", "academy_corrige", "academy_certificate", "academy_course", "academy_question", "academy_reply"],
   },
   {
     key: "devis",
@@ -216,6 +216,14 @@ export const NOTIFICATION_CATEGORIES = [
     color: "text-pink-500",
     chip: "bg-pink-500/10 border-pink-500/30 text-pink-500",
     types: ["actualite", "communication", "groupchat", "comm_diffusion", "comm_canal", "comm_mention"],
+  },
+  {
+    key: "led",
+    label: "PAV LED",
+    icon: Lightbulb,
+    color: "text-yellow-500",
+    chip: "bg-yellow-500/10 border-yellow-500/30 text-yellow-500",
+    types: ["led_panier"],
   },
   {
     key: "autre",
@@ -258,6 +266,12 @@ export const NOTIFICATION_DEFAULT_HINTS = {
   communication: "Tous les utilisateurs (Chaîne)",
   groupchat: "Membres du groupe",
   crash: "Tous les Super Admin",
+  stockage_rapport: "Super Admin",
+  academy_certificate: "L'élève qui obtient le certificat",
+  academy_course: "Les élèves concernés (cours publié ou assigné)",
+  academy_question: "L'auteur du cours",
+  academy_reply: "L'auteur du message auquel on répond",
+  led_panier: "Validateurs désignés et groupe « LED — Gestion des paniers » ; l'opérateur ou les animateurs selon l'étape (repli : Coordination, Admin)",
 };
 
 export const BRANCHES_FOR_FICHE = [

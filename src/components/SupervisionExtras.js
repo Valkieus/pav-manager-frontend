@@ -417,7 +417,7 @@ export function CloudinaryAccountsCard({ canEdit = false }) {
                 <Button size="sm" variant="outline" onClick={() => setPreview(null)}>← Retour à la liste</Button>
                 <p className="break-all text-sm font-medium">{preview.public_id}{preview.format ? `.${preview.format}` : ""} · {fmtBytes(preview.bytes)}</p>
                 {preview.resource_type === "image" && <img src={preview.url} alt="" className="mx-auto max-h-[65vh] max-w-full object-contain" />}
-                {preview.resource_type === "video" && <video src={preview.url} controls className="mx-auto max-h-[65vh] max-w-full" />}
+                {preview.resource_type === "video" && <video src={preview.url} controls controlsList="nodownload noremoteplayback" disablePictureInPicture disableRemotePlayback onContextMenu={(e) => e.preventDefault()} className="mx-auto max-h-[65vh] max-w-full" />}
                 {preview.resource_type === "raw" && <a href={preview.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">Ouvrir le fichier</a>}
               </div>
             ) : (

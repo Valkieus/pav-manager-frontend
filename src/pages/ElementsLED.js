@@ -47,7 +47,7 @@ function PlayableVideo({ m, onDownload }) {
   const [i, setI] = useState(0);
   return (
     <div className="space-y-1 sm:col-span-2">
-      <video key={cands[i]} src={cands[i]} controls autoPlay muted loop playsInline preload="auto" className="w-full rounded bg-black"
+      <video key={cands[i]} src={cands[i]} controls controlsList="nodownload noremoteplayback noplaybackrate" disablePictureInPicture disableRemotePlayback draggable={false} onContextMenu={(e) => e.preventDefault()} autoPlay muted loop playsInline preload="auto" className="w-full rounded bg-black"
         onError={() => setI((x) => (x < cands.length - 1 ? x + 1 : x))} />
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="truncate">{m.filename}</span>
@@ -308,7 +308,7 @@ export default function ElementsLED() {
                     onChange={() => toggleChecked(el.id)}
                     aria-label="Sélectionner"
                   />
-                  {cover ? <img src={cover} alt={el.titre} loading="lazy" className="w-full h-full object-cover" />
+                  {cover ? <img src={cover} alt={el.titre} draggable={false} onContextMenu={(e) => e.preventDefault()} loading="lazy" className="w-full h-full object-cover" />
                     : el.medias?.[0]?.kind === 'video' ? <Film className="w-8 h-8 text-muted-foreground" />
                     : <FileText className="w-8 h-8 text-muted-foreground" />}
                   {el.medias?.some((m) => m.kind === 'video') && cover && (
@@ -343,7 +343,7 @@ export default function ElementsLED() {
                   m.kind === 'image' ? (
                     <div key={m.url} className="space-y-1">
                       <a href={mediaUrl(m.url)} target="_blank" rel="noreferrer">
-                        <img src={mediaUrl(m.url)} alt={m.filename} className="w-full rounded" />
+                        <img src={mediaUrl(m.url)} alt={m.filename} draggable={false} onContextMenu={(e) => e.preventDefault()} className="w-full rounded" />
                       </a>
                       <a href={downloadUrl(m)} download={m.filename} target="_blank" rel="noreferrer" onClick={(e) => startDownload(e, m)} className="inline-flex items-center gap-1 text-xs underline">
                         <Download className="h-3 w-3" /> Télécharger

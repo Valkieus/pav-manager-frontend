@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { DownloadsDialog } from './elementsLed/DownloadsDialog';
+import ProtectedVideo from '../components/ProtectedVideo';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -47,8 +48,7 @@ function PlayableVideo({ m, onDownload }) {
   const [i, setI] = useState(0);
   return (
     <div className="space-y-1 sm:col-span-2">
-      <video key={cands[i]} src={cands[i]} controls controlsList="nodownload noremoteplayback noplaybackrate" disablePictureInPicture disableRemotePlayback draggable={false} onContextMenu={(e) => e.preventDefault()} autoPlay muted loop playsInline preload="auto" className="w-full rounded bg-black"
-        onError={() => setI((x) => (x < cands.length - 1 ? x + 1 : x))} />
+      <ProtectedVideo key={cands[i]} src={cands[i]} className="w-full" onError={() => setI((x) => (x < cands.length - 1 ? x + 1 : x))} />
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="truncate">{m.filename}</span>
         <a href={downloadUrl(m)} download={m.filename} target="_blank" rel="noreferrer" onClick={(e) => onDownload && onDownload(e, m)}

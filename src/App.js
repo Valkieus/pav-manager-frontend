@@ -26,6 +26,7 @@ const MonEspace = lazyWithRetry(() => import("./pages/MonEspace"));
 const MonBadge = lazyWithRetry(() => import("./pages/MonBadge"));
 const Effectif = lazyWithRetry(() => import("./pages/Effectif"));
 const Logistique = lazyWithRetry(() => import("./pages/Logistique"));
+const ParcMateriel = lazyWithRetry(() => import("./pages/ParcMateriel"));
 const ElementsLED = lazyWithRetry(() => import("./pages/ElementsLED"));
 // Écran du compte tablette « Régisseurs iPad » — chargé seulement pour ce compte.
 const KioskShell = lazyWithRetry(() => import("./components/KioskShell"));
@@ -133,6 +134,8 @@ function AppRoutes() {
       <Route path="/mon-badge" element={<ProtectedRoute><MonBadge /></ProtectedRoute>} />
       <Route path="/effectif" element={<ProtectedRoute><Effectif /></ProtectedRoute>} />
       <Route path="/logistique" element={<ProtectedRoute><Logistique /></ProtectedRoute>} />
+      <Route path="/parc-materiel" element={<ProtectedRoute><ParcMateriel /></ProtectedRoute>} />
+      <Route path="/parc/:code" element={<ProtectedRoute><ParcMateriel /></ProtectedRoute>} />
       <Route path="/elements-led" element={<ProtectedRoute><ElementsLED /></ProtectedRoute>} />
       <Route path="/devis" element={<ProtectedRoute><Devis /></ProtectedRoute>} />
       <Route path="/formations" element={<ProtectedRoute><Formations /></ProtectedRoute>} />

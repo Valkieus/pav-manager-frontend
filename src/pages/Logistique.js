@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import lazyWithRetry from '../lib/lazyWithRetry';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import RegisseurNotes from '../components/RegisseurNotes';
@@ -6,7 +7,9 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { TableHead } from '../components/ui/table';
 import { toast } from 'sonner';
-import { Loader2, LayoutDashboard, ArrowRightLeft, StickyNote, Boxes, Contact2, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { Loader2, LayoutDashboard, ArrowRightLeft, StickyNote, Boxes, Contact2, ChevronDown, ChevronUp, AlertTriangle, QrCode } from 'lucide-react';
+const ParcMateriel = lazyWithRetry(() => import('./ParcMateriel'));
+const KioskParc = lazyWithRetry(() => import('./parc/KioskParc'));
 import { sanitizeContainer } from '../lib/safeHtml';
 import {
   downloadOrShareFile,
@@ -1615,6 +1618,7 @@ export default function Logistique({ kioskMode = false }) {
     { id: 'stock', label: 'Stock & Inventaire', icon: Boxes },
     { id: 'contact', label: 'Contact', icon: Contact2 },
     { id: 'incidents', label: 'Incidents', icon: AlertTriangle },
+    { id: 'parc', label: 'Parc matériel', icon: QrCode },
     { id: 'notes', label: 'Notes', icon: StickyNote }
   ];
 
@@ -1641,7 +1645,7 @@ export default function Logistique({ kioskMode = false }) {
 
       {kioskMode && (
         <div className="flex gap-2 border-b pb-2">
-          {[['entrees-sorties', 'Entrées / Sorties', ArrowRightLeft], ['notes', 'Notes', StickyNote]].map(([id, label, Icon]) => (
+          {[['entrees-sorties', 'Entrées / Sorties', ArrowRightLeft], ['parc', 'Parc matériel', QrCode], ['notes', 'Notes', StickyNote]].map(([id, label, Icon]) => (
             <Button key={id} variant={subTab === id ? 'default' : 'outline'} className="h-12 flex-1 text-base" onClick={() => setSubTab(id)} data-testid={`kiosk-tab-${id}`}>
               <Icon className="mr-2 h-5 w-5" />{label}
             </Button>
@@ -1655,6 +1659,12 @@ export default function Logistique({ kioskMode = false }) {
         <div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
       ) : (
         <>
+          {subTab === 'parc' && (
+            <Suspense fallback={<p className="py-10 text-center text-muted-foreground">Chargement…</p>}>
+              {kioskMode ? <KioskParc /> : <ParcMateriel embedded />}
+            </Suspense>
+          )}
+
           {subTab === 'dashboard' && (
             <LogistiqueDashboard
             canManage={canManage}

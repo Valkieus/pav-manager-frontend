@@ -67,6 +67,7 @@ export const MAINTENANCE_PAGES = [
   { path: "/effectif", label: "Effectif" },
   { path: "/salles", label: "Salles" },
   { path: "/logistique", label: "Régisseurs" },
+  { path: "kiosque:parc-materiel", label: "iPad Régisseurs — bouton Parc matériel" },
   { path: "/devis", label: "Devis & Achat" },
   { path: "/formations", label: "Formations" },
   { path: "/documents", label: "Base de connaissance" },

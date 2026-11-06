@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import lazyWithRetry from "../lib/lazyWithRetry";
 import axios from "axios";
 import { UserRound, Repeat2 } from "lucide-react";
@@ -14,6 +14,10 @@ const Logistique = lazyWithRetry(() => import("../pages/Logistique"));
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const STORAGE_KEY = "pav_kiosk_regisseur";
+// Tablette partagée : sans aucune touche pendant ce délai, on REDEMANDE qui l'utilise (le dernier nom n'est plus repris),
+// pour que les modifications soient toujours tracées au nom de la bonne personne.
+const IDLE_ASK_MS = 10 * 60 * 1000;
+const IDLE_EVENTS = ["pointerdown", "touchstart", "mousedown", "keydown", "scroll"];
 
 const norm = (t) =>
   String(t || "")
@@ -41,8 +45,33 @@ export default function KioskShell() {
   const [acting, setActing] = useState("");
   const [lastUsed] = useState(readStored);
   const [pickerOpen, setPickerOpen] = useState(true);
+  const [idleAsked, setIdleAsked] = useState(false);
+  const lastTouchRef = useRef(Date.now());
+  const pickerOpenRef = useRef(true);
   const [roster, setRoster] = useState([]);
   const [loadingRoster, setLoadingRoster] = useState(true);
+
+  pickerOpenRef.current = pickerOpen;
+  useEffect(() => {
+    const touch = () => { lastTouchRef.current = Date.now(); };
+    IDLE_EVENTS.forEach((e) => window.addEventListener(e, touch, { passive: true, capture: true }));
+    // Horodatage plutôt que simple minuteur : l'iPad en veille ou l'onglet en arrière-plan ralentit les minuteurs.
+    const tick = () => {
+      if (pickerOpenRef.current) return;
+      if (Date.now() - lastTouchRef.current >= IDLE_ASK_MS) {
+        setActing("");
+        setIdleAsked(true);
+        setPickerOpen(true);
+      }
+    };
+    const timer = setInterval(tick, 5000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+      IDLE_EVENTS.forEach((e) => window.removeEventListener(e, touch, { capture: true }));
+    };
+  }, []);
 
   // En-tête envoyé avec toutes les requêtes tant qu'un régisseur est choisi.
   useEffect(() => {
@@ -95,6 +124,8 @@ export default function KioskShell() {
     } catch (e) {
       // stockage indisponible : le choix reste valable jusqu'au rechargement
     }
+    lastTouchRef.current = Date.now();
+    setIdleAsked(false);
     setActing(nom);
     setPickerOpen(false);
   };
@@ -158,8 +189,9 @@ export default function KioskShell() {
               Qui utilise la tablette ?
             </DialogTitle>
             <DialogDescription>
-              Touchez votre nom : il sera enregistré avec vos modifications
-              des fiches Entrées / Sorties.
+              {idleAsked
+                ? "La tablette est restée inactive un moment : touchez votre nom pour continuer (vos modifications seront enregistrées à votre nom)."
+                : "Touchez votre nom : il sera enregistré avec vos modifications des fiches Entrées / Sorties."}
             </DialogDescription>
           </DialogHeader>
           {loadingRoster ? (

@@ -20,7 +20,7 @@ const TABS = [
 
 // Gestion de parc par QR code (page ADDITIVE : n'altère ni le stock ni les entrées/sorties existants).
 // /parc-materiel : scanner, étiquettes, suivi.  /parc/<code> : adresse écrite dans chaque QR -> ouvre directement la fiche.
-export default function ParcMateriel() {
+export default function ParcMateriel({ embedded = false }) {
   const { code: routeCode } = useParams();
   const navigate = useNavigate();
   const { isAdmin, isSuperAdmin, user } = useAuth();
@@ -52,7 +52,7 @@ export default function ParcMateriel() {
   }, [items, q]);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-3 sm:p-6" data-testid="parc-materiel">
+    <div className={embedded ? "mx-auto max-w-3xl space-y-4" : "mx-auto max-w-3xl space-y-4 p-3 sm:p-6"} data-testid="parc-materiel">
       <div>
         <h1 className="text-xl font-bold sm:text-2xl">Parc matériel</h1>
         <p className="text-sm text-muted-foreground">Scannez l'étiquette d'un matériel pour ouvrir sa fiche et confirmer son numéro de série.</p>

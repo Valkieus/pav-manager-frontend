@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Switch } from '../../components/ui/switch';
 import { API } from './constants';
+import { mergeLinks } from '../dashboard/portalLinks';
 
 const NIVEAUX = ['Technicien', 'Responsable', 'Coordination'];
 
@@ -18,6 +19,30 @@ export function PortalLockCard({ users = [], canEdit }) {
   const [picked, setPicked] = useState([]);
   const [busy, setBusy] = useState(false);
   const [autoLock, setAutoLock] = useState(true);
+  // Liens proposés dans la vue verrouillée (même liste que la barre « Portail Charisma » : libellés et adresses modifiables là-bas).
+  const [allLinks, setAllLinks] = useState([]);
+  const [shownIds, setShownIds] = useState(['songs', 'bible', 'led']);
+  const [linksDirty, setLinksDirty] = useState(false);
+  const loadLinks = useCallback(async () => {
+    try {
+      const [stored, ids] = await Promise.all([axios.get(`${API}/dashboard/portal-links`), axios.get(`${API}/maintenance/portal-lock/links`)]);
+      setAllLinks(mergeLinks(stored.data?.links ?? null).filter((l) => l.kind !== 'academy'));
+      if (Array.isArray(ids.data?.ids)) setShownIds(ids.data.ids);
+      setLinksDirty(false);
+    } catch (e) { /* la carte reste utilisable sans cette section */ }
+  }, []);
+  useEffect(() => { loadLinks(); }, [loadLinks]);
+  const toggleLink = (id) => { setShownIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id])); setLinksDirty(true); };
+  const saveLinks = async () => {
+    setBusy(true);
+    try {
+      const res = await axios.put(`${API}/maintenance/portal-lock/links`, { ids: shownIds });
+      setShownIds(res.data.ids); setLinksDirty(false);
+      toast.success('Liens de la vue verrouillée enregistrés');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Enregistrement impossible');
+    } finally { setBusy(false); }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -66,7 +91,7 @@ export function PortalLockCard({ users = [], canEdit }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Lock className="w-5 h-5" />Vue PAV Manager verrouillée</CardTitle>
         <CardDescription>
-          Une personne verrouillée ne voit que le portail de première connexion (CEC Songs, Recherche Biblique, PAV LED)
+          Une personne verrouillée ne voit que le portail de première connexion (les liens que vous choisissez plus bas)
           avec le message « PAV Manager sera disponible prochainement pour vous ». Les Admin et Super Admin ne sont jamais verrouillés.
         </CardDescription>
       </CardHeader>
@@ -76,10 +101,30 @@ export function PortalLockCard({ users = [], canEdit }) {
             <Label className="text-sm">Verrouiller automatiquement les nouveaux techniciens</Label>
             <p className="text-xs text-muted-foreground">
               Chaque technicien qui s'inscrit lui-même (auto-inscription) ou dont un Admin crée le compte démarre « verrouillé » : il ne voit que le portail
-              (CEC Songs, Recherche Biblique, PAV LED). Vous le déverrouillez ensuite ci-dessous, personne par personne ou tous les Techniciens d'un coup.
+              (les liens choisis ci-dessus). Vous le déverrouillez ensuite ci-dessous, personne par personne ou tous les Techniciens d'un coup.
             </p>
           </div>
           <Switch checked={autoLock} disabled={!canEdit || busy} onCheckedChange={toggleAuto} aria-label="Verrouillage automatique des nouveaux techniciens" data-testid="portal-auto-lock-switch" />
+        </div>
+        <div className="space-y-2 rounded-lg border p-3" data-testid="portal-lock-links">
+          <Label className="text-sm">Liens proposés dans la vue verrouillée</Label>
+          <p className="text-xs text-muted-foreground">
+            Cochez ce que les personnes verrouillées peuvent ouvrir (par exemple SongSpot pour les techniciens). Le libellé et l'adresse d'un lien se modifient dans
+            la barre « Portail Charisma » du tableau de bord ; un lien désactivé ou limité à certains niveaux là-bas reste proposé ici s'il est coché.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {allLinks.map((l) => (
+              <label key={l.id} className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
+                <input type="checkbox" className="mt-1" checked={shownIds.includes(l.id)} disabled={!canEdit || busy} onChange={() => toggleLink(l.id)} data-testid={`lock-link-${l.id}`} />
+                <span><span className="font-medium">{l.label}</span><span className="block text-xs text-muted-foreground">{l.subtitle || l.url}</span></span>
+              </label>
+            ))}
+          </div>
+          {canEdit && (
+            <Button size="sm" disabled={busy || !linksDirty} onClick={saveLinks} data-testid="lock-links-save">
+              {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Enregistrer les liens
+            </Button>
+          )}
         </div>
         <div className="space-y-2">
           <Label>Comptes verrouillés ({locked.length})</Label>

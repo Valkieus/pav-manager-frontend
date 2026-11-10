@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Globe, KeyRound, Loader2, LogOut } from 'lucide-react';
@@ -11,12 +11,13 @@ import { isStrongPassword } from '../lib/passwordPolicy';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { PortalLinkItem } from '../pages/dashboard/PortalLinkItem';
-import { DEFAULT_LINKS } from '../pages/dashboard/portalLinks';
+import { mergeLinks } from '../pages/dashboard/portalLinks';
 import { openSongsSite } from '../lib/songs';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-// Vue verrouillée (compte « portail seul ») : uniquement le portail de première connexion, avec LED, CEC Songs et la Recherche Biblique.
-const SHOWN = ['songs', 'bible', 'led'];
+// Vue verrouillée (compte « portail seul ») : uniquement le portail de première connexion. Les liens proposés se règlent dans
+// Administration > Maintenance (par défaut : CEC Songs, Recherche Biblique, PAV LED).
+const DEFAULT_SHOWN = ['songs', 'bible', 'led'];
 
 export default function PortalOnlyShell() {
   const { user, logout, mustChangePassword, changePassword } = useAuth();
@@ -24,7 +25,14 @@ export default function PortalOnlyShell() {
   const [pwd, setPwd] = useState('');
   const [pwd2, setPwd2] = useState('');
   const [saving, setSaving] = useState(false);
-  const links = SHOWN.map((id) => ({ ...DEFAULT_LINKS.find((l) => l.id === id), roles: [], enabled: true }));
+  const [ids, setIds] = useState(DEFAULT_SHOWN);
+  const [stored, setStored] = useState(null);
+  useEffect(() => {
+    axios.get(`${API}/maintenance/portal-lock/links`).then((r) => { if (Array.isArray(r.data?.ids)) setIds(r.data.ids); }).catch(() => {});
+    axios.get(`${API}/dashboard/portal-links`).then((r) => setStored(r.data?.links ?? null)).catch(() => {});
+  }, []);
+  // Liens choisis par un Super Admin, dans l'ordre et avec le libellé / l'adresse de la barre « Portail Charisma ».
+  const links = mergeLinks(stored).filter((l) => ids.includes(l.id) && l.kind !== 'academy').map((l) => ({ ...l, roles: [], enabled: true }));
 
   const openLed = async () => {
     const win = window.open('', '_blank');
@@ -63,7 +71,7 @@ export default function PortalOnlyShell() {
         <div className="gradient-primary rounded-2xl p-6 text-white shadow-lg">
           <h1 className="text-2xl font-bold">Bonjour, {user?.full_name?.split(' ')[0]}</h1>
           <p className="mt-2 text-white/90" data-testid="coming-soon">PAV Manager sera disponible prochainement pour vous.</p>
-          <p className="mt-1 text-sm text-white/75">En attendant, vous avez accès à PAV LED, à CEC Songs et à la Recherche Biblique ci-dessous.</p>
+          <p className="mt-1 text-sm text-white/75">{links.length > 0 ? `En attendant, vous avez accès à ${links.map((l) => l.label).join(', ')} ci-dessous.` : 'Revenez bientôt : vos accès seront ajoutés ici.'}</p>
         </div>
         <Card className="overflow-hidden rounded-2xl border-primary/10 shadow-sm">
           <CardHeader><CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5 text-primary" />Portail Charisma</CardTitle></CardHeader>

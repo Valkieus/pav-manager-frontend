@@ -4,6 +4,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import PasswordRules from "./PasswordRules";
+import { isStrongPassword } from "../lib/passwordPolicy";
 import { Label } from "./ui/label";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Badge } from "./ui/badge";
@@ -679,8 +681,8 @@ export const Layout = ({ children }) => {
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-    if (newPassword.length < 6) {
-      toast.error("Le mot de passe doit faire au moins 6 caractères");
+    if (!isStrongPassword(newPassword, { username: user?.username, fullName: user?.full_name })) {
+      toast.error("Mot de passe trop faible : suivez les critères CNIL affichés sous le champ");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -1324,7 +1326,7 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
                 type={showNewPassword ? "text" : "password"}
 value={newPassword}
   onChange={(e) => setNewPassword(e.target.value)}
-    placeholder="Minimum 6 caractères"
+    placeholder="12 caractères minimum, voir les critères ci-dessous"
       required
         className="pr-10"
           />
@@ -1340,6 +1342,7 @@ value={newPassword}
               />
               )}
                 </div>
+              <PasswordRules value={newPassword} username={user?.username} fullName={user?.full_name} always />
             </div>
             <div className="space-y-2">
               <Label>Confirmer le mot de passe *</Label>

@@ -6,19 +6,23 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import PasswordRules from "./PasswordRules";
+import { isStrongPassword } from "../lib/passwordPolicy";
+import { useAuth } from "../contexts/AuthContext";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Changer son mot de passe soi-même (Mon espace → Sécurité).
 export default function PasswordCard() {
+  const { user } = useAuth();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [again, setAgain] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const tooShort = next.length > 0 && next.length < 8;
+  const strong = isStrongPassword(next, { username: user?.username, fullName: user?.full_name });
   const mismatch = again.length > 0 && next !== again;
-  const canSubmit = current && next.length >= 8 && next === again && !busy;
+  const canSubmit = current && strong && next === again && !busy;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -42,7 +46,7 @@ export default function PasswordCard() {
     <Card data-testid="password-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base"><KeyRound className="w-5 h-5" /> Mot de passe</CardTitle>
-        <CardDescription>Changez votre mot de passe (8 caractères minimum).</CardDescription>
+        <CardDescription>Changez votre mot de passe (recommandation CNIL : 12 caractères avec minuscules, majuscules, chiffres et caractères spéciaux, ou 14 sans caractère spécial).</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="space-y-3 max-w-md">
@@ -53,7 +57,7 @@ export default function PasswordCard() {
           <div className="space-y-1.5">
             <Label htmlFor="pw-new">Nouveau mot de passe</Label>
             <Input id="pw-new" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
-            {tooShort && <p className="text-xs text-destructive">8 caractères minimum</p>}
+            <PasswordRules value={next} username={user?.username} fullName={user?.full_name} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="pw-again">Confirmer le nouveau mot de passe</Label>

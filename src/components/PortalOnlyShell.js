@@ -6,6 +6,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import PasswordRules from './PasswordRules';
+import { isStrongPassword } from '../lib/passwordPolicy';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { PortalLinkItem } from '../pages/dashboard/PortalLinkItem';
@@ -39,7 +41,7 @@ export default function PortalOnlyShell() {
 
   const submitPassword = async (e) => {
     e.preventDefault();
-    if (pwd.length < 8) { toast.error('Le mot de passe doit faire au moins 8 caractères'); return; }
+    if (!isStrongPassword(pwd, { username: user?.username, fullName: user?.full_name })) { toast.error('Mot de passe trop faible : suivez les critères affichés sous le champ'); return; }
     if (pwd !== pwd2) { toast.error('Les deux mots de passe sont différents'); return; }
     setSaving(true);
     try { await changePassword(pwd); toast.success('Mot de passe modifié : tu peux ouvrir PAV LED'); setPwd(''); setPwd2(''); }
@@ -77,10 +79,11 @@ export default function PortalOnlyShell() {
         <DialogContent className="max-w-md" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5 text-primary" />Changement de mot de passe obligatoire</DialogTitle>
-            <DialogDescription>Pour ta première connexion, choisis un nouveau mot de passe (8 caractères minimum).</DialogDescription>
+            <DialogDescription>Pour ta première connexion, choisis un nouveau mot de passe (recommandation CNIL : 12 caractères avec minuscules, majuscules, chiffres et caractères spéciaux, ou 14 sans spécial).</DialogDescription>
           </DialogHeader>
           <form onSubmit={submitPassword} className="space-y-3">
             <div className="space-y-1.5"><Label>Nouveau mot de passe *</Label><Input type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} autoComplete="new-password" required data-testid="po-pwd" /></div>
+            <PasswordRules value={pwd} username={user?.username} fullName={user?.full_name} always />
             <div className="space-y-1.5"><Label>Confirmer *</Label><Input type="password" value={pwd2} onChange={(e) => setPwd2(e.target.value)} autoComplete="new-password" required data-testid="po-pwd2" /></div>
             <Button type="submit" className="w-full" disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Enregistrer</Button>
           </form>

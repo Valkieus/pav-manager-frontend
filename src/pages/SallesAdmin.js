@@ -28,6 +28,7 @@ import {
 } from '../components/ui/select';
 import { toast } from 'sonner';
 import { Plus, Building2, Loader2, Clock, Link as LinkIcon, Calendar, Check, X, Copy, Trash2, Edit, Users, ExternalLink, CalendarClock, ShieldCheck, Timer, Sparkles, Wifi, RefreshCw, Mail, UserPlus, Save, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
+import PasswordRules from '../components/PasswordRules';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -892,6 +893,7 @@ export default function SallesAdmin({ embedded = false }) {
                       onChange={(e) => setLinkForm({ ...linkForm, mot_de_passe: e.target.value })}
                       placeholder="Laisser vide pour aucun mot de passe"
                     />
+                    <PasswordRules value={linkForm.mot_de_passe} />
                   </div>
                   <div className="space-y-2">
                     <Label>Salles accessibles *</Label>

@@ -25,6 +25,8 @@ import { RightsTab } from './administration/RightsTab';
 import { GroupsTab } from './administration/GroupsTab';
 import { UserRightsTab } from './administration/UserRightsTab';
 import { UsersTab } from './administration/UsersTab';
+import PasswordRules from '../components/PasswordRules';
+import { isStrongPassword, generateStrongPassword } from '../lib/passwordPolicy';
 import { MaintenanceTab } from './administration/MaintenanceTab';
 // Bibliothèque lourde (~330 Ko) : chargée seulement quand on exporte, pas à l'ouverture de la page.
 let XLSX;
@@ -137,13 +139,8 @@ export default function Administration() {
   const [kioskSubmitting, setKioskSubmitting] = useState(false);
   const [kioskCreated, setKioskCreated] = useState(null);
   const generateKioskPassword = () => {
-    const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    const arr = new Uint32Array(12);
-    crypto.getRandomValues(arr);
-    setKioskForm((f) => ({
-      ...f,
-      password: Array.from(arr, (n) => chars[n % chars.length]).join(""),
-    }));
+    // Conforme à la recommandation CNIL (16 caractères, 4 familles).
+    setKioskForm((f) => ({ ...f, password: generateStrongPassword(16) }));
   };
   const createKioskAccount = async () => {
     setKioskSubmitting(true);
@@ -1621,8 +1618,8 @@ export default function Administration() {
   };
 
   const handleResetPassword = async () => {
-    if (!newPassword || newPassword.length < 8) {
-      toast.error("Le mot de passe doit faire au moins 8 caractères");
+    if (!isStrongPassword(newPassword, { username: selectedUserForReset?.username, fullName: selectedUserForReset?.full_name })) {
+      toast.error("Mot de passe trop faible : suivez les critères CNIL affichés sous le champ");
       return;
     }
     setSubmitting(true);
@@ -2425,8 +2422,9 @@ export default function Administration() {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Minimum 6 caractères"
+                placeholder="12 caractères minimum (voir les critères)"
               />
+              <PasswordRules value={newPassword} username={selectedUserForReset?.username} fullName={selectedUserForReset?.full_name} always />
             </div>
             <DialogFooter>
               <Button onClick={handleResetPassword} disabled={submitting}>

@@ -7,6 +7,8 @@ import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { API } from './constants';
+import PasswordRules from '../../components/PasswordRules';
+import { isStrongPassword } from '../../lib/passwordPolicy';
 
 // Comptes qui n'ouvrent que certaines applications (aujourd'hui : CEC Songs).
 // Ex. « incrustation ». Super Admin uniquement. Pour de futurs accès : cocher
@@ -88,11 +90,12 @@ export function ServiceAppsCard() {
         <div className="flex flex-wrap gap-2 pt-1">
           <Input className="w-48" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Identifiant" />
           <Input className="w-56" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mot de passe (vide = généré)" />
-          <Button disabled={busy || username.trim().length < 3}
+          <Button disabled={busy || username.trim().length < 3 || (password !== '' && !isStrongPassword(password, { username }))}
             onClick={() => run(() => axios.post(`${API}/admin/service-accounts`, { username, password: password || null, apps: ['songs'] }), 'Compte créé').then(() => setPassword(''))}>
             Créer le compte
           </Button>
         </div>
+        <PasswordRules value={password} username={username} />
       </CardContent>
     </Card>
   );

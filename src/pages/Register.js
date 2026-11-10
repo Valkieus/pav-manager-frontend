@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import PasswordRules from '../components/PasswordRules';
+import { isStrongPassword } from '../lib/passwordPolicy';
 import { Loader2, UserPlus, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -46,8 +48,8 @@ export default function Register() {
       setError('Choisissez votre nom dans la liste');
       return;
     }
-    if (password.length < 8) {
-      setError('Le mot de passe doit faire au moins 8 caractères');
+    if (!isStrongPassword(password, { username })) {
+      setError('Mot de passe trop faible : suivez les critères CNIL affichés sous le champ');
       return;
     }
     if (password !== confirmPassword) {
@@ -148,7 +150,7 @@ export default function Register() {
                 <Input
                   id="reg-password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Minimum 8 caractères"
+                  placeholder="12 caractères minimum (voir les critères)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -165,6 +167,8 @@ export default function Register() {
                 </button>
               </div>
             </div>
+
+            <PasswordRules value={password} username={username} always />
 
             <div className="space-y-2">
               <Label htmlFor="reg-confirm">Confirmer le mot de passe</Label>

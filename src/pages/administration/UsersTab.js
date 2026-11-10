@@ -9,6 +9,8 @@ import { Badge } from '../../components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { NIVEAUX_ACCES } from './constants';
 import { ServiceAppsCard } from './ServiceAppsCard';
+import PasswordRules from '../../components/PasswordRules';
+import { isStrongPassword } from '../../lib/passwordPolicy';
 
 export function UsersTab({
   createKioskAccount,
@@ -119,6 +121,7 @@ export function UsersTab({
                       required
                       data-testid="user-password"
                     />
+                    <PasswordRules value={userForm.password} username={userForm.username} fullName={userForm.full_name} always />
                     <p className="text-xs text-muted-foreground">
                       L'utilisateur devra le modifier à la première
                       connexion
@@ -529,7 +532,7 @@ même limite pour éviter un 403 après coup. */}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Mot de passe (8 caractères minimum)</Label>
+                    <Label>Mot de passe (recommandation CNIL, ou « Générer »)</Label>
                     <div className="flex gap-2">
                       <Input
                         value={kioskForm.password}
@@ -541,11 +544,12 @@ même limite pour éviter un 403 après coup. */}
                         Générer
                       </Button>
                     </div>
+                    <PasswordRules value={kioskForm.password} username={kioskForm.username} />
                   </div>
                   <Button
                     className="w-full"
                     onClick={createKioskAccount}
-                    disabled={kioskSubmitting || kioskForm.password.length < 8}
+                    disabled={kioskSubmitting || !isStrongPassword(kioskForm.password, { username: kioskForm.username })}
                   >
                     {kioskSubmitting && (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />

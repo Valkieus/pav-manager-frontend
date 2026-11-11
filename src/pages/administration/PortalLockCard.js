@@ -23,13 +23,16 @@ export function PortalLockCard({ users = [], canEdit }) {
   const [allLinks, setAllLinks] = useState([]);
   const [shownIds, setShownIds] = useState(['songs', 'bible', 'led']);
   const [linksDirty, setLinksDirty] = useState(false);
+  const [linksError, setLinksError] = useState('');
   const loadLinks = useCallback(async () => {
     try {
       const [stored, ids] = await Promise.all([axios.get(`${API}/dashboard/portal-links`), axios.get(`${API}/maintenance/portal-lock/links`)]);
       setAllLinks(mergeLinks(stored.data?.links ?? null).filter((l) => l.kind !== 'academy'));
       if (Array.isArray(ids.data?.ids)) setShownIds(ids.data.ids);
-      setLinksDirty(false);
-    } catch (e) { /* la carte reste utilisable sans cette section */ }
+      setLinksDirty(false); setLinksError('');
+    } catch (e) {
+      setLinksError(e.response?.status === 404 ? "Cette fonction n'est pas encore active sur le serveur (redéploiement de Render à faire)." : (e.response?.data?.detail || 'Liste indisponible pour le moment.'));
+    }
   }, []);
   useEffect(() => { loadLinks(); }, [loadLinks]);
   const toggleLink = (id) => { setShownIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id])); setLinksDirty(true); };
@@ -112,6 +115,11 @@ export function PortalLockCard({ users = [], canEdit }) {
             Cochez ce que les personnes verrouillées peuvent ouvrir (par exemple SongSpot pour les techniciens). Le libellé et l'adresse d'un lien se modifient dans
             la barre « Portail Charisma » du tableau de bord ; un lien désactivé ou limité à certains niveaux là-bas reste proposé ici s'il est coché.
           </p>
+          {linksError && (
+            <p className="text-sm rounded-md border border-amber-500/50 bg-amber-500/10 p-2" role="alert" data-testid="lock-links-error">
+              {linksError} <button type="button" className="underline" onClick={loadLinks}>Réessayer</button>
+            </p>
+          )}
           <div className="grid gap-2 sm:grid-cols-2">
             {allLinks.map((l) => (
               <label key={l.id} className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm">

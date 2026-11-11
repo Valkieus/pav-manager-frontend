@@ -25,6 +25,37 @@ function OracleOption({ dataBackup, isSuperAdmin }) {
   );
 }
 
+// Conservation : les N dernières sauvegardes (3 par défaut) ; en option, 1 par jour / 1 par mois en plus. Le nettoyage est automatique.
+function PolicyOption({ dataBackup, isSuperAdmin }) {
+  const [pol, setPol] = useState(dataBackup?.politique || { keep_last: 3, keep_daily: 0, keep_monthly: 0 });
+  if (!dataBackup?.politique) return null;
+  const save = async (patch) => {
+    try {
+      const res = await axios.put(`${API}/admin/infra/data-backup/policy`, patch);
+      setPol(res.data);
+      toast.success('Conservation des sauvegardes enregistrée');
+    } catch (e) { toast.error(e.response?.data?.detail || 'Échec'); }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" data-testid="backup-policy">
+      <label className="flex items-center gap-1.5">Garder les
+        <select className="h-7 rounded-md border border-input bg-background px-1.5" value={pol.keep_last} disabled={!isSuperAdmin()} onChange={(e) => save({ keep_last: Number(e.target.value) })} aria-label="Nombre de sauvegardes conservées">
+          {[1, 2, 3, 5, 7, 10, 14, 30].map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+        dernières sauvegardes (nettoyage automatique)
+      </label>
+      <label className="flex items-center gap-1.5">
+        <input type="checkbox" checked={pol.keep_daily > 0} disabled={!isSuperAdmin()} onChange={(e) => save({ keep_daily: e.target.checked ? 7 : 0 })} />
+        + 1 par jour pendant 7 jours
+      </label>
+      <label className="flex items-center gap-1.5">
+        <input type="checkbox" checked={pol.keep_monthly > 0} disabled={!isSuperAdmin()} onChange={(e) => save({ keep_monthly: e.target.checked ? 3 : 0 })} />
+        + 1 par mois pendant 3 mois
+      </label>
+    </div>
+  );
+}
+
 export function SupBackup({
   dataBacking,
   dataBackup,
@@ -122,13 +153,15 @@ export function SupBackup({
               {dataBackup.planning ? `${dataBackup.planning} · ` : ""}Copiées sur {dataBackup.stockages?.join(", ") || "aucun stockage"} · {dataBackup.retention}.
             </p>
             <OracleOption dataBackup={dataBackup} isSuperAdmin={isSuperAdmin} />
+            <PolicyOption dataBackup={dataBackup} isSuperAdmin={isSuperAdmin} />
             <ul className="space-y-2 text-xs">
               {Object.entries(dataBackup.domaines || {}).map(([name, d]) => (
                 <li key={name} className="rounded-lg bg-muted/40 p-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium">{({ comptes: "Comptes, effectif et droits", led: "PAV LED (fiches, catégories, paniers)", gestion: "Gestion (salles, matériel, devis, documents, formations)", academy: "PAV Academy" })[name] || name.charAt(0).toUpperCase() + name.slice(1)}</span>
+                    <span className="font-medium">{({ comptes: "Comptes, effectif et droits", reglages: "Réglages du site (maintenance, postes, circuits, liens…)", planning: "Planning et absences", regisseurs: "Régisseurs (séances, historique, incidents)", gestion: "Gestion (salles, matériel, devis, documents, formations, versets)", fichiers: "Fiches des fichiers (sans leur contenu)", led: "PAV LED (fiches, catégories, paniers)", academy: "PAV Academy", communication: "Communication", journal: "Journal d'activité (1 fois par jour)" })[name] || name.charAt(0).toUpperCase() + name.slice(1)}</span>
                     <span className="text-muted-foreground">
                       {d.last_ok ? new Date(d.last_ok).toLocaleString("fr-FR") : "pas encore sauvegardé"}
+                      {d.unchanged_since && d.checked_at ? ` · inchangé, vérifié ${new Date(d.checked_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}
                       {d.counts && Object.keys(d.counts).length ? ` · ${Object.values(d.counts).reduce((a, b) => a + b, 0)} fiches` : ""}
                     </span>
                   </div>

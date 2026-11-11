@@ -5,6 +5,7 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -12,6 +13,7 @@ import { useTheme } from "./ThemeContext";
 
 const AuthContext = createContext(null);
 
+const SESSION_ENDED = /^(Token (expiré|invalide)|Session expirée|Utilisateur non trouvé|Compte désactivé|Période bêta)/;
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // « Voir comme… » : un Admin ou Super Admin peut prévisualiser l'application avec le niveau d'un rôle INFÉRIEUR au sien.
@@ -93,6 +95,7 @@ export const AuthProvider = ({ children }) => {
     return () => { axios.interceptors.request.eject(id); delete axios.defaults.headers.common["X-View-As"]; };
   }, [viewAsActive]);
   const [token, setToken] = useState(localStorage.getItem("token"));
+  const logoutRef = useRef(() => {}); // appelée par l'intercepteur de réponses (la fonction logout est définie plus bas)
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [onboardingSeen, setOnboardingSeen] = useState(true);
@@ -136,6 +139,13 @@ export const AuthProvider = ({ children }) => {
       (r) => r,
       (err) => {
         if (err?.response?.status === 428) fetchUser();
+        // Session expirée / jeton refusé pendant que la page est ouverte : retour à la connexion avec un message clair, au lieu
+        // d'une page à moitié vide et d'un « Token expiré » sans issue. (Les erreurs de connexion — mauvais mot de passe — n'ont pas ces messages.)
+        const detail = err?.response?.data?.detail;
+        if (err?.response?.status === 401 && typeof detail === "string" && SESSION_ENDED.test(detail) && localStorage.getItem("token")) {
+          logoutRef.current();
+          toast.error("Votre session a expiré : reconnectez-vous.");
+        }
         return Promise.reject(err);
       },
     );
@@ -198,6 +208,7 @@ export const AuthProvider = ({ children }) => {
     setMustChangePassword(false);
     setOnboardingSeen(true);
   };
+  logoutRef.current = logout;
 
   const changePassword = async (newPassword) => {
     const res = await axios.post(`${API}/auth/change-password`, {

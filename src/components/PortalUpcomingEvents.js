@@ -59,17 +59,16 @@ function EventCard({ e, today, onZoom }) {
   const [broken, setBroken] = useState(false);
   const poster = !broken ? imgSrc(e.image_url) : '';
   return (
-    <li className="group flex overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow hover:shadow-md sm:flex-col" data-testid="portal-event">
+    <li className="group flex break-inside-avoid flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow hover:shadow-md mb-3" data-testid="portal-event">
       {poster ? (
-        <button type="button" onClick={() => onZoom(e)} aria-label={`Voir l'affiche : ${e.titre}`}
-          className="relative block w-28 shrink-0 self-stretch overflow-hidden bg-muted sm:w-full sm:self-auto sm:aspect-[4/5]" data-testid="portal-event-poster">
-          <img src={poster} alt={`Affiche : ${e.titre}`} loading="lazy" onError={() => setBroken(true)}
-            className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.03] aspect-[3/4] sm:aspect-auto" />
-          <span className="absolute left-2 top-2 flex flex-col items-center rounded-lg bg-background/95 px-2 py-1 leading-none text-primary shadow">
-            <span className="text-base font-bold tabular-nums">{parse(e.date_evenement).getDate()}</span>
-            <span className="text-[9px] font-semibold uppercase">{fmt(e.date_evenement, { month: 'short' }).replace('.', '')}</span>
+        // Affiche ENTIÈRE, à son format d'origine (jamais recadrée) ; un appui l'ouvre en grand.
+        <button type="button" onClick={() => onZoom(e)} aria-label={`Voir l'affiche : ${e.titre}`} className="relative block w-full bg-muted" data-testid="portal-event-poster">
+          <img src={poster} alt={`Affiche : ${e.titre}`} loading="lazy" onError={() => setBroken(true)} className="block h-auto w-full" />
+          <span className="absolute left-2 top-2 flex flex-col items-center rounded-lg bg-background/95 px-2.5 py-1.5 leading-none text-primary shadow">
+            <span className="text-lg font-bold tabular-nums">{parse(e.date_evenement).getDate()}</span>
+            <span className="text-[10px] font-semibold uppercase">{fmt(e.date_evenement, { month: 'short' }).replace('.', '')}</span>
           </span>
-          <span className="absolute bottom-2 right-2 hidden rounded-full bg-black/55 p-1.5 text-white sm:inline-flex"><Maximize2 className="h-3.5 w-3.5" /></span>
+          <span className="absolute bottom-2 right-2 inline-flex rounded-full bg-black/55 p-1.5 text-white"><Maximize2 className="h-3.5 w-3.5" /></span>
         </button>
       ) : null}
       <div className="flex min-w-0 flex-1 items-start gap-3 p-3 sm:p-4">
@@ -120,7 +119,7 @@ export default function PortalUpcomingEvents() {
         ) : (
           <div className="space-y-4">
             {withPoster.length > 0 && (
-              <ul className="grid items-start gap-3 sm:grid-cols-2" data-testid="portal-events-posters">
+              <ul className="sm:columns-2 sm:gap-3" data-testid="portal-events-posters">
                 {withPoster.map((e) => <EventCard key={e.id || `${e.titre}-${e.date_evenement}`} e={e} today={today} onZoom={setZoom} />)}
               </ul>
             )}

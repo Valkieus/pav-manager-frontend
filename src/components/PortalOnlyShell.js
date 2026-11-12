@@ -11,6 +11,7 @@ import { isStrongPassword } from '../lib/passwordPolicy';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { PortalLinkItem } from '../pages/dashboard/PortalLinkItem';
+import PortalUpcomingEvents from './PortalUpcomingEvents';
 import { mergeLinks } from '../pages/dashboard/portalLinks';
 import { openSongsSite } from '../lib/songs';
 
@@ -73,6 +74,7 @@ export default function PortalOnlyShell() {
           <p className="mt-2 text-white/90" data-testid="coming-soon">PAV Manager sera disponible prochainement pour vous.</p>
           <p className="mt-1 text-sm text-white/75">{links.length > 0 ? `En attendant, vous avez accès à ${links.map((l) => l.label).join(', ')} ci-dessous.` : 'Revenez bientôt : vos accès seront ajoutés ici.'}</p>
         </div>
+        <PortalUpcomingEvents />
         <Card className="overflow-hidden rounded-2xl border-primary/10 shadow-sm">
           <CardHeader><CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5 text-primary" />Portail Charisma</CardTitle></CardHeader>
           <CardContent>

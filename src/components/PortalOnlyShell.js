@@ -68,21 +68,24 @@ export default function PortalOnlyShell() {
           <button type="button" onClick={logout} aria-label="Se déconnecter" className="h-9 w-9 inline-flex items-center justify-center text-muted-foreground hover:text-foreground"><LogOut className="h-4 w-4" /></button>
         </div>
       </header>
-      <main className="mx-auto max-w-3xl space-y-5 px-4 py-6">
+      <main className="mx-auto max-w-5xl space-y-5 px-4 py-6 sm:px-6">
         <div className="gradient-primary rounded-2xl p-6 text-white shadow-lg">
           <h1 className="text-2xl font-bold">Bonjour, {user?.full_name?.split(' ')[0]}</h1>
           <p className="mt-2 text-white/90" data-testid="coming-soon">PAV Manager sera disponible prochainement pour vous.</p>
           <p className="mt-1 text-sm text-white/75">{links.length > 0 ? `En attendant, vous avez accès à ${links.map((l) => l.label).join(', ')} ci-dessous.` : 'Revenez bientôt : vos accès seront ajoutés ici.'}</p>
         </div>
+        {/* PC : les événements (avec leurs affiches) à gauche, le portail à droite ; téléphone : l'un sous l'autre */}
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <PortalUpcomingEvents />
-        <Card className="overflow-hidden rounded-2xl border-primary/10 shadow-sm">
+        <Card className="overflow-hidden rounded-2xl border-primary/10 shadow-sm lg:sticky lg:top-6">
           <CardHeader><CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5 text-primary" />Portail Charisma</CardTitle></CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
               {links.map((l) => <PortalLinkItem key={l.id} link={l} onOpen={open} busy={l.kind === 'led' && ledLoading} fullWidth />)}
             </div>
           </CardContent>
         </Card>
+        </div>
       </main>
 
       <Dialog open={!!mustChangePassword} onOpenChange={() => {}}>

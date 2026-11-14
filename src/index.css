@@ -277,3 +277,16 @@ body { overflow-x: clip; }                /* « clip » ne crée pas de conteneu
 /* Les zones faites pour défiler à l'horizontale (tableaux, planning, listes) gardent leur glissé latéral. */
 [class*="overflow-x-auto"], [class*="overflow-x-scroll"], [class*="overflow-auto"], [class*="overflow-scroll"],
 [data-radix-scroll-area-viewport], .scroll-x { touch-action: pan-x pan-y pinch-zoom; overscroll-behavior-x: contain; }
+
+/* Finitions d'interface (conseils « unslop ») : titres équilibrés, chiffres alignés, retour visuel au toucher,
+   mouvement réduit respecté. Purement typographique / de retour visuel : aucune mise en page modifiée. */
+@layer base {
+  h1, h2, h3 { text-wrap: balance; }
+  p { text-wrap: pretty; }
+  table, th, td { font-variant-numeric: tabular-nums; }
+  button:not(:disabled):active, [role="button"]:not([aria-disabled="true"]):active { transform: scale(0.98); }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+    button:not(:disabled):active, [role="button"]:active { transform: none; }
+  }
+}

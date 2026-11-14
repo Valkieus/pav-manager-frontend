@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useLayoutEffect, useCallback } from 'react';
+import { applyTheme, systemTheme } from '../lib/themeApply';
 import axios from 'axios';
 
 const ThemeContext = createContext(null);
@@ -8,13 +9,11 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 export const ThemeProvider = ({ children }) => {
   const [theme, setThemeState] = useState(() => {
     const saved = localStorage.getItem('theme');
-    return saved || 'light';
+    return saved === 'dark' || saved === 'light' ? saved : systemTheme();
   });
 
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
-    root.classList.add(theme);
+  useLayoutEffect(() => {
+    applyTheme(theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 

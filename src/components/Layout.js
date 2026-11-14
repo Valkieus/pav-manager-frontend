@@ -1269,7 +1269,7 @@ ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
             </div>
           )}
           {viewAs && (
-            <div className="mb-4 flex flex-col gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm text-white sm:flex-row sm:items-center sm:justify-between" data-testid="view-as-banner">
+            <div className="mb-4 flex flex-col gap-2 rounded-xl gradient-primary px-4 py-2 text-sm text-white sm:flex-row sm:items-center sm:justify-between" data-testid="view-as-banner">
               <span className="flex items-center gap-2">
                 <Eye className="h-4 w-4 shrink-0" />
                 Aperçu en tant que « {viewAs} » — lecture seule (vous êtes {realUser?.niveau_acces}). Les droits de groupe ne sont pas simulés.

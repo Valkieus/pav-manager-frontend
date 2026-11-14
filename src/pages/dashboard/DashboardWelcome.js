@@ -7,9 +7,7 @@ export function DashboardWelcome({
   user,
 }) {
   return (
-    <div className="animate-fadeIn gradient-primary rounded-2xl p-6 sm:p-8 text-white relative overflow-hidden shadow-lg">
-      <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
-      <div className="absolute -bottom-14 -left-10 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
+    <div className="animate-fadeIn rounded-xl p-6 sm:p-8 text-white relative overflow-hidden border border-white/10 bg-[#02040a] [background-image:radial-gradient(120%_90%_at_85%_0%,hsl(var(--primary)/0.22),transparent_60%)]">
       <div className="relative flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <span className="inline-flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1 text-xs font-medium mb-2">
@@ -34,7 +32,7 @@ export function DashboardWelcome({
             </div>
           )}
         </div>
-        <p className="text-sm text-white/75">
+        <p className="font-mono text-xs uppercase tracking-widest text-blue-200/80">
           {new Date().toLocaleDateString("fr-FR", {
             weekday: "long",
             day: "numeric",

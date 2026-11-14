@@ -35,7 +35,7 @@ export function DashboardStatsSection({
                     Techniciens actifs
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 shadow-md flex items-center justify-center">
+                <div className="w-12 h-12 rounded-xl gradient-primary shadow-md flex items-center justify-center">
                   <Users className="w-6 h-6 text-white" />
                 </div>
               </div>
@@ -124,7 +124,7 @@ la taille de sa propre équipe si (demande 28/09/2026). */}
                   disponible
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-md flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl gradient-primary shadow-md flex items-center justify-center">
                 <Package className="w-6 h-6 text-white" />
               </div>
             </div>

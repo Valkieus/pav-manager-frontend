@@ -138,7 +138,7 @@ export const OrgNodeBox = ({ node, onNodeClick, isClickable, size = "md", fullWi
     <div
       onClick={clickable ? () => onNodeClick(node) : undefined}
       className={`
-${pad} rounded-xl border-2 text-center shadow-sm transition-all duration-200
+${pad} rounded-xl border-2 text-center shadow-sm transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-200
 org-box hover:shadow-lg hover:-translate-y-0.5 ${fullWidth ? "w-full whitespace-normal" : "whitespace-nowrap"}
 ${getBranchColor(node.name)}
 ${clickable ? "cursor-pointer" : ""}

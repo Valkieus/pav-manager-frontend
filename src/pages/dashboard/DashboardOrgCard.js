@@ -32,7 +32,7 @@ export function DashboardOrgCard({
           <button
             type="button"
             onClick={() => setCharismaOpen(true)}
-            className="flex sm:hidden items-center justify-between w-full px-4 py-3 rounded-xl bg-card border border-border hover:border-primary/50 transition-all"
+            className="flex sm:hidden items-center justify-between w-full px-4 py-3 rounded-xl bg-card border border-border hover:border-primary/50 transition-[color,background-color,border-color,box-shadow,transform,opacity]"
           >
             <span className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-primary" />

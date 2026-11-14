@@ -28,7 +28,7 @@ export function PortalLinkItem({ link, onOpen, busy, fullWidth = false }) {
   const maint = useLinkMaintenance(link.id);
   const t = TONES[link.tone] || TONES.primary;
   const Icon = ICONS[link.icon] || Globe;
-  const cls = `flex ${fullWidth ? '' : 'shrink-0'} items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border ${t.hover} hover:shadow-md transition-all group text-left disabled:opacity-60`;
+  const cls = `flex ${fullWidth ? '' : 'shrink-0'} items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border ${t.hover} hover:shadow-md transition-[color,background-color,border-color,box-shadow,transform,opacity] group text-left disabled:opacity-60`;
   const body = (
     <>
       <div className={`w-8 h-8 rounded-lg ${t.bg} flex items-center justify-center shrink-0`}>

@@ -20,3 +20,7 @@ root.render(
     </ErrorBoundary>
   </React.StrictMode>,
 );
+
+// Pages préchargées en arrière-plan une fois l'application affichée (voir lib/lazyWithRetry.js).
+import { prefetchLazyRoutes } from './lib/lazyWithRetry';
+window.addEventListener('load', () => setTimeout(prefetchLazyRoutes, 1500));

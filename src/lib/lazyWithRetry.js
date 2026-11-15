@@ -49,7 +49,25 @@ export function reloadForNewVersion() {
   return true;
 }
 
+// Liste des pages chargées à la demande : après le chargement initial, on les télécharge en arrière-plan
+// (quand le navigateur est inactif) pour que la navigation soit instantanée, sans écran de chargement.
+const registry = [];
+
+export function prefetchLazyRoutes() {
+  const c = navigator.connection;
+  if (c && (c.saveData || c.type === 'cellular' || /(^|-)2g$/.test(c.effectiveType || ''))) return;
+  const idle = (fn) => ('requestIdleCallback' in window ? window.requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 300));
+  let i = 0;
+  const next = () => {
+    if (i >= registry.length) return;
+    const f = registry[i++];
+    Promise.resolve().then(f).catch(() => {}).finally(() => idle(next));
+  };
+  idle(next);
+}
+
 export default function lazyWithRetry(factory) {
+  registry.push(factory);
   return lazy(async () => {
     try {
       return await factory();

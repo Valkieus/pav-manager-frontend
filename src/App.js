@@ -1,6 +1,7 @@
 import "@/App.css";
 import { Suspense, useEffect, useState } from "react";
 import lazyWithRetry from "./lib/lazyWithRetry";
+import DelayedLoader, { DelayedLogo } from "./components/DelayedLoader";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -41,7 +42,7 @@ const PublicReservation = lazyWithRetry(() => import("./pages/PublicReservation"
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
-    <img src="/logo.png" alt="PAV" className="w-16 h-16 object-contain animate-pulse" />
+    <DelayedLogo />
   </div>
 );
 
@@ -52,7 +53,7 @@ const ProtectedRoute = ({ children }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <img src="/logo.png" alt="PAV" className="w-16 h-16 object-contain animate-pulse" />
+        <DelayedLogo />
       </div>
     );
   }
@@ -99,7 +100,7 @@ const PublicRoute = ({ children }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <img src="/logo.png" alt="PAV" className="w-16 h-16 object-contain animate-pulse" />
+        <DelayedLogo />
       </div>
     );
   }
@@ -115,7 +116,7 @@ const PublicRoute = ({ children }) => {
 
 function AppRoutes() {
   return (
-    <Suspense fallback={<PageLoader />}>
+    <Suspense fallback={<DelayedLoader />}>
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />

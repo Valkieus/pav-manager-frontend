@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
-// Verrouillage sur inactivité (hors compte tablette) : après 5 min sans
+// Verrouillage sur inactivité (hors compte tablette) : après 5 min (6 h sur téléphone) sans
 // activité on demande « Êtes-vous toujours là ? » ; sans réponse sous 15 s la
 // session est fermée et la connexion est redemandée.
-const IDLE_MS = 5 * 60 * 1000;
+// Sur téléphone / tablette tactile (écran tactile, petit écran) : pas de verrouillage avant 6 h, pour que l'application ne vous
+// déconnecte pas quand l'écran se met en veille ; la session elle-même dure 6 h côté serveur.
+const isPhone = () => {
+  try { return window.matchMedia("(pointer: coarse)").matches && window.matchMedia("(max-width: 1024px)").matches; } catch (e) { return false; }
+};
+const IDLE_MS = isPhone() ? 6 * 60 * 60 * 1000 : 5 * 60 * 1000;
 const GRACE_S = 15;
 const KEY = "pav_last_activity";
 const EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];

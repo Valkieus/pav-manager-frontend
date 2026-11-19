@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { NameInput } from '../components/NameAutocomplete';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -331,11 +332,11 @@ export default function PlanningEvenements() {
                             </td>
                             {dates.map((d, dateIdx) => (
                               <td key={d} className="p-1 text-center">
-                                <input
-                                  list="evenement-tech-list"
+                                <NameInput
+                                  names={technicienNames}
                                   disabled={viewOnly}
                                   value={form.affectations[affKey]?.[dateIdx] || ''}
-                                  onChange={(e) => setCell(affKey, dateIdx, e.target.value)}
+                                  onChange={(v) => setCell(affKey, dateIdx, v)}
                                   className="w-28 text-xs border border-border rounded px-1.5 py-1 bg-background disabled:opacity-70 disabled:bg-muted/30"
                                   placeholder="—"
                                 />
@@ -347,9 +348,6 @@ export default function PlanningEvenements() {
                     ))}
                   </tbody>
                 </table>
-                <datalist id="evenement-tech-list">
-                  {technicienNames.map((n) => <option key={n} value={n} />)}
-                </datalist>
               </div>
             )}
 

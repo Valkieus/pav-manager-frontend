@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
+import { NameInput } from "./NameAutocomplete";
 import {
   Popover,
   PopoverContent,
@@ -83,6 +84,7 @@ export default function PlanningTeamAbsences({
       .sort((a, b) => a.label.localeCompare(b.label, "fr"));
   }, [techniciens]);
 
+  const allNames = useMemo(() => people.map((p) => p.label), [people]);
   const person = people.find((p) => p.id === personId);
 
   const lines = useMemo(
@@ -193,7 +195,16 @@ export default function PlanningTeamAbsences({
             </PopoverTrigger>
             <PopoverContent className="w-[260px] p-0" align="start">
               <Command>
-                <CommandInput placeholder="Rechercher un nom…" />
+                <CommandInput
+                  placeholder="Rechercher un nom…"
+                  onKeyDown={(e) => {
+                    // Tab = valide la première proposition (celle en surbrillance), comme Entrée
+                    if (e.key === "Tab" && !e.shiftKey) {
+                      const item = e.currentTarget.closest("[cmdk-root]")?.querySelector('[cmdk-item][data-selected="true"]');
+                      if (item) { e.preventDefault(); item.click(); }
+                    }
+                  }}
+                />
                 <CommandList className="max-h-[240px]">
                   <CommandEmpty>Aucune fiche trouvée.</CommandEmpty>
                   <CommandGroup>
@@ -325,11 +336,12 @@ export default function PlanningTeamAbsences({
       </div>
 
       <div className="flex items-center gap-2">
-        <Input
+        <NameInput
+          names={allNames}
           value={freeLine}
-          onChange={(e) => setFreeLine(e.target.value)}
+          onChange={setFreeLine}
           placeholder="Ajouter une note libre (ex. : Jean — matin seulement)"
-          className="h-7 text-xs"
+          className="h-7 w-full rounded-md border border-input bg-transparent px-3 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onKeyDown={(e) => e.key === "Enter" && addFreeLine()}
         />
         <Button

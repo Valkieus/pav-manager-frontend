@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useLiveDoc, LivePresence, LiveStyle } from '../lib/useLiveDoc';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { NameInput } from '../components/NameAutocomplete';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -799,11 +800,11 @@ export default function PlanningEvenementSection({ onBack, technicienNames = [],
                                 {blocked ? (
                                   <span className="w-full h-7 block bg-gray-300" />
                                 ) : (
-                                  <input
-                                    list="evenement-tech-list"
+                                  <NameInput
+                                    names={technicienNames}
                                     disabled={blockMode}
                                     value={current.affectations[affKey]?.[ci] || ''}
-                                    onChange={(e) => setCell(affKey, ci, e.target.value)}
+                                    onChange={(v) => setCell(affKey, ci, v)}
                                     className="w-full text-xs uppercase text-black bg-transparent text-center px-1 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-70"
                                     placeholder="—"
                                   />
@@ -837,9 +838,6 @@ export default function PlanningEvenementSection({ onBack, technicienNames = [],
               ))}
             </tbody>
           </table>
-          <datalist id="evenement-tech-list">
-            {technicienNames.map((n) => <option key={n} value={n} />)}
-          </datalist>
         </div>
       </div>
 

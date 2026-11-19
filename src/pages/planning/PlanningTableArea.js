@@ -1,4 +1,4 @@
-import { MOIS_NOMS, slugPoste } from './constants';
+import { MOIS_NOMS } from './constants';
 import { Button } from '../../components/ui/button';
 import { Settings, Ban, FolderPlus } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
@@ -15,9 +15,7 @@ export function PlanningTableArea({
   currentMonth,
   currentYear,
   daySections,
-  distinctPostesToday,
   isGestionnairePlus,
-  namesForPoste,
   openAddCategory,
   openEditDates,
   openEditHeader,
@@ -27,7 +25,6 @@ export function PlanningTableArea({
   renderTable,
   setAffichageNoms,
   setCellBlockMode,
-  technicienNames,
   theme,
   titreOverrides,
 }) {
@@ -174,21 +171,6 @@ reference. */}
                   </div>
                 )}
 
-              {/*One datalist per poste category actually used today, each
-pre-filtered to the people qualified for it — plus the
-unfiltered "tech-list" as a safety-net fallback id. */}
-              {distinctPostesToday.map((poste) => (
-                <datalist key={poste} id={`tech-list-${slugPoste(poste)}`}>
-                  {namesForPoste(poste).map((name) => (
-                    <option key={name} value={name} />
-                  ))}
-                </datalist>
-              ))}
-              <datalist id="tech-list">
-                {technicienNames.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
             </CardContent>
           </Card>
 

@@ -1,9 +1,10 @@
 import { memo, useRef, useState, useEffect } from 'react';
 import { NAME_CASE_CSS } from './constants';
+import { NameInput } from '../../components/NameAutocomplete';
 
 // Memoized cell component for better performance
 export const PlanningCell = memo(
-  ({ value, canEdit, onChange, blocked, datalistId, nameCase, reason }) => {
+  ({ value, canEdit, onChange, blocked, names, nameCase, reason }) => {
     const textTransform = NAME_CASE_CSS[nameCase] || "none";
     if (blocked) {
       return (
@@ -25,14 +26,13 @@ export const PlanningCell = memo(
     }
 
     return (
-      <input
-        type="text"
-        list={datalistId || "tech-list"}
+      <NameInput
+        names={names}
         title={value || ""}
         className="w-full h-7 text-xs border-0 bg-transparent px-1 focus:outline-none focus:ring-1 focus:ring-primary rounded"
         style={{ textTransform }}
         value={value || ""}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
         placeholder="-"
       />
     );

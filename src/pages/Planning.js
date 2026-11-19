@@ -24,7 +24,7 @@ import {
   downloadStatusMessage,
   reserveTabForIOSFallback,
 } from "../utils/fileDownload";
-import { API, DEFAULT_SECTIONS, MOIS_NOMS, THEME, canonPoste, delimiterGroup, slugPoste, stripAccents, withCamera7, withCamera8 } from './planning/constants';
+import { API, DEFAULT_SECTIONS, MOIS_NOMS, THEME, canonPoste, delimiterGroup, stripAccents, withCamera7, withCamera8 } from './planning/constants';
 import { buildPlanningExportSVG, buildPlanningExportXLSX, loadXLSX, svgToPngDataUrl, svgToStoryPngDataUrl } from './planning/exportUtils';
 import { PlanningCell } from './planning/cells';
 import { useCellSelection } from './planning/useCellSelection';
@@ -287,24 +287,6 @@ export default function Planning() {
     },
     [namesByPoste, technicienNames],
   );
-
-  // Every distinct poste category present in the active day's two tables —
-  // used to render exactly the datalists that are actually referenced,
-  // rather than one for every possible poste (including custom/renamed roles
-  // whose canonPoste() falls back to the label itself).
-  const distinctPostesToday = useMemo(() => {
-    const daySecs = sections[activeDay] || DEFAULT_SECTIONS[activeDay];
-    const set = new Set();
-    ["table1", "table2"].forEach((tableKey) => {
-      (daySecs[tableKey] || []).forEach((section) => {
-        section.roles.forEach((role) => {
-          const p = canonPoste(section.name, role.label);
-          if (p) set.add(p);
-        });
-      });
-    });
-    return Array.from(set);
-  }, [sections, activeDay]);
 
   useEffect(() => {
     axios
@@ -2084,7 +2066,6 @@ export default function Planning() {
                 {!isCollapsed &&
                   section.roles.map((role, roleIdx) => {
                   const posteCategory = canonPoste(section.name, role.label);
-                  const datalistId = `tech-list-${slugPoste(posteCategory)}`;
                   const prevRole = section.roles[roleIdx - 1];
                   const isGroupBoundary =
                     roleIdx > 0 &&
@@ -2193,7 +2174,7 @@ export default function Planning() {
                                       role.key,
                                       role.label,
                                     )}
-                                    datalistId={datalistId}
+                                    names={namesForPoste(posteCategory)}
                                     reason={
                                       planningEditMode &&
                                       !canEditPlanningCell(
@@ -2525,9 +2506,7 @@ exporté/imprimé) et se recalcule en direct pendant l'édition. */}
             currentMonth={currentMonth}
             currentYear={currentYear}
             daySections={daySections}
-            distinctPostesToday={distinctPostesToday}
             isGestionnairePlus={isGestionnairePlus}
-            namesForPoste={namesForPoste}
             openAddCategory={openAddCategory}
             openEditDates={openEditDates}
             openEditHeader={openEditHeader}
@@ -2537,7 +2516,6 @@ exporté/imprimé) et se recalcule en direct pendant l'édition. */}
             renderTable={renderTable}
             setAffichageNoms={setAffichageNoms}
             setCellBlockMode={setCellBlockMode}
-            technicienNames={technicienNames}
             theme={theme}
             titreOverrides={titreOverrides}
           />

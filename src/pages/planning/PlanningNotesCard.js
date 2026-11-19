@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { Card, CardContent } from '../../components/ui/card';
 import PlanningTeamAbsences from '../../components/PlanningTeamAbsences';
+import { NameTextarea } from '../../components/NameAutocomplete';
 
 export function PlanningNotesCard({
   absences,
@@ -11,6 +13,7 @@ export function PlanningNotesCard({
   setNotes,
   techniciens,
 }) {
+  const names = useMemo(() => (techniciens || []).map((t) => [t.prenom, t.nom].filter(Boolean).join(' ')).filter(Boolean), [techniciens]);
   return (
     <Card className="print:hidden">
       <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -27,13 +30,14 @@ export function PlanningNotesCard({
           <label className="text-sm font-semibold">
             Notes / informations pertinentes
           </label>
-          <textarea
+          <NameTextarea
             className="w-full min-h-[120px] text-sm border border-input rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-ring p-2 resize-y"
+            names={names}
             value={notes[activeDay] || ""}
-            onChange={(e) =>
+            onChange={(v) =>
               setNotes((prev) => ({
                 ...prev,
-                [activeDay]: e.target.value,
+                [activeDay]: v,
               }))
             }
             placeholder="Notes / informations pertinentes..."

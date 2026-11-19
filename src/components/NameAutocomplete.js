@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 
 // Auto-complétion discrète des noms : la suite du nom apparaît en grisé derrière ce qu'on tape.
-// Tab (ou → en fin de saisie, ou un appui sur la suite grisée sur téléphone) l'accepte ; sinon on continue de taper.
+// Tab, Entrée, → (en fin de saisie), Espace ou un appui sur la suite grisée sur téléphone l'acceptent ; sinon on continue de taper.
+// Espace n'accepte que si le mot tapé n'est pas fini dans la suggestion (« Pa » → Paul Durand) : après « Jean » (prénom complet), l'espace reste un espace.
 const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 // Premier nom (ordre alphabétique) qui commence par ce qui est tapé, et qui est plus long que la saisie.
@@ -10,6 +11,8 @@ export function suggest(names, typed) {
   if (!q) return null;
   return (names || []).find((n) => { const m = norm(n); return m.length > q.length && m.startsWith(q); }) || null;
 }
+
+const wantsAccept = (key, full, typed) => key === "Tab" || key === "Enter" || (key === " " && full.length > typed.length && full[typed.length] !== " ");
 
 const useNames = (names) => useMemo(() => Array.from(new Set(names || [])).sort((a, b) => a.localeCompare(b, "fr")), [names]);
 
@@ -34,8 +37,10 @@ export function NameInput({ value, onChange, names, className = "", style, onKey
         onFocus={() => setFocus(true)}
         onBlur={() => setFocus(false)}
         onKeyDown={(e) => {
-          if (full && (e.key === "Tab" && !e.shiftKey || (e.key === "ArrowRight" && e.currentTarget.selectionStart === v.length && e.currentTarget.selectionEnd === v.length))) {
+          const atEnd = e.currentTarget.selectionStart === v.length && e.currentTarget.selectionEnd === v.length;
+          if (full && atEnd && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && (wantsAccept(e.key, full, v) || e.key === "ArrowRight")) {
             e.preventDefault(); accept();
+            return; // Entrée ne valide pas en plus le champ : on a seulement complété le nom
           }
           onKeyDown && onKeyDown(e);
         }}
@@ -87,7 +92,7 @@ export function NameTextarea({ value, onChange, names, className = "", onKeyDown
         onScroll={sync}
         onBlur={() => setCaret(null)}
         onKeyDown={(e) => {
-          if (full && e.key === "Tab" && !e.shiftKey) { e.preventDefault(); accept(); }
+          if (full && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && wantsAccept(e.key, full, text.slice(lineStart, caret))) { e.preventDefault(); accept(); return; }
           onKeyDown && onKeyDown(e);
         }}
       />

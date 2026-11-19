@@ -50,3 +50,18 @@ test("textarea : propose le nom en début de ligne, Tab complète la ligne coura
   key(ta, "Tab");
   expect(ta.value).toBe("Note\nJean Dupont");
 });
+
+test("input : Entrée et Espace acceptent aussi ; Espace après un prénom complet reste un espace", () => {
+  render(<Box />);
+  const input = q("n");
+  act(() => { input.focus(); });
+  act(() => { setVal(input, "Pa"); });
+  expect(key(input, " ").defaultPrevented).toBe(true);
+  expect(input.value).toBe("Paul Durand");
+  act(() => { setVal(input, "El"); });
+  key(input, "Enter");
+  expect(input.value).toBe("Élodie Martin");
+  act(() => { setVal(input, "Jean"); });
+  expect(key(input, " ").defaultPrevented).toBe(false);
+  expect(input.value).toBe("Jean");
+});

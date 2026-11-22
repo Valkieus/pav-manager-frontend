@@ -18,6 +18,7 @@ import { CharismaDialog } from './dashboard/CharismaDialog';
 import { PortalEditorDialog } from './dashboard/PortalEditorDialog';
 import { mergeLinks, visibleLinks } from './dashboard/portalLinks';
 import { openSongsSite } from '../lib/songs';
+import { openSso } from '../lib/openSso';
 import { DashboardOrgCard } from './dashboard/DashboardOrgCard';
 import { DashboardStatsSection } from './dashboard/DashboardStatsSection';
 import { DashboardMonthCard } from './dashboard/DashboardMonthCard';
@@ -237,15 +238,9 @@ export default function Dashboard() {
   // PAV LED : ouvre le site LED déjà connecté (jeton à usage unique) ; la fenêtre est ouverte tout de suite pour éviter le blocage popup.
   const [ledSsoLoading, setLedSsoLoading] = useState(false);
   const handleLedSSO = async () => {
-    const win = window.open("", "_blank");
     setLedSsoLoading(true);
     try {
-      const res = await axios.post(`${API}/led/sso-handoff`);
-      if (win) win.location.href = res.data.redirect_url;
-      else window.location.href = res.data.redirect_url;
-    } catch (err) {
-      if (win) win.close();
-      toast.error(err.response?.data?.detail || "Impossible d'ouvrir PAV LED");
+      await openSso("/led/sso-handoff", "Impossible d'ouvrir PAV LED");
     } finally {
       setLedSsoLoading(false);
     }

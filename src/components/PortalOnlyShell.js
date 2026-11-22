@@ -14,6 +14,7 @@ import { PortalLinkItem } from '../pages/dashboard/PortalLinkItem';
 import PortalUpcomingEvents from './PortalUpcomingEvents';
 import { mergeLinks } from '../pages/dashboard/portalLinks';
 import { openSongsSite } from '../lib/songs';
+import { openSso } from '../lib/openSso';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // Vue verrouillée (compte « portail seul ») : uniquement le portail de première connexion. Les liens proposés se règlent dans
@@ -36,15 +37,8 @@ export default function PortalOnlyShell() {
   const links = mergeLinks(stored).filter((l) => ids.includes(l.id) && l.kind !== 'academy').map((l) => ({ ...l, roles: [], enabled: true }));
 
   const openLed = async () => {
-    const win = window.open('', '_blank');
     setLedLoading(true);
-    try {
-      const res = await axios.post(`${API}/led/sso-handoff`);
-      if (win) win.location.href = res.data.redirect_url; else window.location.href = res.data.redirect_url;
-    } catch (err) {
-      if (win) win.close();
-      toast.error(err.response?.data?.detail || "Impossible d'ouvrir PAV LED");
-    } finally { setLedLoading(false); }
+    try { await openSso('/led/sso-handoff', "Impossible d'ouvrir PAV LED"); } finally { setLedLoading(false); }
   };
   const open = (link) => { if (link.kind === 'led') openLed(); else if (link.kind === 'songs') openSongsSite(); };
 

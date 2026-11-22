@@ -13,6 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
 import { toast } from 'sonner';
+import { openSso } from '../lib/openSso';
 import { Search, Loader2, FileText, Film, Lightbulb, Plus, Trash2, ExternalLink, Download, DownloadCloud } from 'lucide-react';
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
@@ -218,15 +219,7 @@ export default function ElementsLED() {
   // Ouvre le site LED séparé, déjà connecté (SSO : jeton à usage unique, 2 min).
   // La fenêtre est ouverte tout de suite (clic utilisateur) pour éviter le blocage popup.
   const openLedSite = async () => {
-    const win = window.open('', '_blank');
-    try {
-      const res = await axios.post(`${API}/led/sso-handoff`);
-      if (win) win.location.href = res.data.redirect_url;
-      else window.location.href = res.data.redirect_url;
-    } catch (err) {
-      if (win) win.close();
-      toast.error(err.response?.data?.detail || "Impossible d'ouvrir le site LED");
-    }
+    await openSso('/led/sso-handoff', "Impossible d'ouvrir le site LED");
   };
 
 
